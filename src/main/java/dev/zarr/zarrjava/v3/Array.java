@@ -1,38 +1,28 @@
 package dev.zarr.zarrjava.v3;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
-import dev.zarr.zarrjava.v3.codec.Codec;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import dev.zarr.zarrjava.store.Store;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
-public class Array {
-    @JsonProperty("zarr_format")
-    public final int zarrFormat = 3;
-    @JsonProperty("node_type")
-    public final String nodeType = "array";
+public class Array extends Node {
+    public ArrayMetadata metadata;
 
-    public Map<String, Object> attributes;
+    public Array(Store store, String path) throws IOException {
+        super(store, path);
 
-    public long[] shape;
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new Jdk8Module());
+        this.metadata = objectMapper.readValue(store.get(path + "/zarr.json", null).get(), ArrayMetadata.class);
+    }
 
-    @JsonProperty("data_type")
-    public DataType dataType;
-
-    @JsonProperty("chunk_grid")
-    public ChunkGrid chunkGrid;
-
-    @JsonProperty("chunk_key_encoding")
-    public ChunkKeyEncoding chunkKeyEncoding;
-
-    @JsonProperty("fill_value")
-    public Object fillValue;
-
-    public Optional<Codec[]> codecs;
-
-    @JsonProperty("dimension_names")
-    public Optional<String[]> dimensionNames;
+    @Override
+    public String toString() {
+        return String.format("<Array {%s/%s} (%s) %s>", store, path,
+                Arrays.stream(metadata.shape).mapToObj(Long::toString).collect(Collectors.joining(
+                        ", ")), metadata.dataType);
+    }
 }

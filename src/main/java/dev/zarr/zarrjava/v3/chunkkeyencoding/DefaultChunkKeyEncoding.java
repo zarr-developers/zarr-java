@@ -11,12 +11,14 @@ public class DefaultChunkKeyEncoding extends ChunkKeyEncoding {
             return new long[0];
         }
         String suffix = chunkKey.substring(1);
-        return Arrays.stream(suffix.split(this.configuration.separator.getValue())).mapToLong(Long::parseLong).toArray();
+        return Arrays.stream(suffix.split(this.configuration.separator.getValue())).mapToLong(
+                Long::parseLong).toArray();
     }
 
     @Override
     public String encodeChunkKey(long[] chunkCoords) {
-        return Stream.concat(Stream.of("c"), Arrays.stream(chunkCoords).mapToObj(Long::toString)).collect(Collectors.joining(this.configuration.separator.getValue()));
+        return Stream.concat(Stream.of("c"), Arrays.stream(chunkCoords).mapToObj(Long::toString)).collect(
+                Collectors.joining(this.configuration.separator.getValue()));
     }
 
     public final class Configuration {

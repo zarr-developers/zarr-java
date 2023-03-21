@@ -5,9 +5,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum Separator {
     SLASH("/"), DOT(".");
 
-    private String value;
+    private final String value;
 
-    private Separator(String value) {
+    Separator(String value) {
         this.value = value;
     }
 

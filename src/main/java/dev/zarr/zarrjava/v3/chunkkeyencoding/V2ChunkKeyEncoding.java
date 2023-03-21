@@ -6,12 +6,14 @@ import java.util.stream.Collectors;
 public class V2ChunkKeyEncoding extends ChunkKeyEncoding {
     @Override
     public long[] decodeChunkKey(String chunkKey) {
-        return Arrays.stream(chunkKey.split(this.configuration.separator.getValue())).mapToLong(Long::parseLong).toArray();
+        return Arrays.stream(chunkKey.split(this.configuration.separator.getValue())).mapToLong(
+                Long::parseLong).toArray();
     }
 
     @Override
     public String encodeChunkKey(long[] chunkCoords) {
-        return Arrays.stream(chunkCoords).mapToObj(Long::toString).collect(Collectors.joining(this.configuration.separator.getValue()));
+        return Arrays.stream(chunkCoords).mapToObj(Long::toString).collect(
+                Collectors.joining(this.configuration.separator.getValue()));
     }
 
     public final class Configuration {

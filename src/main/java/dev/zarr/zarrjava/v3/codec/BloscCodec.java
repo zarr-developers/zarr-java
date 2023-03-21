@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.v3.codec;
 
+import dev.zarr.zarrjava.v3.ArrayMetadata;
+
 public class BloscCodec extends Codec {
     public final class Configuration {
         public String cname = "zstd";
@@ -10,4 +12,14 @@ public class BloscCodec extends Codec {
 
     public final String name = "blosc";
     public Configuration configuration;
+
+    @Override
+    public byte[] decode(byte[] chunk, long[][] selection, ArrayMetadata arrayMetadata) {
+        return chunk;
+    }
+
+    @Override
+    public byte[] encode(byte[] chunk, long[][] selection, ArrayMetadata arrayMetadata) {
+        return chunk;
+    }
 }
