@@ -6,15 +6,13 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 
 import java.io.IOException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.util.List;
 import java.util.Optional;
 
 public class HttpStore extends Store {
 
-    private OkHttpClient httpClient;
-    private String path;
+    private final OkHttpClient httpClient;
+    private final String path;
 
     public HttpStore(String path) {
         this.httpClient = new OkHttpClient();
@@ -22,7 +20,7 @@ public class HttpStore extends Store {
     }
 
     private String getRangeHeader(ByteRange byteRange) {
-        if (byteRange.start !=null) {
+        if (byteRange.start != null) {
             if (byteRange.start < 0) {
                 return String.format("bytes=-%d", -byteRange.start);
             } else if (byteRange.end != null && byteRange.end > 0) {
@@ -33,12 +31,13 @@ public class HttpStore extends Store {
         }
         throw new UnsupportedOperationException("Unsupported range request");
     }
+
     @Override
     public Optional<byte[]> get(String key, ByteRange byteRange) {
         Request.Builder builder = new Request.Builder()
                 .url(path + "/" + key);
 
-        if (byteRange!=null) {
+        if (byteRange != null) {
             builder.header("Range", getRangeHeader(byteRange));
         }
 
@@ -55,17 +54,17 @@ public class HttpStore extends Store {
 
     @Override
     public void set(String key, byte[] bytes, ByteRange byteRange) {
-
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     @Override
     public void delete(String key) {
-
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     @Override
     public List<String> list(String key) {
-        return null;
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     @Override

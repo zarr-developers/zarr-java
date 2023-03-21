@@ -1,6 +1,5 @@
 package dev.zarr.zarrjava.store;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -10,6 +9,7 @@ public abstract class Store {
         public Long start;
         public Long end;
     }
+
     public final class MultiGetRequest {
         public String key;
         public ByteRange byteRange;

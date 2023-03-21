@@ -13,8 +13,8 @@ import java.util.stream.Collectors;
 
 public class FilesystemStore extends Store {
 
-    private FileSystem fileSystem;
-    private String path;
+    private final FileSystem fileSystem;
+    private final String path;
 
     public FilesystemStore(String path) {
         this.fileSystem = FileSystems.getDefault();
@@ -100,6 +100,6 @@ public class FilesystemStore extends Store {
 
     @Override
     public String toString() {
-        return fileSystem.getPath(this.path).toUri().toString().replaceAll("\\/$","");
+        return fileSystem.getPath(this.path).toUri().toString().replaceAll("\\/$", "");
     }
 }

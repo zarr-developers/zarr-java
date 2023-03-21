@@ -11,6 +11,7 @@ import dev.zarr.zarrjava.v3.ArrayMetadata;
         @JsonSubTypes.Type(value = EndianCodec.class, name = "endian"),
         @JsonSubTypes.Type(value = GzipCodec.class, name = "gzip")})
 public abstract class Codec {
-    public abstract byte[] decode( byte[] chunk, long[][] selection, ArrayMetadata arrayMetadata);
-    public abstract byte[] encode( byte[] chunk, long[][] selection, ArrayMetadata arrayMetadata);
+    public abstract byte[] decode(byte[] chunk, long[][] selection, ArrayMetadata arrayMetadata);
+
+    public abstract byte[] encode(byte[] chunk, long[][] selection, ArrayMetadata arrayMetadata);
 }

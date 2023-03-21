@@ -25,7 +25,7 @@ public class Array {
     @Override
     public String toString() {
         return String.format("<v2.Array {%s/%s} (%s) %s>", store, path,
-                Arrays.stream(metadata.shape).mapToObj(Long::toString).collect(Collectors.joining(
-                        ", ")), metadata.dataType);
+                Arrays.stream(metadata.shape).mapToObj(Long::toString).collect(Collectors.joining(", ")),
+                metadata.dataType);
     }
 }
