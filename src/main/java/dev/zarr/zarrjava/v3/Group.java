@@ -46,6 +46,6 @@ public class Group extends Node {
 
     @Override
     public String toString() {
-        return String.format("<Group {%s/%s}>", store, path);
+        return String.format("<v3.Group {%s/%s}>", store, path);
     }
 }

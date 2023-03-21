@@ -21,7 +21,7 @@ public class Array extends Node {
 
     @Override
     public String toString() {
-        return String.format("<Array {%s/%s} (%s) %s>", store, path,
+        return String.format("<v3.Array {%s/%s} (%s) %s>", store, path,
                 Arrays.stream(metadata.shape).mapToObj(Long::toString).collect(Collectors.joining(
                         ", ")), metadata.dataType);
     }

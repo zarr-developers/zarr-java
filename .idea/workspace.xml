@@ -5,31 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="757cb837-63c9-4749-ba95-d9ac2829194c" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/store/FilesystemStore.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/store/Store.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Array.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/ArrayMetadata.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Codec.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/DataType.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Endianness.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/ArrayMetadata.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/GroupMetadata.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/Node.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/store/HttpStore.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Order.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/Array.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/Array.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/DataType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/DataType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/Group.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/Group.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/ChunkKeyEncoding.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/ChunkKeyEncoding.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/DefaultChunkKeyEncoding.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/DefaultChunkKeyEncoding.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/Separator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/Separator.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/V2ChunkKeyEncoding.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/chunkkeyencoding/V2ChunkKeyEncoding.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/BloscCodec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/BloscCodec.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/Codec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/Codec.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/EndianCodec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/EndianCodec.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/GzipCodec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/GzipCodec.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/ShardingIndexedCodec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/ShardingIndexedCodec.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/TransposeCodec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v3/codec/TransposeCodec.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Array.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Array.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/ArrayMetadata.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/ArrayMetadata.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Codec.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Codec.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/DataType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/DataType.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Endianness.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/dev/zarr/zarrjava/v2/Endianness.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,6 +28,7 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Class" />
+        <option value="Enum" />
       </list>
     </option>
   </component>
@@ -68,14 +54,14 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "settings.editor.selected.configurable": "preferences.sourceCode.Java"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.sourceCode.Java&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveInnerDialog.RECENTS_KEY">
       <recent name="dev.zarr.zarrjava.v3" />
