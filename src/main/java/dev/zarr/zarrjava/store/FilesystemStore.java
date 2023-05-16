@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.store;
 
+import dev.zarr.zarrjava.indexing.OpenSlice;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -22,8 +24,10 @@ public class FilesystemStore extends Store {
     }
 
     @Override
-    public Optional<byte[]> get(String key, ByteRange byteRange) {
+    public Optional<byte[]> get(String key, OpenSlice byteRange) {
         Path keyPath = fileSystem.getPath(this.path, key);
+
+        System.out.println(keyPath);
         if (byteRange == null) {
             try {
                 byte[] bytes = Files.readAllBytes(keyPath);
@@ -60,7 +64,7 @@ public class FilesystemStore extends Store {
     }
 
     @Override
-    public void set(String key, byte[] bytes, ByteRange byteRange) {
+    public void set(String key, byte[] bytes, OpenSlice byteRange) {
         Path keyPath = fileSystem.getPath(this.path, key);
         try {
             Files.createDirectories(keyPath.getParent());
@@ -102,4 +106,5 @@ public class FilesystemStore extends Store {
     public String toString() {
         return fileSystem.getPath(this.path).toUri().toString().replaceAll("\\/$", "");
     }
+
 }

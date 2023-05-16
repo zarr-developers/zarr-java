@@ -4,6 +4,7 @@ import com.squareup.okhttp.Call;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
+import dev.zarr.zarrjava.indexing.OpenSlice;
 
 import java.io.IOException;
 import java.util.List;
@@ -19,12 +20,12 @@ public class HttpStore extends Store {
         this.path = path;
     }
 
-    private String getRangeHeader(ByteRange byteRange) {
+    private String getRangeHeader(OpenSlice byteRange) {
         if (byteRange.start != null) {
             if (byteRange.start < 0) {
                 return String.format("bytes=-%d", -byteRange.start);
             } else if (byteRange.end != null && byteRange.end > 0) {
-                return String.format("bytes=%d-%d", byteRange.start, byteRange.end);
+                return String.format("bytes=%d-%d", byteRange.start, byteRange.end + 1);
             } else {
                 return String.format("bytes=%d", byteRange.start);
             }
@@ -33,7 +34,7 @@ public class HttpStore extends Store {
     }
 
     @Override
-    public Optional<byte[]> get(String key, ByteRange byteRange) {
+    public Optional<byte[]> get(String key, OpenSlice byteRange) {
         Request.Builder builder = new Request.Builder()
                 .url(path + "/" + key);
 
@@ -53,7 +54,7 @@ public class HttpStore extends Store {
     }
 
     @Override
-    public void set(String key, byte[] bytes, ByteRange byteRange) {
+    public void set(String key, byte[] bytes, OpenSlice byteRange) {
         throw new UnsupportedOperationException("Not implemented");
     }
 
