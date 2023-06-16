@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>dev.zarr.zarrjava</groupId>
+    <groupId>com.scalableminds.zarrjava</groupId>
     <artifactId>zarr-java</artifactId>
     <version>1.0-SNAPSHOT</version>
 
@@ -13,7 +13,20 @@
         <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jackson.version>2.14.2</jackson.version>
+        <aws.version>1.12.477</aws.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-bom</artifactId>
+                <version>${aws.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -27,9 +40,14 @@
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.lasersonlab</groupId>
-            <artifactId>jblosc</artifactId>
-            <version>1.0.1</version>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.scalableminds</groupId>
+            <artifactId>blosc-java</artifactId>
+            <version>0.1-1.21.4-SNAPSHOT</version>
+            <systemPath>${project.basedir}/../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp</groupId>
