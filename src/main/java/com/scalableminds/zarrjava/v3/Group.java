@@ -12,14 +12,12 @@ public class Group extends Node {
     public Group(Store store, String path) throws IOException {
         super(store, path);
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new Jdk8Module());
+        ObjectMapper objectMapper = Utils.makeObjectMapper();
         this.metadata = objectMapper.readValue(store.get(path + "/zarr.json", null).get().array(), GroupMetadata.class);
     }
 
     public Node get(String key) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new Jdk8Module());
+        ObjectMapper objectMapper = Utils.makeObjectMapper();
 
         try {
             String nodeType = objectMapper.readTree(store.get(path + "/" + key + "/zarr.json", null).get().array()).get(

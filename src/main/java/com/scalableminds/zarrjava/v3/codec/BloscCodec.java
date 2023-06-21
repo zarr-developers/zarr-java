@@ -11,35 +11,26 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
 import com.scalableminds.zarrjava.indexing.Selector;
-import com.scalableminds.zarrjava.store.BufferValueHandle;
-import com.scalableminds.zarrjava.store.ValueHandle;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
+import com.scalableminds.zarrjava.v3.codec.Codec.BytesBytesCodec;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class BloscCodec extends Codec {
+public class BloscCodec extends BytesBytesCodec {
     public final String name = "blosc";
     public Configuration configuration;
 
     @Override
-    public ValueHandle decode(ValueHandle chunk, Selector selector, ArrayMetadata arrayMetadata) {
-        ByteBuffer chunkBuffer = chunk.toBytes();
-        if (chunkBuffer == null) {
-            return null;
-        }
-        return new BufferValueHandle(ByteBuffer.wrap(Blosc.decompress(chunkBuffer.array())));
+    public ByteBuffer innerDecode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        return ByteBuffer.wrap(Blosc.decompress(chunkBytes.array()));
     }
 
     @Override
-    public ValueHandle encode(ValueHandle chunk, Selector selector, ArrayMetadata arrayMetadata) {
-        ByteBuffer chunkBuffer = chunk.toBytes();
-        if (chunkBuffer == null) {
-            return null;
-        }
-        return new BufferValueHandle(ByteBuffer.wrap(
-                Blosc.compress(chunkBuffer.array(), configuration.typesize, configuration.cname, configuration.clevel,
-                        configuration.shuffle, configuration.blocksize)));
+    public ByteBuffer innerEncode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        return ByteBuffer.wrap(
+                Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname, configuration.clevel,
+                        configuration.shuffle, configuration.blocksize));
     }
 
     public static final class CustomShuffleSerializer extends StdSerializer<Blosc.Shuffle> {

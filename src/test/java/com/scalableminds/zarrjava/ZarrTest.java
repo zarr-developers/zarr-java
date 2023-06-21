@@ -1,13 +1,9 @@
 package com.scalableminds.zarrjava;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.scalableminds.zarrjava.v3.Array;
-import com.scalableminds.zarrjava.v3.ArrayMetadata;
-import com.scalableminds.zarrjava.v3.DataType;
-import com.scalableminds.zarrjava.v3.GroupMetadata;
 import com.scalableminds.zarrjava.store.FilesystemStore;
 import com.scalableminds.zarrjava.store.HttpStore;
+import com.scalableminds.zarrjava.v3.*;
 import org.junit.Test;
 
 import java.io.File;
@@ -21,8 +17,7 @@ public class ZarrTest {
         FilesystemStore fsStore = new FilesystemStore("");
         HttpStore httpStore = new HttpStore("https://static.webknossos.org/data");
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new Jdk8Module());
+        ObjectMapper objectMapper = Utils.makeObjectMapper();
 
         GroupMetadata group = objectMapper.readValue(new File("l4_sample_no_sharding/zarr.json"), GroupMetadata.class);
 
@@ -49,16 +44,16 @@ public class ZarrTest {
     public void testV3() throws IOException {
         FilesystemStore fsStore = new FilesystemStore("");
 
-        Array array = new Array(fsStore, "l4_sample_no_sharding/color/1");
+        Array array = new Array(fsStore, "l4_sample/color/1");
 
-        assert array.read(new long[]{0, 3072, 3072, 512}, new int[]{1, 64, 64, 64}).capacity() == 64 * 64 * 64;
+        assert array.read(new long[]{0, 3072, 3072, 512}, new int[]{1, 64, 64, 64}).getSize() == 64 * 64 * 64;
     }
 
     @Test
     public void testV3FillValue() {
         assert Arrays.equals(ArrayMetadata.getFillValueBytes(0, DataType.UINT32).array(), new byte[]{0, 0, 0, 0});
-        assert Arrays.equals(ArrayMetadata.getFillValueBytes("0x00010203", DataType.UINT32).array(), new byte[]{0, 1, 2,
-                3});
+        assert Arrays.equals(ArrayMetadata.getFillValueBytes("0x00010203", DataType.UINT32).array(),
+                new byte[]{0, 1, 2, 3});
         assert Arrays.equals(ArrayMetadata.getFillValueBytes("0b00000010", DataType.UINT8).array(), new byte[]{2});
         assert Double.isNaN(ArrayMetadata.getFillValueBytes("NaN", DataType.FLOAT64).getDouble());
         assert Double.isInfinite(ArrayMetadata.getFillValueBytes("-Infinity", DataType.FLOAT64).getDouble());

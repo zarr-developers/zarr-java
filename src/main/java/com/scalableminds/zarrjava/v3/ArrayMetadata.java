@@ -2,15 +2,16 @@ package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.scalableminds.zarrjava.v3.chunkgrid.ChunkGrid;
+import com.scalableminds.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.codec.Codec;
-import com.scalableminds.zarrjava.v3.chunkgrid.RegularChunkGrid;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+
 
 public final class ArrayMetadata {
     @JsonProperty("zarr_format")
@@ -121,6 +122,14 @@ public final class ArrayMetadata {
         throw new RuntimeException(String.format("Invalid fillValue %s", fillValue));
     }
 
+    public CoreArrayMetadata getCoreMetadata() {
+        return new CoreArrayMetadata(shape, chunkShape(), dataType, fillValue);
+    }
+
+    public ucar.ma2.Array allocateFillValueChunk() {
+        return getCoreMetadata().allocateFillValueChunk();
+    }
+
     public int ndim() {
         return shape.length;
     }
@@ -130,11 +139,48 @@ public final class ArrayMetadata {
     }
 
     public int chunkSize() {
-        return Arrays.stream(((RegularChunkGrid) this.chunkGrid).configuration.chunkShape).reduce(1,
-                (acc, a) -> acc * a);
+        return getCoreMetadata().chunkSize();
     }
 
     public int chunkByteLength() {
-        return this.dataType.getByteCount() * chunkSize();
+        return getCoreMetadata().chunkByteLength();
+    }
+
+    public static final class CoreArrayMetadata {
+        public final long[] shape;
+        public final int[] chunkShape;
+        public final DataType dataType;
+        public final Object fillValue;
+
+        public CoreArrayMetadata(long[] shape, int[] chunkShape, DataType dataType, Object fillValue) {
+            this.shape = shape;
+            this.chunkShape = chunkShape;
+            this.dataType = dataType;
+            this.fillValue = fillValue;
+        }
+
+        public int ndim() {
+            return shape.length;
+        }
+
+        public int chunkSize() {
+            return (int) Arrays.stream(chunkShape).reduce(1, (acc, a) -> acc * a);
+        }
+
+        public int chunkByteLength() {
+            return this.dataType.getByteCount() * chunkSize();
+        }
+
+        public ucar.ma2.Array allocateFillValueChunk() {
+            int byteLength = chunkByteLength();
+            ByteBuffer fillValueBytes = ArrayMetadata.getFillValueBytes(fillValue, dataType);
+
+            return ucar.ma2.Array.factory(dataType.getMA2DataType(), chunkShape, Utils.makeByteBuffer(byteLength, b -> {
+                for (int i = 0; i < chunkSize(); i++) {
+                    b.put(fillValueBytes);
+                }
+                return b;
+            }));
+        }
     }
 }

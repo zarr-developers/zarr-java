@@ -1,16 +1,15 @@
 package com.scalableminds.zarrjava.v3.codec;
 
-import com.scalableminds.zarrjava.store.BufferValueHandle;
 import com.scalableminds.zarrjava.indexing.Selector;
-import com.scalableminds.zarrjava.store.NoneHandle;
-import com.scalableminds.zarrjava.store.ValueHandle;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
+import com.scalableminds.zarrjava.v3.codec.Codec.BytesBytesCodec;
 
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-public class GzipCodec extends Codec {
+public class GzipCodec extends BytesBytesCodec {
 
     public final String name = "gzip";
     public Configuration configuration;
@@ -24,29 +23,24 @@ public class GzipCodec extends Codec {
     }
 
     @Override
-    public ValueHandle decode(ValueHandle chunk, Selector selector, ArrayMetadata arrayMetadata) {
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-             GZIPInputStream inputStream = new GZIPInputStream(new ByteArrayInputStream(chunk.toBytes().array()))) {
-
+    public ByteBuffer innerDecode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPInputStream inputStream = new GZIPInputStream(
+                new ByteArrayInputStream(chunkBytes.array()))) {
             copy(inputStream, outputStream);
-
-            return new BufferValueHandle(outputStream.toByteArray());
+            return ByteBuffer.wrap(outputStream.toByteArray());
         } catch (IOException ex) {
-            return new NoneHandle();
+            return null;
         }
     }
 
     @Override
-    public ValueHandle encode(ValueHandle chunk, Selector selector, ArrayMetadata arrayMetadata) {
-        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-             GZIPOutputStream gzipStream = new GZIPOutputStream(outputStream);
-             ByteArrayInputStream inputStream = new ByteArrayInputStream(chunk.toBytes().array())) {
-
+    public ByteBuffer innerEncode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPOutputStream gzipStream = new GZIPOutputStream(
+                outputStream); ByteArrayInputStream inputStream = new ByteArrayInputStream(chunkBytes.array())) {
             copy(inputStream, gzipStream);
-
-            return new BufferValueHandle(outputStream.toByteArray());
+            return ByteBuffer.wrap(outputStream.toByteArray());
         } catch (IOException ex) {
-            return new NoneHandle();
+            return null;
         }
     }
 
