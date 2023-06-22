@@ -53,6 +53,7 @@
             <groupId>com.scalableminds</groupId>
             <artifactId>blosc-java</artifactId>
             <version>0.1-1.21.4-SNAPSHOT</version>
+            <scope>system</scope>
             <systemPath>${project.basedir}/../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar</systemPath>
         </dependency>
         <dependency>

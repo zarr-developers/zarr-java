@@ -1,26 +1,35 @@
-package com.scalableminds.zarrjava.v3.codec;
+package com.scalableminds.zarrjava.v3.codec.core;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.scalableminds.zarrjava.indexing.Selector;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
-import com.scalableminds.zarrjava.v3.codec.Codec.ArrayBytesCodec;
+import com.scalableminds.zarrjava.v3.codec.ArrayBytesCodec;
 import ucar.ma2.Array;
 
+import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class EndianCodec extends ArrayBytesCodec {
+public class EndianCodec implements ArrayBytesCodec {
     public final String name = "endian";
-    public Configuration configuration;
+    @Nonnull
+    public final Configuration configuration;
+
+    @JsonCreator
+    public EndianCodec(
+            @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration) {
+        this.configuration = configuration;
+    }
 
     @Override
-    public Array innerDecode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    public Array decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         chunkBytes.order(configuration.endian.getByteOrder());
         return Array.factory(arrayMetadata.dataType.getMA2DataType(), arrayMetadata.chunkShape, chunkBytes);
     }
 
     @Override
-    public ByteBuffer innerEncode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    public ByteBuffer encode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         return chunkArray.getDataAsByteBuffer(configuration.endian.getByteOrder());
     }
 
@@ -50,7 +59,13 @@ public class EndianCodec extends ArrayBytesCodec {
     }
 
     public static final class Configuration {
-        public EndianCodec.Endian endian = Endian.LITTLE;
+        @Nonnull
+        public final EndianCodec.Endian endian;
+
+        @JsonCreator
+        public Configuration(@JsonProperty(value = "endian", defaultValue = "little") EndianCodec.Endian endian) {
+            this.endian = endian;
+        }
     }
 }
 

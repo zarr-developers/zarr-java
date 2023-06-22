@@ -4,12 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scalableminds.zarrjava.indexing.Indexer;
 import com.scalableminds.zarrjava.store.FileValueHandle;
 import com.scalableminds.zarrjava.store.Store;
-import com.scalableminds.zarrjava.store.ValueHandle;
-import com.scalableminds.zarrjava.v3.codec.Codec;
+import com.scalableminds.zarrjava.store.StoreHandle;
+import com.scalableminds.zarrjava.v3.codec.CodecPipeline;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -27,7 +26,7 @@ public class Array extends Node {
         assert offset.length == metadata.ndim();
         assert shape.length == metadata.ndim();
 
-        ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType.getMA2DataType(), metadata.chunkShape());
+        ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType.getMA2DataType(), shape);
 
         final int[] chunkShape = metadata.chunkShape();
         for (long[] chunkCoords : Indexer.computeChunkCoords(metadata.shape, chunkShape, offset, shape)) {
@@ -52,20 +51,11 @@ public class Array extends Node {
         }
 
         String chunkKey = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
-        ValueHandle chunkHandle = new FileValueHandle(store, path + "/" + chunkKey);
+        StoreHandle chunkHandle = new StoreHandle(store, path + "/" + chunkKey);
 
-        if (metadata.codecs.isPresent() && metadata.codecs.get().length > 0) {
-            Codec[] codecs = metadata.codecs.get();
-            for (int i = codecs.length - 1; i >= 0; --i) {
-                chunkHandle = codecs[i].decode(chunkHandle, metadata.getCoreMetadata());
-            }
-        }
-        ByteBuffer out = chunkHandle.toBytes();
-        if (out == null) {
-            return metadata.allocateFillValueChunk();
-        }
-        return ucar.ma2.Array.factory(metadata.dataType.getMA2DataType(), metadata.chunkShape(),
-                (ByteBuffer) out.rewind());
+        ucar.ma2.Array chunkArray =
+                new CodecPipeline(metadata.codecs).decode(chunkHandle.toBytes(), metadata.getCoreMetadata());
+        return chunkArray;
     }
 
 

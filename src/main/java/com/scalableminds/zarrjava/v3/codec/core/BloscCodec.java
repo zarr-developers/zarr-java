@@ -1,5 +1,7 @@
-package com.scalableminds.zarrjava.v3.codec;
+package com.scalableminds.zarrjava.v3.codec.core;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -10,24 +12,30 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
-import com.scalableminds.zarrjava.indexing.Selector;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
-import com.scalableminds.zarrjava.v3.codec.Codec.BytesBytesCodec;
+import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class BloscCodec extends BytesBytesCodec {
+public class BloscCodec implements BytesBytesCodec {
     public final String name = "blosc";
-    public Configuration configuration;
+    @Nonnull
+    public final Configuration configuration;
+
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public BloscCodec(@Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration) {
+        this.configuration = configuration;
+    }
 
     @Override
-    public ByteBuffer innerDecode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         return ByteBuffer.wrap(Blosc.decompress(chunkBytes.array()));
     }
 
     @Override
-    public ByteBuffer innerEncode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         return ByteBuffer.wrap(
                 Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname, configuration.clevel,
                         configuration.shuffle, configuration.blocksize));
@@ -123,14 +131,30 @@ public class BloscCodec extends BytesBytesCodec {
     }
 
     public static final class Configuration {
-        @JsonDeserialize(using = BloscCodec.CustomCompressorDeserializer.class)
+        @Nonnull
         @JsonSerialize(using = BloscCodec.CustomCompressorSerializer.class)
-        public Blosc.Compressor cname = Blosc.Compressor.ZSTD;
-        @JsonDeserialize(using = BloscCodec.CustomShuffleDeserializer.class)
+        public final Blosc.Compressor cname;
+        @Nonnull
         @JsonSerialize(using = BloscCodec.CustomShuffleSerializer.class)
-        public Blosc.Shuffle shuffle;
-        public int clevel = 5;
-        public int typesize = 0;
-        public int blocksize = 0;
+        public final Blosc.Shuffle shuffle;
+        public final int clevel;
+        public final int typesize;
+        public final int blocksize;
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public Configuration(@Nonnull @JsonProperty(value = "cname", defaultValue = "zstd")
+                             @JsonDeserialize(using = BloscCodec.CustomCompressorDeserializer.class)
+                             Blosc.Compressor cname,
+                             @Nonnull @JsonProperty(value = "shuffle", defaultValue = "noshuffle")
+                             @JsonDeserialize(using = BloscCodec.CustomShuffleDeserializer.class) Blosc.Shuffle shuffle,
+                             @JsonProperty(value = "clevel", defaultValue = "5") int clevel,
+                             @JsonProperty(value = "typesize", defaultValue = "0") int typesize,
+                             @JsonProperty(value = "blocksize", defaultValue = "0") int blocksize) {
+            this.cname = cname;
+            this.shuffle = shuffle;
+            this.clevel = clevel;
+            this.typesize = typesize;
+            this.blocksize = blocksize;
+        }
     }
 }

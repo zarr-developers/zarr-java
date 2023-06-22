@@ -1,8 +1,11 @@
 package com.scalableminds.zarrjava;
 
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scalableminds.zarrjava.store.FilesystemStore;
 import com.scalableminds.zarrjava.store.HttpStore;
+import com.scalableminds.zarrjava.store.S3Store;
 import com.scalableminds.zarrjava.v3.*;
 import org.junit.Test;
 
@@ -16,6 +19,8 @@ public class ZarrTest {
     public void testStores() throws IOException {
         FilesystemStore fsStore = new FilesystemStore("");
         HttpStore httpStore = new HttpStore("https://static.webknossos.org/data");
+        S3Store s3Store = new S3Store(AmazonS3ClientBuilder.standard().withRegion("eu-west-1").withCredentials(
+                new ProfileCredentialsProvider()).build(), "static.webknossos.org", "data");
 
         ObjectMapper objectMapper = Utils.makeObjectMapper();
 
@@ -38,6 +43,8 @@ public class ZarrTest {
         System.out.println(new com.scalableminds.zarrjava.v2.Array(httpStore, "l4_sample/color/1"));
 
         System.out.println(new Array(httpStore, "zarr_v3/l4_sample/color/1"));
+        System.out.println(new Array(s3Store, "zarr_v3/l4_sample/color/1"));
+
     }
 
     @Test
@@ -46,7 +53,10 @@ public class ZarrTest {
 
         Array array = new Array(fsStore, "l4_sample/color/1");
 
-        assert array.read(new long[]{0, 3072, 3072, 512}, new int[]{1, 64, 64, 64}).getSize() == 64 * 64 * 64;
+        ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new int[]{1, 64, 64, 64});
+        assert outArray.getSize() == 64 * 64 * 64;
+        assert outArray.getByte(0) == -98;
+        System.out.println(outArray.toString());
     }
 
     @Test

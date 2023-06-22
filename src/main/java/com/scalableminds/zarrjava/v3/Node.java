@@ -2,11 +2,15 @@ package com.scalableminds.zarrjava.v3;
 
 import com.scalableminds.zarrjava.store.Store;
 
-public class Node {
-    public Store store;
-    public String path;
+import javax.annotation.Nonnull;
 
-    protected Node(Store store, String path) {
+public class Node {
+    @Nonnull
+    public final Store store;
+    @Nonnull
+    public final String path;
+
+    protected Node(@Nonnull Store store, @Nonnull String path) {
         this.store = store;
         this.path = path;
     }

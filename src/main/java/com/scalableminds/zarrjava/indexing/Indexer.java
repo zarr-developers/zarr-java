@@ -96,6 +96,31 @@ public class Indexer {
         return new ChunkProjection(chunkCoords, chunkOffset, outOffset, shape);
     }
 
+
+    public static long cOrderIndex(long[] chunkCoords, long[] arrayShape) {
+        long index = 0;
+        long multiplier = 1;
+
+        for (int i = arrayShape.length - 1; i >= 0; i--) {
+            index += chunkCoords[i] * multiplier;
+            multiplier *= arrayShape[i];
+        }
+
+        return index;
+    }
+
+    public static long fOrderIndex(long[] chunkCoords, long[] arrayShape) {
+        int index = 0;
+        int multiplier = 1;
+
+        for (int i = 0; i < arrayShape.length; i++) {
+            index += chunkCoords[i] * multiplier;
+            multiplier *= arrayShape[i];
+        }
+
+        return index;
+    }
+
     public static void copyRegion(Array source, int[] sourceOffset, Array target, int[] targetOffset, int[] shape) {
         assert sourceOffset.length == targetOffset.length;
         assert source.getRank() == sourceOffset.length;

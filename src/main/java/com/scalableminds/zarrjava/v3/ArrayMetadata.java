@@ -1,16 +1,17 @@
 package com.scalableminds.zarrjava.v3;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.scalableminds.zarrjava.v3.chunkgrid.ChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.codec.Codec;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 
 public final class ArrayMetadata {
@@ -19,26 +20,54 @@ public final class ArrayMetadata {
     @JsonProperty("node_type")
     public final String nodeType = "array";
 
-    public Map<String, Object> attributes;
 
-    public long[] shape;
+    public final long[] shape;
 
     @JsonProperty("data_type")
-    public DataType dataType;
+    public final DataType dataType;
 
     @JsonProperty("chunk_grid")
-    public ChunkGrid chunkGrid;
+    public final ChunkGrid chunkGrid;
 
     @JsonProperty("chunk_key_encoding")
-    public ChunkKeyEncoding chunkKeyEncoding;
+    public final ChunkKeyEncoding chunkKeyEncoding;
 
     @JsonProperty("fill_value")
-    public Object fillValue;
+    public final Object fillValue;
 
-    public Optional<Codec[]> codecs;
-
+    @Nullable
+    @JsonProperty("codecs")
+    public final Codec[] codecs;
+    @Nullable
+    @JsonProperty("attributes")
+    public final Map<String, Object> attributes;
+    @Nullable
     @JsonProperty("dimension_names")
-    public Optional<String[]> dimensionNames;
+    public String[] dimensionNames;
+
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public ArrayMetadata(
+            @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
+            @JsonProperty(value = "node_type", required = true) String nodeType,
+            @JsonProperty(value = "shape", required = true) long[] shape,
+            @JsonProperty(value = "data_type", required = true) DataType dataType,
+            @JsonProperty(value = "chunk_grid", required = true) ChunkGrid chunkGrid,
+            @JsonProperty(value = "chunk_key_encoding", required = true) ChunkKeyEncoding chunkKeyEncoding,
+            @JsonProperty(value = "fill_value", required = true) Object fillValue,
+            @Nullable @JsonProperty(value = "codecs") Codec[] codecs,
+            @Nullable @JsonProperty(value = "dimension_names") String[] dimensionNames,
+            @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes) {
+        assert zarrFormat == 3;
+        assert nodeType.equals("array");
+        this.shape = shape;
+        this.dataType = dataType;
+        this.chunkGrid = chunkGrid;
+        this.chunkKeyEncoding = chunkKeyEncoding;
+        this.fillValue = fillValue;
+        this.codecs = codecs;
+        this.dimensionNames = dimensionNames;
+        this.attributes = attributes;
+    }
 
     public static ByteBuffer getFillValueBytes(Object fillValue, DataType dataType) {
         if (fillValue instanceof Boolean) {
@@ -111,7 +140,6 @@ public final class ArrayMetadata {
                 });
             } else if (fillValueString.startsWith("0x")) {
                 return Utils.makeByteBuffer(dataType.getByteCount(), b -> {
-                    ;
                     for (int i = 0; i < dataType.getByteCount(); i++) {
                         b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 2, 2 + (i + 1) * 2), 16));
                     }
@@ -164,7 +192,7 @@ public final class ArrayMetadata {
         }
 
         public int chunkSize() {
-            return (int) Arrays.stream(chunkShape).reduce(1, (acc, a) -> acc * a);
+            return Arrays.stream(chunkShape).reduce(1, (acc, a) -> acc * a);
         }
 
         public int chunkByteLength() {

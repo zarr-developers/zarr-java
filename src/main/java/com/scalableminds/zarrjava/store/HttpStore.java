@@ -1,21 +1,21 @@
 package com.scalableminds.zarrjava.store;
 
 import com.scalableminds.zarrjava.indexing.OpenSlice;
-import com.squareup.okhttp.Call;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.Response;
+import com.squareup.okhttp.*;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Optional;
 
-public class HttpStore extends Store {
+public class HttpStore implements Store {
 
+    @Nonnull
     private final OkHttpClient httpClient;
+    @Nonnull
     private final String path;
 
-    public HttpStore(String path) {
+    public HttpStore(@Nonnull String path) {
         this.httpClient = new OkHttpClient();
         this.path = path;
     }
@@ -47,7 +47,9 @@ public class HttpStore extends Store {
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
-            return Optional.of(ByteBuffer.wrap(response.body().bytes()));
+            try (ResponseBody body = response.body()) {
+                return Optional.of(ByteBuffer.wrap(body.bytes()));
+            }
         } catch (IOException e) {
             return Optional.empty();
         }

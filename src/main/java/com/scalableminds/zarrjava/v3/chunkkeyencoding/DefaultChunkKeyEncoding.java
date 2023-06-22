@@ -1,10 +1,24 @@
 package com.scalableminds.zarrjava.v3.chunkkeyencoding;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DefaultChunkKeyEncoding extends ChunkKeyEncoding {
+    public final String name = "default";
+    @Nonnull
+    public final Configuration configuration;
+
+    @JsonCreator
+    public DefaultChunkKeyEncoding(
+            @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration) {
+        this.configuration = configuration;
+    }
+
     @Override
     public long[] decodeChunkKey(String chunkKey) {
         if (chunkKey.equals("c")) {
@@ -21,10 +35,13 @@ public class DefaultChunkKeyEncoding extends ChunkKeyEncoding {
                 Collectors.joining(this.configuration.separator.getValue()));
     }
 
-    public final class Configuration {
-        public Separator separator = Separator.SLASH;
-    }
+    public static final class Configuration {
+        @Nonnull
+        public final Separator separator;
 
-    public final String name = "default";
-    public Configuration configuration;
+        @JsonCreator
+        public Configuration(@Nonnull @JsonProperty(value = "separator", defaultValue = "/") Separator separator) {
+            this.separator = separator;
+        }
+    }
 }

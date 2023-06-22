@@ -3,20 +3,23 @@ package com.scalableminds.zarrjava.store;
 import com.scalableminds.zarrjava.indexing.OpenSlice;
 import com.scalableminds.zarrjava.v3.Utils;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.*;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class FilesystemStore extends Store {
+public class FilesystemStore implements Store, Store.ListableStore {
 
+    @Nonnull
     private final FileSystem fileSystem;
+    @Nonnull
     private final String path;
 
-    public FilesystemStore(String path) {
+    public FilesystemStore(@Nonnull String path) {
         this.fileSystem = FileSystems.getDefault();
         this.path = path;
     }
@@ -90,10 +93,10 @@ public class FilesystemStore extends Store {
         }
     }
 
-    public List<String> list(String key) {
+    public Iterator<String> list(String key) {
         Path keyPath = fileSystem.getPath(this.path, key);
-        try {
-            return Files.list(keyPath).map(p -> p.toFile().getName()).collect(Collectors.toList());
+        try (Stream<Path> paths = Files.list(keyPath)) {
+            return paths.map(p -> p.toFile().getName()).iterator();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

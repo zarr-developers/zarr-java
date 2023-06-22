@@ -1,10 +1,10 @@
 package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.scalableminds.zarrjava.store.Store;
 
 import java.io.IOException;
+import java.util.Iterator;
 
 public class Group extends Node {
     public GroupMetadata metadata;
@@ -33,6 +33,13 @@ public class Group extends Node {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Iterator<Node> list() {
+        if (!(store instanceof Store.ListableStore)) {
+            throw new UnsupportedOperationException("The underlying store does not support listing.");
+        }
+        return Utils.asStream(((Store.ListableStore) store).list(path)).map(this::get).iterator();
     }
 
     @Override
