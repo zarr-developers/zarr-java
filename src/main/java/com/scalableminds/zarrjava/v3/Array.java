@@ -2,7 +2,6 @@ package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scalableminds.zarrjava.indexing.Indexer;
-import com.scalableminds.zarrjava.store.FileValueHandle;
 import com.scalableminds.zarrjava.store.Store;
 import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.v3.codec.CodecPipeline;
@@ -19,7 +18,7 @@ public class Array extends Node {
         super(store, path);
 
         ObjectMapper objectMapper = Utils.makeObjectMapper();
-        this.metadata = objectMapper.readValue(store.get(path + "/zarr.json", null).get().array(), ArrayMetadata.class);
+        this.metadata = objectMapper.readValue(store.get(path + "/zarr.json").array(), ArrayMetadata.class);
     }
 
     public ucar.ma2.Array read(long[] offset, int[] shape) {
@@ -54,7 +53,7 @@ public class Array extends Node {
         StoreHandle chunkHandle = new StoreHandle(store, path + "/" + chunkKey);
 
         ucar.ma2.Array chunkArray =
-                new CodecPipeline(metadata.codecs).decode(chunkHandle.toBytes(), metadata.getCoreMetadata());
+                new CodecPipeline(metadata.codecs).decode(chunkHandle.read(), metadata.getCoreMetadata());
         return chunkArray;
     }
 

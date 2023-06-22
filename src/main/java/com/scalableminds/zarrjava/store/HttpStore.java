@@ -1,12 +1,11 @@
 package com.scalableminds.zarrjava.store;
 
-import com.scalableminds.zarrjava.indexing.OpenSlice;
 import com.squareup.okhttp.*;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Optional;
 
 public class HttpStore implements Store {
 
@@ -20,43 +19,46 @@ public class HttpStore implements Store {
         this.path = path;
     }
 
-    private String getRangeHeader(OpenSlice byteRange) {
-        if (byteRange.start != null) {
-            if (byteRange.start < 0) {
-                return String.format("bytes=-%d", -byteRange.start);
-            } else if (byteRange.end != null && byteRange.end > 0) {
-                return String.format("bytes=%d-%d", byteRange.start, byteRange.end + 1);
-            } else {
-                return String.format("bytes=%d", byteRange.start);
-            }
-        }
-        throw new UnsupportedOperationException("Unsupported range request");
-    }
-
-    @Override
-    public Optional<ByteBuffer> get(String key, OpenSlice byteRange) {
-        Request.Builder builder = new Request.Builder()
-                .url(path + "/" + key);
-
-        if (byteRange != null) {
-            builder.header("Range", getRangeHeader(byteRange));
-        }
-
-        Request request = builder.build();
-
+    @Nullable
+    ByteBuffer get(Request request) {
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
             try (ResponseBody body = response.body()) {
-                return Optional.of(ByteBuffer.wrap(body.bytes()));
+                return ByteBuffer.wrap(body.bytes());
             }
         } catch (IOException e) {
-            return Optional.empty();
+            return null;
         }
     }
 
+    @Nullable
     @Override
-    public void set(String key, ByteBuffer bytes, OpenSlice byteRange) {
+    public ByteBuffer get(String key) {
+        Request request = new Request.Builder().url(path + "/" + key).build();
+        return get(request);
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer get(String key, long start) {
+        Request request = new Request.Builder().url(path + "/" + key).header("Range",
+                start < 0 ? String.format("Bytes=%d", start) : String.format("Bytes=%d-", start)).build();
+
+        return get(request);
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer get(String key, long start, long end) {
+        assert start >= 0;
+        Request request = new Request.Builder().url(path + "/" + key).header("Range",
+                String.format("Bytes=%d-%d", start, end + 1)).build();
+        return get(request);
+    }
+
+    @Override
+    public void set(String key, ByteBuffer bytes) {
         throw new UnsupportedOperationException("Not implemented");
     }
 

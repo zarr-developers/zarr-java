@@ -3,7 +3,6 @@ package com.scalableminds.zarrjava.store;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.scalableminds.zarrjava.indexing.OpenSlice;
 import com.scalableminds.zarrjava.v3.Utils;
 
 import javax.annotation.Nonnull;
@@ -13,7 +12,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.Optional;
 
 public class S3Store implements Store, Store.ListableStore {
     @Nonnull
@@ -39,18 +37,31 @@ public class S3Store implements Store, Store.ListableStore {
         return prefix + "/" + key;
     }
 
+    @Nullable
     @Override
-    public Optional<ByteBuffer> get(String key, OpenSlice byteRange) {
+    public ByteBuffer get(String key) {
         try (S3ObjectInputStream inputStream = s3client.getObject(bucketName,
                 dereferencePath(key)).getObjectContent()) {
-            return Optional.of(Utils.asByteBuffer(inputStream));
+            return Utils.asByteBuffer(inputStream);
         } catch (IOException e) {
-            return Optional.empty();
+            return null;
         }
     }
 
+    @Nullable
     @Override
-    public void set(String key, ByteBuffer bytes, OpenSlice byteRange) {
+    public ByteBuffer get(String key, long start) {
+        return null; // TODO
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer get(String key, long start, long end) {
+        return null; // TODO
+    }
+
+    @Override
+    public void set(String key, ByteBuffer bytes) {
         try (InputStream byteStream = new ByteArrayInputStream(bytes.array())) {
             s3client.putObject(bucketName, dereferencePath(key), byteStream, new ObjectMetadata());
         } catch (IOException e) {
@@ -60,7 +71,7 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public void delete(String key) {
-
+// TODO
     }
 
     @Override

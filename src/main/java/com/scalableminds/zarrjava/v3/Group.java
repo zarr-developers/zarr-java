@@ -13,14 +13,14 @@ public class Group extends Node {
         super(store, path);
 
         ObjectMapper objectMapper = Utils.makeObjectMapper();
-        this.metadata = objectMapper.readValue(store.get(path + "/zarr.json", null).get().array(), GroupMetadata.class);
+        this.metadata = objectMapper.readValue(store.get(path + "/zarr.json").array(), GroupMetadata.class);
     }
 
     public Node get(String key) {
         ObjectMapper objectMapper = Utils.makeObjectMapper();
 
         try {
-            String nodeType = objectMapper.readTree(store.get(path + "/" + key + "/zarr.json", null).get().array()).get(
+            String nodeType = objectMapper.readTree(store.get(path + "/" + key + "/zarr.json").array()).get(
                     "node_type").asText();
             switch (nodeType) {
                 case "array":

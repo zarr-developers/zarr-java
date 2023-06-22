@@ -19,19 +19,18 @@ public class StoreHandle {
 
     @Nullable
     public ByteBuffer read() {
-        return store.get(key, null).orElse(null);
+        return store.get(key);
     }
+
     @Nullable
     public ByteBuffer read(long start) {
-        return store.get(key, new OpenSlice(start, null)).orElse(null);
+        return store.get(key, start);
+    }    @Nullable
+    public ByteBuffer read(long start,long end) {
+        return store.get(key, start, end);
     }
 
-    public void set(OpenSlice slice, ByteBuffer bytes) {
+    public void set(ByteBuffer bytes) {
 
-    }
-
-    @Override
-    public ByteBuffer toBytes() {
-        return store.get(key, null).orElse(null);
     }
 }

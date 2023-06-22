@@ -1,16 +1,20 @@
 package com.scalableminds.zarrjava.store;
 
-import com.scalableminds.zarrjava.indexing.OpenSlice;
-
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.Optional;
 
 public interface Store {
+    @Nullable
+    ByteBuffer get(String key);
 
-    Optional<ByteBuffer> get(String key, OpenSlice byteRange);
+    @Nullable
+    ByteBuffer get(String key, long start);
 
-    void set(String key, ByteBuffer bytes, OpenSlice byteRange);
+    @Nullable
+    ByteBuffer get(String key, long start, long end);
+
+    void set(String key, ByteBuffer bytes);
 
     void delete(String key);
 

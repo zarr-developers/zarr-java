@@ -19,7 +19,7 @@ public class Array {
 
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new Jdk8Module());
-        this.metadata = objectMapper.readValue(store.get(path + "/.zarray", null).get().array(), ArrayMetadata.class);
+        this.metadata = objectMapper.readValue(store.get(path + "/.zarray").array(), ArrayMetadata.class);
     }
 
     @Override
