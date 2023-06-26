@@ -1,12 +1,7 @@
 package com.scalableminds.zarrjava.indexing;
 
 import com.scalableminds.zarrjava.v3.Utils;
-import ucar.ma2.Array;
-import ucar.ma2.IndexIterator;
-import ucar.ma2.InvalidRangeException;
-import ucar.ma2.Range;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 
 public class Indexer {
@@ -60,18 +55,16 @@ public class Indexer {
                 Utils.toIntArray(arrayShape));
     }
 
-    public static ChunkProjection computeProjection(long[] chunkCoords, long[] arrayShape, int[] chunkShape, long[] selOffset, int[] selShape) {
-        int ndim = chunkCoords.length;
-        int[] chunkOffset = new int[ndim];
-        int[] outOffset = new int[ndim];
-        int[] shape = new int[ndim];
+    public static ChunkProjection computeProjection(final long[] chunkCoords, final long[] arrayShape, final int[] chunkShape, final long[] selOffset, final int[] selShape) {
+        final int ndim = chunkCoords.length;
+        final int[] chunkOffset = new int[ndim];
+        final int[] outOffset = new int[ndim];
+        final int[] shape = new int[ndim];
 
         for (int dimIdx = 0; dimIdx < chunkCoords.length; dimIdx++) {
             // compute offsets for chunk within overall array
-            long dimOffset = (long) chunkShape[dimIdx] * chunkCoords[dimIdx];
-            long dimLimit = Math.min(arrayShape[dimIdx], (chunkCoords[dimIdx] + 1) * (long) chunkShape[dimIdx]);
-            // determine chunk length, accounting for trailing chunk
-            long dimChunkLen = dimLimit - dimOffset;
+            final long dimOffset = (long) chunkShape[dimIdx] * chunkCoords[dimIdx];
+            final long dimLimit = Math.min(arrayShape[dimIdx], (chunkCoords[dimIdx] + 1) * (long) chunkShape[dimIdx]);
 
             if (selOffset[dimIdx] < dimOffset) {
                 // selection starts before current chunk
@@ -97,7 +90,7 @@ public class Indexer {
     }
 
 
-    public static long cOrderIndex(long[] chunkCoords, long[] arrayShape) {
+    public static long cOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
         long index = 0;
         long multiplier = 1;
 
@@ -109,7 +102,7 @@ public class Indexer {
         return index;
     }
 
-    public static long fOrderIndex(long[] chunkCoords, long[] arrayShape) {
+    public static long fOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
         int index = 0;
         int multiplier = 1;
 
@@ -121,64 +114,26 @@ public class Indexer {
         return index;
     }
 
-    public static void copyRegion(Array source, int[] sourceOffset, Array target, int[] targetOffset, int[] shape) {
-        assert sourceOffset.length == targetOffset.length;
-        assert source.getRank() == sourceOffset.length;
-        assert target.getRank() == targetOffset.length;
-        assert shape.length == sourceOffset.length;
+    public static boolean isFullChunk(final int[] selOffset, final int[] selShape, final int[] chunkShape) {
+        assert selOffset.length == selShape.length;
+        assert selOffset.length == chunkShape.length;
 
-        try {
-            final ArrayList<Range> sourceRanges = new ArrayList<>();
-            final ArrayList<Range> targetRanges = new ArrayList<>();
-            for (int dimIdx = 0; dimIdx < shape.length; dimIdx++) {
-                assert sourceOffset[dimIdx] + shape[dimIdx] <= source.getShape()[dimIdx];
-                assert targetOffset[dimIdx] + shape[dimIdx] <= target.getShape()[dimIdx];
-
-                sourceRanges.add(new Range(sourceOffset[dimIdx], sourceOffset[dimIdx] + shape[dimIdx] - 1));
-                targetRanges.add(new Range(targetOffset[dimIdx], targetOffset[dimIdx] + shape[dimIdx] - 1));
+        for (int dimIdx = 0; dimIdx < selOffset.length; dimIdx++) {
+            if (selOffset[dimIdx] != 0 || selShape[dimIdx] != chunkShape[dimIdx]) {
+                return false;
             }
-            final IndexIterator sourceRangeIterator = source.getRangeIterator(sourceRanges);
-            final IndexIterator targetRangeIterator = target.getRangeIterator(targetRanges);
-            final Class elementType = source.getElementType();
-            ValueSetter setter = createValueSetter(elementType);
-            while (sourceRangeIterator.hasNext()) {
-                setter.set(sourceRangeIterator, targetRangeIterator);
-            }
-        } catch (InvalidRangeException ex) {
-            throw new RuntimeException("Unreachable");
         }
-    }
-
-    private static ValueSetter createValueSetter(Class elementType) {
-        if (elementType == double.class) {
-            return (sourceIterator, targetIterator) -> targetIterator.setDoubleNext(sourceIterator.getDoubleNext());
-        } else if (elementType == float.class) {
-            return (sourceIterator, targetIterator) -> targetIterator.setFloatNext(sourceIterator.getFloatNext());
-        } else if (elementType == long.class) {
-            return (sourceIterator, targetIterator) -> targetIterator.setLongNext(sourceIterator.getLongNext());
-        } else if (elementType == int.class) {
-            return (sourceIterator, targetIterator) -> targetIterator.setIntNext(sourceIterator.getIntNext());
-        } else if (elementType == short.class) {
-            return (sourceIterator, targetIterator) -> targetIterator.setShortNext(sourceIterator.getShortNext());
-        } else if (elementType == byte.class) {
-            return (sourceIterator, targetIterator) -> targetIterator.setByteNext(sourceIterator.getByteNext());
-        }
-        return (sourceIterator, targetIterator) -> targetIterator.setObjectNext(sourceIterator.getObjectNext());
-    }
-
-    private interface ValueSetter {
-
-        void set(IndexIterator sourceIterator, IndexIterator targetIterator);
+        return true;
     }
 
     public static final class ChunkProjection {
-        public long[] chunkCoords;
-        public int[] chunkOffset;
+        final public long[] chunkCoords;
+        final public int[] chunkOffset;
 
-        public int[] outOffset;
-        public int[] shape;
+        final public int[] outOffset;
+        final public int[] shape;
 
-        public ChunkProjection(long[] chunkCoords, int[] chunkOffset, int[] outOffset, int[] shape) {
+        public ChunkProjection(final long[] chunkCoords, final int[] chunkOffset, final int[] outOffset, final int[] shape) {
             this.chunkCoords = chunkCoords;
             this.chunkOffset = chunkOffset;
             this.outOffset = outOffset;

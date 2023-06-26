@@ -1,6 +1,7 @@
 package com.scalableminds.zarrjava.store;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.scalableminds.zarrjava.v3.Utils;
@@ -38,10 +39,8 @@ public class S3Store implements Store, Store.ListableStore {
     }
 
     @Nullable
-    @Override
-    public ByteBuffer get(String key) {
-        try (S3ObjectInputStream inputStream = s3client.getObject(bucketName,
-                dereferencePath(key)).getObjectContent()) {
+    ByteBuffer get(GetObjectRequest getObjectRequest) {
+        try (S3ObjectInputStream inputStream = s3client.getObject(getObjectRequest).getObjectContent()) {
             return Utils.asByteBuffer(inputStream);
         } catch (IOException e) {
             return null;
@@ -50,14 +49,20 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Nullable
     @Override
+    public ByteBuffer get(String key) {
+        return get(new GetObjectRequest(bucketName, dereferencePath(key)));
+    }
+
+    @Nullable
+    @Override
     public ByteBuffer get(String key, long start) {
-        return null; // TODO
+        return get(new GetObjectRequest(bucketName, dereferencePath(key)).withRange(start));
     }
 
     @Nullable
     @Override
     public ByteBuffer get(String key, long start, long end) {
-        return null; // TODO
+        return get(new GetObjectRequest(bucketName, dereferencePath(key)).withRange(start, end));
     }
 
     @Override
@@ -71,7 +76,7 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public void delete(String key) {
-// TODO
+        s3client.deleteObject(bucketName, dereferencePath(key));
     }
 
     @Override

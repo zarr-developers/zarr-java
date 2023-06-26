@@ -1,4 +1,8 @@
-- Cut out chunks
-- Transpose
-- Endian
-- Gzip
++ Cut out chunks
++ Transpose
++ Endian
++ Gzip
++ S3Store
+- Partial read
++ Write
+- Partial write

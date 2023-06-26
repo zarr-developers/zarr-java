@@ -86,10 +86,12 @@ public class FilesystemStore implements Store, Store.ListableStore {
         Path keyPath = fileSystem.getPath(this.path, key);
         try {
             Files.createDirectories(keyPath.getParent());
+            // Files.createFile(keyPath);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        try (SeekableByteChannel channel = Files.newByteChannel(keyPath, StandardOpenOption.WRITE)) {
+        try (SeekableByteChannel channel = Files.newByteChannel(keyPath.toAbsolutePath(), StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE)) {
             channel.write(bytes);
         } catch (IOException e) {
             throw new RuntimeException(e);

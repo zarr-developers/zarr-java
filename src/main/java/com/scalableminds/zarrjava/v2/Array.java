@@ -13,13 +13,17 @@ public class Array {
     public Store store;
     public String path;
 
-    public Array(Store store, String path) throws IOException {
+    Array(Store store, String path) throws IOException {
         this.store = store;
         this.path = path;
 
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new Jdk8Module());
         this.metadata = objectMapper.readValue(store.get(path + "/.zarray").array(), ArrayMetadata.class);
+    }
+
+    public static Array open(Store store, String path) throws IOException {
+        return new Array(store, path);
     }
 
     @Override

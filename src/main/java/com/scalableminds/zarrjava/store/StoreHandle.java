@@ -1,7 +1,5 @@
 package com.scalableminds.zarrjava.store;
 
-import com.scalableminds.zarrjava.indexing.OpenSlice;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -25,12 +23,18 @@ public class StoreHandle {
     @Nullable
     public ByteBuffer read(long start) {
         return store.get(key, start);
-    }    @Nullable
-    public ByteBuffer read(long start,long end) {
+    }
+
+    @Nullable
+    public ByteBuffer read(long start, long end) {
         return store.get(key, start, end);
     }
 
     public void set(ByteBuffer bytes) {
+        store.set(key, bytes);
+    }
 
+    public void delete() {
+        store.delete(key);
     }
 }

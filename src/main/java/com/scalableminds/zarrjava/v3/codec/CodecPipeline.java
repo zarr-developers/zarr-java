@@ -43,7 +43,8 @@ public class CodecPipeline {
         return Arrays.stream(codecs).filter(c -> c instanceof BytesBytesCodec).toArray(BytesBytesCodec[]::new);
     }
 
-    public Array decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    @Nonnull
+    public Array decode(@Nonnull ByteBuffer chunkBytes, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         for (BytesBytesCodec codec : getBytesBytesCodecs()) {
             chunkBytes = codec.decode(chunkBytes, arrayMetadata);
         }
@@ -56,7 +57,8 @@ public class CodecPipeline {
         return chunkArray;
     }
 
-    public ByteBuffer encode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    @Nonnull
+    public ByteBuffer encode(@Nonnull Array chunkArray, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         for (ArrayArrayCodec codec : getArrayArrayCodecs()) {
             chunkArray = codec.encode(chunkArray, arrayMetadata);
         }

@@ -1,17 +1,19 @@
 package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.scalableminds.zarrjava.indexing.MultiArrayUtils;
 import com.scalableminds.zarrjava.v3.chunkgrid.ChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.codec.Codec;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Objects;
 
 
 public final class ArrayMetadata {
@@ -34,6 +36,8 @@ public final class ArrayMetadata {
 
     @JsonProperty("fill_value")
     public final Object fillValue;
+    @JsonIgnore
+    public final Object parsedFillValue;
 
     @Nullable
     @JsonProperty("codecs")
@@ -44,6 +48,9 @@ public final class ArrayMetadata {
     @Nullable
     @JsonProperty("dimension_names")
     public String[] dimensionNames;
+
+    @JsonIgnore
+    public CoreArrayMetadata coreArrayMetadata;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ArrayMetadata(
@@ -64,38 +71,43 @@ public final class ArrayMetadata {
         this.chunkGrid = chunkGrid;
         this.chunkKeyEncoding = chunkKeyEncoding;
         this.fillValue = fillValue;
+        this.parsedFillValue = parseFillValue(fillValue, dataType);
         this.codecs = codecs;
         this.dimensionNames = dimensionNames;
         this.attributes = attributes;
+        this.coreArrayMetadata =
+                new CoreArrayMetadata(shape, ((RegularChunkGrid) chunkGrid).configuration.chunkShape, dataType,
+                        parsedFillValue);
     }
 
-    public static ByteBuffer getFillValueBytes(Object fillValue, DataType dataType) {
+    public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType) {
         if (fillValue instanceof Boolean) {
             Boolean fillValueBool = (Boolean) fillValue;
-            if (Objects.requireNonNull(dataType) == DataType.BOOL) {
-                return Utils.makeByteBuffer(1, b -> b.put((byte) (fillValueBool ? 1 : 0)));
+            if (dataType == DataType.BOOL) {
+                return fillValueBool;
             }
         }
         if (fillValue instanceof Number) {
             Number fillValueNumber = (Number) fillValue;
             switch (dataType) {
                 case BOOL:
+                    return fillValueNumber.byteValue() != 0;
                 case INT8:
                 case UINT8:
-                    return Utils.makeByteBuffer(1, b -> b.put(fillValueNumber.byteValue()));
+                    return fillValueNumber.byteValue();
                 case INT16:
                 case UINT16:
-                    return Utils.makeByteBuffer(2, b -> b.putShort(fillValueNumber.shortValue()));
+                    return fillValueNumber.shortValue();
                 case INT32:
                 case UINT32:
-                    return Utils.makeByteBuffer(4, b -> b.putInt(fillValueNumber.shortValue()));
+                    return fillValueNumber.intValue();
                 case INT64:
                 case UINT64:
-                    return Utils.makeByteBuffer(8, b -> b.putLong(fillValueNumber.shortValue()));
+                    return fillValueNumber.longValue();
                 case FLOAT32:
-                    return Utils.makeByteBuffer(4, b -> b.putFloat(fillValueNumber.floatValue()));
+                    return fillValueNumber.floatValue();
                 case FLOAT64:
-                    return Utils.makeByteBuffer(8, b -> b.putDouble(fillValueNumber.doubleValue()));
+                    return fillValueNumber.doubleValue();
                 default:
                     // Fallback to throwing below
             }
@@ -104,9 +116,9 @@ public final class ArrayMetadata {
             if (fillValueString.equals("NaN")) {
                 switch (dataType) {
                     case FLOAT32:
-                        return Utils.makeByteBuffer(4, b -> b.putFloat(Float.NaN));
+                        return Float.NaN;
                     case FLOAT64:
-                        return Utils.makeByteBuffer(8, b -> b.putDouble(Double.NaN));
+                        return Double.NaN;
                     default:
                         throw new RuntimeException(
                                 String.format("Invalid fillValue %s for dataType %s.", fillValueString, dataType));
@@ -114,9 +126,9 @@ public final class ArrayMetadata {
             } else if (fillValueString.equals("+Infinity")) {
                 switch (dataType) {
                     case FLOAT32:
-                        return Utils.makeByteBuffer(4, b -> b.putFloat(Float.POSITIVE_INFINITY));
+                        return Float.POSITIVE_INFINITY;
                     case FLOAT64:
-                        return Utils.makeByteBuffer(8, b -> b.putDouble(Double.POSITIVE_INFINITY));
+                        return Double.POSITIVE_INFINITY;
                     default:
                         throw new RuntimeException(
                                 String.format("Invalid fillValue %s for dataType %s.", fillValueString, dataType));
@@ -124,38 +136,61 @@ public final class ArrayMetadata {
             } else if (fillValueString.equals("-Infinity")) {
                 switch (dataType) {
                     case FLOAT32:
-                        return Utils.makeByteBuffer(4, b -> b.putFloat(Float.NEGATIVE_INFINITY));
+                        return Float.NEGATIVE_INFINITY;
                     case FLOAT64:
-                        return Utils.makeByteBuffer(8, b -> b.putDouble(Double.NEGATIVE_INFINITY));
+                        return Double.NEGATIVE_INFINITY;
                     default:
                         throw new RuntimeException(
                                 String.format("Invalid fillValue %s for dataType %s.", fillValueString, dataType));
                 }
-            } else if (fillValueString.startsWith("0b")) {
-                return Utils.makeByteBuffer(dataType.getByteCount(), b -> {
-                    for (int i = 0; i < dataType.getByteCount(); i++) {
-                        b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 8, 2 + (i + 1) * 8), 2));
+            } else if (fillValueString.startsWith("0b") || fillValueString.startsWith("0x")) {
+                ByteBuffer buf = null;
+                if (fillValueString.startsWith("0b")) {
+                    buf = Utils.makeByteBuffer(dataType.getByteCount(), b -> {
+                        for (int i = 0; i < dataType.getByteCount(); i++) {
+                            b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 8, 2 + (i + 1) * 8), 2));
+                        }
+                        return b;
+                    });
+                } else if (fillValueString.startsWith("0x")) {
+                    buf = Utils.makeByteBuffer(dataType.getByteCount(), b -> {
+                        for (int i = 0; i < dataType.getByteCount(); i++) {
+                            b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 2, 2 + (i + 1) * 2), 16));
+                        }
+                        return b;
+                    });
+                }
+                if (buf != null) {
+                    switch (dataType) {
+                        case BOOL:
+                            return buf.get() != 0;
+                        case INT8:
+                        case UINT8:
+                            return buf.get();
+                        case INT16:
+                        case UINT16:
+                            return buf.getShort();
+                        case INT32:
+                        case UINT32:
+                            return buf.getInt();
+                        case INT64:
+                        case UINT64:
+                            return buf.getLong();
+                        case FLOAT32:
+                            return buf.getFloat();
+                        case FLOAT64:
+                            return buf.getDouble();
+                        default:
+                            // Fallback to throwing below
                     }
-                    return b;
-                });
-            } else if (fillValueString.startsWith("0x")) {
-                return Utils.makeByteBuffer(dataType.getByteCount(), b -> {
-                    for (int i = 0; i < dataType.getByteCount(); i++) {
-                        b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 2, 2 + (i + 1) * 2), 16));
-                    }
-                    return b;
-                });
+                }
             }
         }
         throw new RuntimeException(String.format("Invalid fillValue %s", fillValue));
     }
 
-    public CoreArrayMetadata getCoreMetadata() {
-        return new CoreArrayMetadata(shape, chunkShape(), dataType, fillValue);
-    }
-
     public ucar.ma2.Array allocateFillValueChunk() {
-        return getCoreMetadata().allocateFillValueChunk();
+        return coreArrayMetadata.allocateFillValueChunk();
     }
 
     public int ndim() {
@@ -167,24 +202,24 @@ public final class ArrayMetadata {
     }
 
     public int chunkSize() {
-        return getCoreMetadata().chunkSize();
+        return coreArrayMetadata.chunkSize();
     }
 
     public int chunkByteLength() {
-        return getCoreMetadata().chunkByteLength();
+        return coreArrayMetadata.chunkByteLength();
     }
 
     public static final class CoreArrayMetadata {
         public final long[] shape;
         public final int[] chunkShape;
         public final DataType dataType;
-        public final Object fillValue;
+        public final Object parsedFillValue;
 
-        public CoreArrayMetadata(long[] shape, int[] chunkShape, DataType dataType, Object fillValue) {
+        public CoreArrayMetadata(long[] shape, int[] chunkShape, DataType dataType, Object parsedFillValue) {
             this.shape = shape;
             this.chunkShape = chunkShape;
             this.dataType = dataType;
-            this.fillValue = fillValue;
+            this.parsedFillValue = parsedFillValue;
         }
 
         public int ndim() {
@@ -200,15 +235,9 @@ public final class ArrayMetadata {
         }
 
         public ucar.ma2.Array allocateFillValueChunk() {
-            int byteLength = chunkByteLength();
-            ByteBuffer fillValueBytes = ArrayMetadata.getFillValueBytes(fillValue, dataType);
-
-            return ucar.ma2.Array.factory(dataType.getMA2DataType(), chunkShape, Utils.makeByteBuffer(byteLength, b -> {
-                for (int i = 0; i < chunkSize(); i++) {
-                    b.put(fillValueBytes);
-                }
-                return b;
-            }));
+            ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunkShape);
+            MultiArrayUtils.fill(outputArray, parsedFillValue);
+            return outputArray;
         }
     }
 }

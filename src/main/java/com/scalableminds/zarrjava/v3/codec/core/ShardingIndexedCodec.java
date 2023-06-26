@@ -2,7 +2,9 @@ package com.scalableminds.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.scalableminds.zarrjava.indexing.CRC32C;
 import com.scalableminds.zarrjava.indexing.Indexer;
+import com.scalableminds.zarrjava.indexing.MultiArrayUtils;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.Utils;
 import com.scalableminds.zarrjava.v3.codec.ArrayBytesCodec;
@@ -14,8 +16,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.zip.CRC32;
+import java.util.List;
 
 
 public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.WithPartialEncode, ArrayBytesCodec.WithPartialDecode {
@@ -30,73 +33,95 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
     }
 
     long[][] parseShardIndex(ByteBuffer buffer, int count) {
-        long[][] index = new long[count][2];
+        final long[][] index = new long[count][2];
         buffer.order(ByteOrder.LITTLE_ENDIAN);
 
-        int oldBufferLimit = buffer.limit();
-        int oldBufferPosition = buffer.position();
         buffer.limit(buffer.position() + count * 16);
 
-        CRC32 crc32 = new CRC32();
-        crc32.update(buffer);
-        int computedCrc32 = (int) crc32.getValue();
+        final CRC32C crc32c = new CRC32C();
+        crc32c.update(buffer);
+        int computedCrc32c = (int) crc32c.getValue();
 
-        buffer.limit(oldBufferLimit);
-        int storedCrc32 = buffer.getInt();
+        buffer.limit(buffer.capacity());
+        int storedCrc32c = buffer.getInt();
 
-        // assert computedCrc32 == storedCrc32;
-        buffer.position(oldBufferPosition);
+        // assert computedCrc32c == storedCrc32c;
+        buffer.rewind();
 
         for (int i = 0; i < count; i++) {
             index[i][0] = buffer.getLong();
             index[i][1] = buffer.getLong();
         }
-        buffer.position(oldBufferPosition);
         return index;
+    }
+
+    ByteBuffer writeShardIndex(long[][] shardIndex) {
+        ByteBuffer buffer = Utils.makeByteBuffer(shardIndex.length * 16 + 4, b -> {
+            for (final long[] shardEntry : shardIndex) {
+                b.putLong(shardEntry[0]);
+                b.putLong(shardEntry[1]);
+            }
+            return b;
+        });
+        buffer.limit(shardIndex.length * 16);
+
+        final CRC32C crc32c = new CRC32C();
+        crc32c.update(buffer);
+        int computedCrc32c = (int) crc32c.getValue();
+        buffer.limit(buffer.capacity());
+        buffer.putInt(computedCrc32c);
+        buffer.rewind();
+        return buffer;
+    }
+
+    public int[] getChunksPerShard(ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        final int ndim = arrayMetadata.ndim();
+        final int[] chunksPerShard = new int[ndim];
+        for (int dimIdx = 0; dimIdx < ndim; dimIdx++)
+            chunksPerShard[dimIdx] = arrayMetadata.chunkShape[dimIdx] / configuration.chunkShape[dimIdx];
+        return chunksPerShard;
     }
 
     @Override
     public Array decode(ByteBuffer shardBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
-        Array outputArray = Array.factory(arrayMetadata.dataType.getMA2DataType(), arrayMetadata.chunkShape);
+        final Array outputArray = Array.factory(arrayMetadata.dataType.getMA2DataType(), arrayMetadata.chunkShape);
 
-        int ndim = arrayMetadata.ndim();
-        int[] chunksPerShard = new int[ndim];
-        for (int dimIdx = 0; dimIdx < ndim; dimIdx++)
-            chunksPerShard[dimIdx] = arrayMetadata.chunkShape[dimIdx] / configuration.chunkShape[dimIdx];
-        int chunkCount = Arrays.stream(chunksPerShard).reduce(1, (r, a) -> r * a);
+        final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
+        final int chunkCount = Arrays.stream(chunksPerShard).reduce(1, (r, a) -> r * a);
 
-        int shardIndexByteLength = chunkCount * 16 + 4;
+        final int shardIndexByteLength = chunkCount * 16 + 4;
         shardBytes.position(shardBytes.capacity() - shardIndexByteLength);
-        ByteBuffer shardIndexBytes = shardBytes.slice();
-        long[][] shardIndex = parseShardIndex(shardIndexBytes, chunkCount);
+        final ByteBuffer shardIndexBytes = shardBytes.slice();
+        final long[][] shardIndex = parseShardIndex(shardIndexBytes, chunkCount);
 
         shardBytes.position(0);
 
-        ArrayMetadata.CoreArrayMetadata shardMetadata =
+        final ArrayMetadata.CoreArrayMetadata shardMetadata =
                 new ArrayMetadata.CoreArrayMetadata(Utils.toLongArray(arrayMetadata.chunkShape),
-                        configuration.chunkShape, arrayMetadata.dataType, arrayMetadata.fillValue);
+                        configuration.chunkShape, arrayMetadata.dataType, arrayMetadata.parsedFillValue);
 
-        Arrays.stream(Indexer.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).forEach(
+        Arrays.stream(Indexer.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).parallel().forEach(
                 chunkCoords -> {
-                    int i = (int) Indexer.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
-                    ByteBuffer shardBytesSlice = shardBytes.slice();
+                    final int i = (int) Indexer.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
+                    final ByteBuffer shardBytesSlice = shardBytes.slice();
 
-                    int chunkByteOffset = (int) shardIndex[i][0];
-                    int chunkByteLength = (int) shardIndex[i][1];
+                    final int chunkByteOffset = (int) shardIndex[i][0];
+                    final int chunkByteLength = (int) shardIndex[i][1];
                     Array chunkArray = null;
-                    Indexer.ChunkProjection chunkProjection =
+                    final Indexer.ChunkProjection chunkProjection =
                             Indexer.computeProjection(chunkCoords, shardMetadata.shape, shardMetadata.chunkShape);
                     if (chunkByteOffset != -1 && chunkByteLength != -1) {
                         shardBytesSlice.limit(chunkByteOffset + chunkByteLength);
                         shardBytesSlice.position(chunkByteOffset);
-                        ByteBuffer chunkBytes = ByteBuffer.allocate(chunkByteLength).put(shardBytesSlice);
+                        final ByteBuffer chunkBytes = ByteBuffer.allocate(chunkByteLength).put(shardBytesSlice);
 
                         chunkArray = new CodecPipeline(configuration.codecs).decode(chunkBytes, shardMetadata);
                     }
                     if (chunkArray == null) {
                         chunkArray = shardMetadata.allocateFillValueChunk();
                     }
-                    Indexer.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
+                    MultiArrayUtils.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray,
+                            chunkProjection.outOffset,
                             chunkProjection.shape);
                 });
 
@@ -105,8 +130,48 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
 
 
     @Override
-    public ByteBuffer encode(Array shardArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
-        return shardArray.getDataAsByteBuffer();
+    public ByteBuffer encode(final Array shardArray, final ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        final ArrayMetadata.CoreArrayMetadata shardMetadata =
+                new ArrayMetadata.CoreArrayMetadata(Utils.toLongArray(arrayMetadata.chunkShape),
+                        configuration.chunkShape, arrayMetadata.dataType, arrayMetadata.parsedFillValue);
+        final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
+        final int chunkCount = Arrays.stream(chunksPerShard).reduce(1, (r, a) -> r * a);
+
+        final long[][] shardIndex = new long[chunkCount][2];
+        final List<ByteBuffer> chunkBytesList = new ArrayList<>(chunkCount);
+
+        Arrays.stream(Indexer.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).parallel().forEach(
+                chunkCoords -> {
+                    final int i = (int) Indexer.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
+                    final Indexer.ChunkProjection chunkProjection =
+                            Indexer.computeProjection(chunkCoords, shardMetadata.shape, shardMetadata.chunkShape);
+                    final Array chunkArray = Array.factory(shardMetadata.dataType.getMA2DataType(),
+                            shardMetadata.chunkShape);
+                    MultiArrayUtils.copyRegion(shardArray, chunkProjection.outOffset, chunkArray,
+                            chunkProjection.chunkOffset, chunkProjection.shape);
+                    if (MultiArrayUtils.allValuesEqual(chunkArray, shardMetadata.parsedFillValue)) {
+                        shardIndex[i][0] = -1;
+                        shardIndex[i][1] = -1;
+                    } else {
+                        final ByteBuffer chunkBytes = new CodecPipeline(configuration.codecs).encode(chunkArray,
+                                shardMetadata);
+                        synchronized (chunkBytesList) {
+                            int chunkByteOffset =
+                                    chunkBytesList.stream().mapToInt(ByteBuffer::capacity).sum();
+                            shardIndex[i][0] = (long) chunkByteOffset;
+                            shardIndex[i][1] = (long) chunkBytes.capacity();
+                            chunkBytesList.add(chunkBytes);
+                        }
+                    }
+                });
+        final int shardBytesLength = chunkBytesList.stream().mapToInt(ByteBuffer::capacity).sum() + chunkCount * 16 + 4;
+        final ByteBuffer shardBytes = ByteBuffer.allocate(shardBytesLength);
+        for (final ByteBuffer chunkBytes : chunkBytesList) {
+            shardBytes.put(chunkBytes);
+        }
+        shardBytes.put(writeShardIndex(shardIndex));
+
+        return shardBytes;
     }
 
     @Override

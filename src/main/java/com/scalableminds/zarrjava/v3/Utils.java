@@ -22,7 +22,7 @@ public class Utils {
     }
 
     public static ByteBuffer makeByteBuffer(int capacity, Function<ByteBuffer, ByteBuffer> func) {
-        ByteBuffer buf = allocateNative(capacity);
+        ByteBuffer buf = ByteBuffer.allocate(capacity).order(ByteOrder.LITTLE_ENDIAN);
         buf = func.apply(buf);
         buf.rewind();
         return buf;
