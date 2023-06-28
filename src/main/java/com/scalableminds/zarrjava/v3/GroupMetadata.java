@@ -40,25 +40,7 @@ public final class GroupMetadata {
     this.attributes = attributes;
   }
 
-  public static Builder builder() {
-    return new Builder();
-  }
-
   public static GroupMetadata defaultValue() throws ZarrException {
     return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new HashMap<>());
-  }
-
-  public static final class Builder {
-
-    Map<String, Object> attributes = new HashMap<>();
-
-    public Builder withAttribute(String key, Object value) {
-      attributes.put(key, value);
-      return this;
-    }
-
-    public GroupMetadata build() throws ZarrException {
-      return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, attributes);
-    }
   }
 }

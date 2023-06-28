@@ -26,7 +26,7 @@ Array array = Array.create(
         .withDataType(DataType.UINT32)
         .withChunkShape(1, 1024, 1024, 1024)
         .withFillValue(0)
-        .withCodecs(c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc(DataType.UINT32)))
+        .withCodecs(c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc()))
         .build();
 );
 array.write(

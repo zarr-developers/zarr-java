@@ -14,10 +14,12 @@ import java.util.function.Function;
 
 public class CodecBuilder {
 
-  List<Codec> codecs;
+  private DataType dataType;
+  private List<Codec> codecs;
 
-  public CodecBuilder() {
-    codecs = new ArrayList<>();
+  public CodecBuilder(DataType dataType) {
+    this.dataType = dataType;
+    this.codecs = new ArrayList<>();
   }
 
   public CodecBuilder withBlosc(
@@ -33,27 +35,26 @@ public class CodecBuilder {
     return this;
   }
 
-  public CodecBuilder withBlosc(String cname, String shuffle, int clevel, DataType dataType,
-      int blockSize) {
+  public CodecBuilder withBlosc(String cname, String shuffle, int clevel, int blockSize) {
     return withBlosc(Blosc.Compressor.fromString(cname), Blosc.Shuffle.fromString(shuffle), clevel,
         dataType.getByteCount(), blockSize
     );
   }
 
-  public CodecBuilder withBlosc(String cname, String shuffle, int clevel, DataType dataType) {
-    return withBlosc(cname, shuffle, clevel, dataType, 0);
+  public CodecBuilder withBlosc(String cname, String shuffle, int clevel) {
+    return withBlosc(cname, shuffle, clevel, 0);
   }
 
-  public CodecBuilder withBlosc(String cname, int clevel, DataType dataType) {
-    return withBlosc(cname, "noshuffle", clevel, dataType);
+  public CodecBuilder withBlosc(String cname, int clevel) {
+    return withBlosc(cname, "noshuffle", clevel);
   }
 
-  public CodecBuilder withBlosc(String cname, DataType dataType) {
-    return withBlosc(cname, 5, dataType);
+  public CodecBuilder withBlosc(String cname) {
+    return withBlosc(cname, 5);
   }
 
-  public CodecBuilder withBlosc(DataType dataType) {
-    return withBlosc("zstd", dataType);
+  public CodecBuilder withBlosc() {
+    return withBlosc("zstd");
   }
 
   public CodecBuilder withTranspose(String order) {
@@ -99,7 +100,7 @@ public class CodecBuilder {
 
   public CodecBuilder withSharding(int[] chunkShape,
       Function<CodecBuilder, CodecBuilder> codecBuilder) {
-    CodecBuilder nestedBuilder = new CodecBuilder();
+    CodecBuilder nestedBuilder = new CodecBuilder(dataType);
     try {
       codecs.add(new ShardingIndexedCodec(
           new ShardingIndexedCodec.Configuration(chunkShape, codecBuilder.apply(nestedBuilder)

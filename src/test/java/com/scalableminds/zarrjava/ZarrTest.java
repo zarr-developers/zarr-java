@@ -107,10 +107,14 @@ public class ZarrTest {
 
   @Test
   public void testV3ArrayMetadataBuilder() throws ZarrException {
-    Array.metadataBuilder().withShape(1, 4096, 4096, 1536).withDataType(DataType.UINT32)
-        .withChunkShape(
-            1, 1024, 1024, 1024).withFillValue(0).withCodecs(
-            c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc(DataType.UINT32))).build();
+    Array.metadataBuilder()
+        .withShape(1, 4096, 4096, 1536)
+        .withDataType(DataType.UINT32)
+        .withChunkShape(1, 1024, 1024, 1024)
+        .withFillValue(0)
+        .withCodecs(
+            c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc()))
+        .build();
   }
 
   @Test
@@ -134,7 +138,8 @@ public class ZarrTest {
         .withShape(10, 10)
         .withDataType(DataType.UINT8)
         .withChunkShape(5, 5)
-        .build());
+        .build()
+    );
     array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
     assertArrayEquals(((Array) ((Group) group.list()[0]).list()[0]).metadata.chunkShape(),

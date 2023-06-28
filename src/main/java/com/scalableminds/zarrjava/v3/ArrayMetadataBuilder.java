@@ -1,6 +1,7 @@
 package com.scalableminds.zarrjava.v3;
 
 import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.v3.chunkgrid.ChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.DefaultChunkKeyEncoding;
@@ -16,7 +17,7 @@ public class ArrayMetadataBuilder {
 
   long[] shape = null;
   DataType dataType = null;
-  RegularChunkGrid chunkGrid = null;
+  ChunkGrid chunkGrid = null;
   ChunkKeyEncoding chunkKeyEncoding =
       new DefaultChunkKeyEncoding(new DefaultChunkKeyEncoding.Configuration(Separator.SLASH));
 
@@ -32,7 +33,7 @@ public class ArrayMetadataBuilder {
     ArrayMetadataBuilder builder = new ArrayMetadataBuilder();
     builder.shape = arrayMetadata.shape;
     builder.dataType = arrayMetadata.dataType;
-    builder.chunkGrid = (RegularChunkGrid) arrayMetadata.chunkGrid;
+    builder.chunkGrid = arrayMetadata.chunkGrid;
     builder.chunkKeyEncoding = arrayMetadata.chunkKeyEncoding;
     builder.fillValue = arrayMetadata.parsedFillValue;
     builder.codecs = arrayMetadata.codecs;
@@ -96,7 +97,10 @@ public class ArrayMetadataBuilder {
   }
 
   public ArrayMetadataBuilder withCodecs(Function<CodecBuilder, CodecBuilder> codecBuilder) {
-    CodecBuilder nestedCodecBuilder = new CodecBuilder();
+    if (dataType==null) {
+      throw new IllegalStateException("Please call `withDataType` first.");
+    }
+    CodecBuilder nestedCodecBuilder = new CodecBuilder(dataType);
     this.codecs = codecBuilder.apply(nestedCodecBuilder)
         .build();
     return this;
@@ -127,9 +131,10 @@ public class ArrayMetadataBuilder {
     if (chunkGrid == null) {
       throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
     }
-    if (shape.length != chunkGrid.configuration.chunkShape.length) {
+    if (chunkGrid instanceof RegularChunkGrid
+        && shape.length != ((RegularChunkGrid) chunkGrid).configuration.chunkShape.length) {
       throw new ZarrException("Shape (ndim=" + shape.length + ") and chunk shape (ndim=" +
-          chunkGrid.configuration.chunkShape.length +
+          ((RegularChunkGrid) chunkGrid).configuration.chunkShape.length +
           ") need to have the same number of dimensions.");
     }
     return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
