@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class V2ChunkKeyEncoding extends ChunkKeyEncoding {
     public final String name = "v2";
@@ -19,15 +20,12 @@ public class V2ChunkKeyEncoding extends ChunkKeyEncoding {
     }
 
     @Override
-    public long[] decodeChunkKey(String chunkKey) {
-        return Arrays.stream(chunkKey.split(this.configuration.separator.getValue())).mapToLong(
-                Long::parseLong).toArray();
-    }
-
-    @Override
-    public String encodeChunkKey(long[] chunkCoords) {
-        return Arrays.stream(chunkCoords).mapToObj(Long::toString).collect(
-                Collectors.joining(this.configuration.separator.getValue()));
+    public String[] encodeChunkKey(long[] chunkCoords) {
+        Stream<String> keys = Arrays.stream(chunkCoords).mapToObj(Long::toString);
+        if (configuration.separator == Separator.SLASH) {
+            return keys.toArray(String[]::new);
+        }
+        return new String[]{keys.collect(Collectors.joining(this.configuration.separator.getValue()))};
     }
 
     public static final class Configuration {

@@ -1,6 +1,6 @@
 package com.scalableminds.zarrjava.store;
 
-import com.scalableminds.zarrjava.v3.Utils;
+import com.scalableminds.zarrjava.utils.Utils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -14,22 +14,34 @@ import java.util.stream.Stream;
 public class FilesystemStore implements Store, Store.ListableStore {
 
     @Nonnull
-    private final FileSystem fileSystem;
-    @Nonnull
-    private final String path;
+    private final Path path;
+
+    public FilesystemStore(@Nonnull Path path) {
+        this.path = path;
+    }
 
     public FilesystemStore(@Nonnull String path) {
-        this.fileSystem = FileSystems.getDefault();
-        this.path = path;
+        this.path = Paths.get(path);
+    }
+
+    Path resolveKeys(String[] keys) {
+        Path newPath = path;
+        for (String key : keys) {
+            newPath = newPath.resolve(key);
+        }
+        return newPath;
+    }
+
+    @Override
+    public boolean exists(String[] keys) {
+        return Files.exists(resolveKeys(keys));
     }
 
     @Nullable
     @Override
-    public ByteBuffer get(String key) {
-        Path keyPath = fileSystem.getPath(this.path, key);
+    public ByteBuffer get(String[] keys) {
         try {
-            ByteBuffer bytes = ByteBuffer.wrap(Files.readAllBytes(keyPath));
-            return bytes;
+            return ByteBuffer.wrap(Files.readAllBytes(resolveKeys(keys)));
         } catch (IOException e) {
             return null;
         }
@@ -37,10 +49,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
 
     @Nullable
     @Override
-    public ByteBuffer get(String key, long start) {
-        Path keyPath = fileSystem.getPath(this.path, key);
-
-        try (SeekableByteChannel byteChannel = Files.newByteChannel(keyPath)) {
+    public ByteBuffer get(String[] keys, long start) {
+        try (SeekableByteChannel byteChannel = Files.newByteChannel(resolveKeys(keys))) {
             long startOffset = 0;
             if (start >= 0) {
                 startOffset = start;
@@ -60,10 +70,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
 
     @Nullable
     @Override
-    public ByteBuffer get(String key, long start, long end) {
-        Path keyPath = fileSystem.getPath(this.path, key);
-
-        try (SeekableByteChannel byteChannel = Files.newByteChannel(keyPath)) {
+    public ByteBuffer get(String[] keys, long start, long end) {
+        try (SeekableByteChannel byteChannel = Files.newByteChannel(resolveKeys(keys))) {
             long startOffset = 0;
             if (start >= 0) {
                 startOffset = start;
@@ -82,11 +90,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
 
 
     @Override
-    public void set(String key, ByteBuffer bytes) {
-        Path keyPath = fileSystem.getPath(this.path, key);
+    public void set(String[] keys, ByteBuffer bytes) {
+        Path keyPath = resolveKeys(keys);
         try {
             Files.createDirectories(keyPath.getParent());
-            // Files.createFile(keyPath);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -99,27 +106,33 @@ public class FilesystemStore implements Store, Store.ListableStore {
     }
 
     @Override
-    public void delete(String key) {
-        Path keyPath = fileSystem.getPath(this.path, key);
+    public void delete(String[] keys) {
         try {
-            Files.delete(keyPath);
+            Files.delete(resolveKeys(keys));
+        } catch (NoSuchFileException e) {
+            // ignore
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public Iterator<String> list(String key) {
-        Path keyPath = fileSystem.getPath(this.path, key);
-        try (Stream<Path> paths = Files.list(keyPath)) {
-            return paths.map(p -> p.toFile().getName()).iterator();
+    public String[] list(String[] keys) {
+        try (Stream<Path> paths = Files.list(resolveKeys(keys))) {
+            return paths.map(p -> p.toFile().getName()).toArray(String[]::new);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Nonnull
+    @Override
+    public StoreHandle resolve(String... keys) {
+        return new StoreHandle(this, keys);
     }
 
     @Override
     public String toString() {
-        return fileSystem.getPath(this.path).toUri().toString().replaceAll("\\/$", "");
+        return this.path.toUri().toString().replaceAll("\\/$", "");
     }
 
 }

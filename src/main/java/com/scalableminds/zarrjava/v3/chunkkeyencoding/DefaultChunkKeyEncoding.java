@@ -19,20 +19,14 @@ public class DefaultChunkKeyEncoding extends ChunkKeyEncoding {
         this.configuration = configuration;
     }
 
-    @Override
-    public long[] decodeChunkKey(String chunkKey) {
-        if (chunkKey.equals("c")) {
-            return new long[0];
-        }
-        String suffix = chunkKey.substring(1);
-        return Arrays.stream(suffix.split(this.configuration.separator.getValue())).mapToLong(
-                Long::parseLong).toArray();
-    }
 
     @Override
-    public String encodeChunkKey(long[] chunkCoords) {
-        return Stream.concat(Stream.of("c"), Arrays.stream(chunkCoords).mapToObj(Long::toString)).collect(
-                Collectors.joining(this.configuration.separator.getValue()));
+    public String[] encodeChunkKey(long[] chunkCoords) {
+        Stream<String> keys = Stream.concat(Stream.of("c"), Arrays.stream(chunkCoords).mapToObj(Long::toString));
+        if (configuration.separator == Separator.SLASH) {
+            return keys.toArray(String[]::new);
+        }
+        return new String[]{keys.collect(Collectors.joining(this.configuration.separator.getValue()))};
     }
 
     public static final class Configuration {

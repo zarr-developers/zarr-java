@@ -36,4 +36,5 @@ build/
 
 
 ### Custom ###
-/l4_sample
+/testdata
+/testoutput

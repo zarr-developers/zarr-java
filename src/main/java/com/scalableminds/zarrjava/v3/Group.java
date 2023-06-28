@@ -1,49 +1,91 @@
 package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.scalableminds.zarrjava.store.Store;
+import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.store.StoreHandle;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.Iterator;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class Group extends Node {
     public GroupMetadata metadata;
 
-    public Group(Store store, String path) throws IOException {
-        super(store, path);
-
-        ObjectMapper objectMapper = Utils.makeObjectMapper();
-        this.metadata = objectMapper.readValue(store.get(path + "/zarr.json").array(), GroupMetadata.class);
+    Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
+        super(storeHandle);
+        this.metadata = groupMetadata;
     }
 
-    public Node get(String key) {
-        ObjectMapper objectMapper = Utils.makeObjectMapper();
+    public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
+        StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
+        ByteBuffer metadataBytes = metadataHandle.readNonNull();
+        return new Group(storeHandle, Node.makeObjectMapper().readValue(metadataBytes.array(), GroupMetadata.class));
+    }
 
+    public static Group create(
+            @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
+        ObjectMapper objectMapper = Node.makeObjectMapper();
+        ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(groupMetadata));
+        storeHandle.resolve(ZARR_JSON).set(metadataBytes);
+        return new Group(storeHandle, groupMetadata);
+    }
+
+    public static Group create(
+            @Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
+        return create(storeHandle, GroupMetadata.defaultValue());
+    }
+
+    @Nullable
+    public Node get(String key) throws ZarrException {
+        StoreHandle keyHandle = storeHandle.resolve(key);
+        ObjectMapper objectMapper = Node.makeObjectMapper();
+        ByteBuffer metadataBytes = keyHandle.resolve(ZARR_JSON).read();
+        if (metadataBytes == null) {
+            return null;
+        }
+        byte[] metadataBytearray = metadataBytes.array();
         try {
-            String nodeType = objectMapper.readTree(store.get(path + "/" + key + "/zarr.json").array()).get(
-                    "node_type").asText();
+            String nodeType = objectMapper.readTree(metadataBytes.array()).get("node_type").asText();
             switch (nodeType) {
                 case "array":
-                    return new Array(store, path + "/" + key);
+                    return new Array(keyHandle, objectMapper.readValue(metadataBytearray, ArrayMetadata.class));
                 case "group":
-                    return new Group(store, path + "/" + key);
+                    return new Group(keyHandle, objectMapper.readValue(metadataBytearray, GroupMetadata.class));
                 default:
-                    throw new UnsupportedOperationException("Unsupported node_type: " + nodeType);
+                    throw new ZarrException("Unsupported node_type '" + nodeType + "' in " + keyHandle);
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            return null;
         }
     }
 
-    public Iterator<Node> list() {
-        if (!(store instanceof Store.ListableStore)) {
-            throw new UnsupportedOperationException("The underlying store does not support listing.");
-        }
-        return Utils.asStream(((Store.ListableStore) store).list(path)).map(this::get).iterator();
+    public Group createGroup(String key, GroupMetadata groupMetadata) throws IOException, ZarrException {
+        return Group.create(storeHandle.resolve(key), groupMetadata);
+    }
+
+    public Group createGroup(String key) throws IOException, ZarrException {
+        return Group.create(storeHandle.resolve(key), GroupMetadata.defaultValue());
+    }
+
+    public Array createArray(String key, ArrayMetadata arrayMetadata) throws IOException, ZarrException {
+        return Array.create(storeHandle.resolve(key), arrayMetadata);
+    }
+
+    public Node[] list() {
+        return Arrays.stream(storeHandle.list()).map(key -> {
+            try {
+                return get(key);
+            } catch (ZarrException e) {
+                throw new RuntimeException(e);
+            }
+        }).filter(Objects::nonNull).toArray(Node[]::new);
     }
 
     @Override
     public String toString() {
-        return String.format("<v3.Group {%s/%s}>", store, path);
+        return String.format("<v3.Group {%s}>", storeHandle);
     }
 }

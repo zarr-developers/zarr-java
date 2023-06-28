@@ -1,5 +1,6 @@
 package com.scalableminds.zarrjava.v3.codec;
 
+import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.core.EndianCodec;
@@ -14,15 +15,34 @@ public class CodecPipeline {
     @Nonnull
     final Codec[] codecs;
 
-    public CodecPipeline(@Nullable Codec[] codecs) {
+    public CodecPipeline(@Nullable Codec[] codecs) throws ZarrException {
         if (codecs == null) {
             this.codecs = new Codec[0];
         } else {
             Codec prevCodec = null;
             for (Codec codec : codecs) {
-                assert prevCodec == null || codec instanceof BytesBytesCodec ||
-                        ((codec instanceof ArrayBytesCodec || codec instanceof ArrayArrayCodec) &&
-                                prevCodec instanceof ArrayArrayCodec);
+                if (prevCodec != null) {
+                    if (codec instanceof ArrayBytesCodec && prevCodec instanceof ArrayBytesCodec) {
+                        throw new ZarrException(
+                                "ArrayBytesCodec '" + codec.getClass() + "' cannot follow after ArrayBytesCodec '" +
+                                        prevCodec.getClass() + "' because only 1 ArrayBytesCodec is allowed.");
+                    }
+                    if (codec instanceof ArrayBytesCodec && prevCodec instanceof BytesBytesCodec) {
+                        throw new ZarrException(
+                                "ArrayBytesCodec '" + codec.getClass() + "' cannot follow after BytesBytesCodec '" +
+                                        prevCodec.getClass() + "'.");
+                    }
+                    if (codec instanceof ArrayArrayCodec && prevCodec instanceof ArrayBytesCodec) {
+                        throw new ZarrException(
+                                "ArrayArrayCodec '" + codec.getClass() + "' cannot follow after ArrayBytesCodec '" +
+                                        prevCodec.getClass() + "'.");
+                    }
+                    if (codec instanceof ArrayArrayCodec && prevCodec instanceof BytesBytesCodec) {
+                        throw new ZarrException(
+                                "ArrayArrayCodec '" + codec.getClass() + "' cannot follow after BytesBytesCodec '" +
+                                        prevCodec.getClass() + "'.");
+                    }
+                }
                 prevCodec = codec;
             }
 
@@ -44,7 +64,7 @@ public class CodecPipeline {
     }
 
     @Nonnull
-    public Array decode(@Nonnull ByteBuffer chunkBytes, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    public Array decode(@Nonnull ByteBuffer chunkBytes, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         for (BytesBytesCodec codec : getBytesBytesCodecs()) {
             chunkBytes = codec.decode(chunkBytes, arrayMetadata);
         }
@@ -58,7 +78,7 @@ public class CodecPipeline {
     }
 
     @Nonnull
-    public ByteBuffer encode(@Nonnull Array chunkArray, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+    public ByteBuffer encode(@Nonnull Array chunkArray, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         for (ArrayArrayCodec codec : getArrayArrayCodecs()) {
             chunkArray = codec.encode(chunkArray, arrayMetadata);
         }

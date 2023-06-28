@@ -1,10 +1,8 @@
-package com.scalableminds.zarrjava.indexing;
-
-import com.scalableminds.zarrjava.v3.Utils;
+package com.scalableminds.zarrjava.utils;
 
 import java.util.Arrays;
 
-public class Indexer {
+public class IndexingUtils {
 
     public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape) {
         return computeChunkCoords(arrayShape, chunkShape, new long[arrayShape.length], Utils.toIntArray(arrayShape));
@@ -115,8 +113,12 @@ public class Indexer {
     }
 
     public static boolean isFullChunk(final int[] selOffset, final int[] selShape, final int[] chunkShape) {
-        assert selOffset.length == selShape.length;
-        assert selOffset.length == chunkShape.length;
+        if (selOffset.length != selShape.length) {
+            throw new IllegalArgumentException("'selOffset' and 'selShape' need to have the same rank.");
+        }
+        if (selOffset.length != chunkShape.length) {
+            throw new IllegalArgumentException("'selOffset' and 'chunkShape' need to have the same rank.");
+        }
 
         for (int dimIdx = 0; dimIdx < selOffset.length; dimIdx++) {
             if (selOffset[dimIdx] != 0 || selShape[dimIdx] != chunkShape[dimIdx]) {
@@ -124,6 +126,32 @@ public class Indexer {
             }
         }
         return true;
+    }
+
+    public static boolean isSingleFullChunk(final long[] selOffset, final int[] selShape, final int[] chunkShape) {
+        if (selOffset.length != selShape.length) {
+            throw new IllegalArgumentException("'selOffset' and 'selShape' need to have the same rank.");
+        }
+        if (selOffset.length != chunkShape.length) {
+            throw new IllegalArgumentException("'selOffset' and 'chunkShape' need to have the same rank.");
+        }
+        for (int dimIdx = 0; dimIdx < selOffset.length; dimIdx++) {
+            if (selOffset[dimIdx] % chunkShape[dimIdx] != 0 || selShape[dimIdx] != chunkShape[dimIdx]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static long[] computeSingleChunkCoords(final long[] selOffset, final int[] chunkShape) {
+        if (selOffset.length != chunkShape.length) {
+            throw new IllegalArgumentException("'selOffset' and 'chunkShape' need to have the same rank.");
+        }
+        final long[] chunkCoords = new long[selOffset.length];
+        for (int dimIdx = 0; dimIdx < selOffset.length; dimIdx++) {
+            chunkCoords[dimIdx] = (selOffset[dimIdx] / chunkShape[dimIdx]);
+        }
+        return chunkCoords;
     }
 
     public static final class ChunkProjection {

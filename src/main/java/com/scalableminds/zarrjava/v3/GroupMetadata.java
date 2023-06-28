@@ -2,8 +2,10 @@ package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.scalableminds.zarrjava.ZarrException;
 
 import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.Map;
 
 public final class GroupMetadata {
@@ -19,9 +21,34 @@ public final class GroupMetadata {
     public GroupMetadata(
             @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
             @JsonProperty(value = "node_type", required = true) String nodeType,
-            @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes) {
-        assert zarrFormat == 3;
-        assert nodeType.equals("group");
+            @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes) throws ZarrException {
+        if (zarrFormat != this.zarrFormat) {
+            throw new ZarrException("Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
+        }
+        if (!nodeType.equals(this.nodeType)) {
+            throw new ZarrException("Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
+        }
         this.attributes = attributes;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static GroupMetadata defaultValue() throws ZarrException {
+        return new GroupMetadata(3, "group", new HashMap<>());
+    }
+
+    public static final class Builder {
+        Map<String, Object> attributes = new HashMap<>();
+
+        public Builder withAttribute(String key, Object value) {
+            attributes.put(key, value);
+            return this;
+        }
+
+        public GroupMetadata build() throws ZarrException {
+            return new GroupMetadata(3, "group", attributes);
+        }
     }
 }

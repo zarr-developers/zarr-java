@@ -9,8 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = V2ChunkKeyEncoding.class, name = "v2")})
 public abstract class ChunkKeyEncoding {
 
-    public abstract long[] decodeChunkKey(String chunkKey);
 
-    public abstract String encodeChunkKey(long[] chunkCoords);
+    public abstract String[] encodeChunkKey(long[] chunkCoords);
 
 }

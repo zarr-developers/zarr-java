@@ -36,7 +36,9 @@ public class BloscCodec implements BytesBytesCodec {
 
     @Override
     public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
-        assert configuration.typesize > 0;
+        if (configuration.typesize < 1) {
+            throw new IllegalArgumentException("'typesize' needs to be larger than 0.");
+        }
         return ByteBuffer.wrap(
                 Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname, configuration.clevel,
                         configuration.shuffle, configuration.blocksize));

@@ -1,4 +1,4 @@
-package com.scalableminds.zarrjava.indexing;
+package com.scalableminds.zarrjava.utils;
 
 import ucar.ma2.Array;
 import ucar.ma2.IndexIterator;
@@ -10,18 +10,33 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class MultiArrayUtils {
+
     public static void copyRegion(Array source, int[] sourceOffset, Array target, int[] targetOffset, int[] shape) {
-        assert sourceOffset.length == targetOffset.length;
-        assert source.getRank() == sourceOffset.length;
-        assert target.getRank() == targetOffset.length;
-        assert shape.length == sourceOffset.length;
+        if (sourceOffset.length != targetOffset.length) {
+            throw new IllegalArgumentException("'sourceOffset' and 'targetOffset' do not have the same rank.");
+        }
+        if (source.getRank() != sourceOffset.length) {
+            throw new IllegalArgumentException("'sourceOffset' and 'source' do not have the same rank.");
+        }
+        if (target.getRank() != targetOffset.length) {
+            throw new IllegalArgumentException("'targetOffset' and 'target' do not have the same rank.");
+        }
+        if (shape.length != sourceOffset.length) {
+            throw new IllegalArgumentException("'shape' and 'sourceOffset' do not have the same rank.");
+        }
 
         try {
             final ArrayList<Range> sourceRanges = new ArrayList<>();
             final ArrayList<Range> targetRanges = new ArrayList<>();
             for (int dimIdx = 0; dimIdx < shape.length; dimIdx++) {
-                assert sourceOffset[dimIdx] + shape[dimIdx] <= source.getShape()[dimIdx];
-                assert targetOffset[dimIdx] + shape[dimIdx] <= target.getShape()[dimIdx];
+                if (sourceOffset[dimIdx] + shape[dimIdx] > source.getShape()[dimIdx]) {
+                    throw new IllegalArgumentException(
+                            "'sourceOffset + shape' needs to be less or equal than " + "'source.getShape()'.");
+                }
+                if (targetOffset[dimIdx] + shape[dimIdx] > target.getShape()[dimIdx]) {
+                    throw new IllegalArgumentException(
+                            "'targetOffset + shape' needs to be less or equal than " + "'target.getShape()'.");
+                }
 
                 sourceRanges.add(new Range(sourceOffset[dimIdx], sourceOffset[dimIdx] + shape[dimIdx] - 1));
                 targetRanges.add(new Range(targetOffset[dimIdx], targetOffset[dimIdx] + shape[dimIdx] - 1));

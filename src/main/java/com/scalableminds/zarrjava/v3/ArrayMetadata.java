@@ -3,16 +3,22 @@ package com.scalableminds.zarrjava.v3;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.scalableminds.zarrjava.indexing.MultiArrayUtils;
+import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.utils.MultiArrayUtils;
+import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.chunkgrid.ChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
+import com.scalableminds.zarrjava.v3.chunkkeyencoding.DefaultChunkKeyEncoding;
+import com.scalableminds.zarrjava.v3.chunkkeyencoding.Separator;
+import com.scalableminds.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.codec.Codec;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -63,9 +69,13 @@ public final class ArrayMetadata {
             @JsonProperty(value = "fill_value", required = true) Object fillValue,
             @Nullable @JsonProperty(value = "codecs") Codec[] codecs,
             @Nullable @JsonProperty(value = "dimension_names") String[] dimensionNames,
-            @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes) {
-        assert zarrFormat == 3;
-        assert nodeType.equals("array");
+            @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes) throws ZarrException {
+        if (zarrFormat != this.zarrFormat) {
+            throw new ZarrException("Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
+        }
+        if (!nodeType.equals(this.nodeType)) {
+            throw new ZarrException("Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
+        }
         this.shape = shape;
         this.dataType = dataType;
         this.chunkGrid = chunkGrid;
@@ -80,7 +90,7 @@ public final class ArrayMetadata {
                         parsedFillValue);
     }
 
-    public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType) {
+    public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType) throws ZarrException {
         if (fillValue instanceof Boolean) {
             Boolean fillValueBool = (Boolean) fillValue;
             if (dataType == DataType.BOOL) {
@@ -120,8 +130,8 @@ public final class ArrayMetadata {
                     case FLOAT64:
                         return Double.NaN;
                     default:
-                        throw new RuntimeException(
-                                String.format("Invalid fillValue %s for dataType %s.", fillValueString, dataType));
+                        throw new ZarrException(
+                                "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
                 }
             } else if (fillValueString.equals("+Infinity")) {
                 switch (dataType) {
@@ -130,8 +140,8 @@ public final class ArrayMetadata {
                     case FLOAT64:
                         return Double.POSITIVE_INFINITY;
                     default:
-                        throw new RuntimeException(
-                                String.format("Invalid fillValue %s for dataType %s.", fillValueString, dataType));
+                        throw new ZarrException(
+                                "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
                 }
             } else if (fillValueString.equals("-Infinity")) {
                 switch (dataType) {
@@ -140,8 +150,8 @@ public final class ArrayMetadata {
                     case FLOAT64:
                         return Double.NEGATIVE_INFINITY;
                     default:
-                        throw new RuntimeException(
-                                String.format("Invalid fillValue %s for dataType %s.", fillValueString, dataType));
+                        throw new ZarrException(
+                                "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
                 }
             } else if (fillValueString.startsWith("0b") || fillValueString.startsWith("0x")) {
                 ByteBuffer buf = null;
@@ -186,7 +196,11 @@ public final class ArrayMetadata {
                 }
             }
         }
-        throw new RuntimeException(String.format("Invalid fillValue %s", fillValue));
+        throw new ZarrException("Invalid fill value '"+ fillValue+"'.");
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     public ucar.ma2.Array allocateFillValueChunk() {
@@ -238,6 +252,107 @@ public final class ArrayMetadata {
             ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunkShape);
             MultiArrayUtils.fill(outputArray, parsedFillValue);
             return outputArray;
+        }
+    }
+
+    public static final class Builder {
+
+        long[] shape = null;
+        DataType dataType = null;
+        RegularChunkGrid chunkGrid = null;
+        ChunkKeyEncoding chunkKeyEncoding =
+                new DefaultChunkKeyEncoding(new DefaultChunkKeyEncoding.Configuration(Separator.SLASH));
+
+        Object fillValue = null;
+        Codec[] codecs = null;
+        Map<String, Object> attributes = new HashMap<>();
+        String[] dimensionNames = null;
+
+        private Builder() {
+        }
+
+        public Builder withShape(long... shape) {
+            this.shape = shape;
+            return this;
+        }
+
+        public Builder withDataType(DataType dataType) {
+            this.dataType = dataType;
+            return this;
+        }
+
+        public Builder withDataType(String dataType) {
+            this.dataType = DataType.valueOf(dataType);
+            return this;
+        }
+
+        public Builder withChunkShape(int... chunkShape) {
+            this.chunkGrid = new RegularChunkGrid(new RegularChunkGrid.Configuration(chunkShape));
+            return this;
+        }
+
+        public Builder withDefaultChunkKeyEncoding(Separator separator) {
+            this.chunkKeyEncoding = new DefaultChunkKeyEncoding(new DefaultChunkKeyEncoding.Configuration(separator));
+            return this;
+        }
+
+        public Builder withDefaultChunkKeyEncoding(String separator) {
+            this.chunkKeyEncoding = new DefaultChunkKeyEncoding(
+                    new DefaultChunkKeyEncoding.Configuration(Separator.valueOf(separator)));
+            return this;
+        }
+
+        public Builder withV2ChunkKeyEncoding(Separator separator) {
+            this.chunkKeyEncoding = new V2ChunkKeyEncoding(new V2ChunkKeyEncoding.Configuration(separator));
+            return this;
+        }
+
+        public Builder withV2ChunkKeyEncoding(String separator) {
+            this.chunkKeyEncoding =
+                    new V2ChunkKeyEncoding(new V2ChunkKeyEncoding.Configuration(Separator.valueOf(separator)));
+            return this;
+        }
+
+        public Builder withFillValue(Object fillValue) {
+            this.fillValue = fillValue;
+            return this;
+        }
+
+        public Builder withCodecs(Codec... codecs) {
+            this.codecs = codecs;
+            return this;
+        }
+
+        public Builder withDimensionNames(String... dimensionNames) {
+            this.dimensionNames = dimensionNames;
+            return this;
+        }
+
+        public Builder withAttribute(String key, Object value) {
+            this.attributes.put(key, value);
+            return this;
+        }
+
+        public ArrayMetadata build() throws ZarrException {
+            if (shape == null) {
+                throw new ZarrException("Shape needs to be provided. Please call `.withShape`.");
+            }
+            if (dataType == null) {
+                throw new ZarrException("Data type needs to be provided. Please call `.withDataType`.");
+            }
+            if (chunkGrid == null) {
+                throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
+            }
+            if (fillValue == null) {
+                throw new ZarrException("Fill value needs to be provided. Please call `.withFillValue`.");
+            }
+            if (shape.length != chunkGrid.configuration.chunkShape.length) {
+                throw new ZarrException("Shape (ndim=" + shape.length + ") and chunk shape (ndim=" +
+                        chunkGrid.configuration.chunkShape.length + ") need to have the same " +
+                        "number of dimensions.");
+            }
+            return new ArrayMetadata(3, "array", shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
+                    dimensionNames, attributes);
         }
     }
 }

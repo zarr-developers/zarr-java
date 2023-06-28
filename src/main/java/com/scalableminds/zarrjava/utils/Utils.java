@@ -1,8 +1,4 @@
-package com.scalableminds.zarrjava.v3;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.scalableminds.zarrjava.v3.codec.CodecRegistry;
+package com.scalableminds.zarrjava.utils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,15 +46,21 @@ public class Utils {
         return Arrays.stream(array).mapToInt(i -> (int) i).toArray();
     }
 
-    public static ObjectMapper makeObjectMapper() {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new Jdk8Module());
-        objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
-        return objectMapper;
-    }
-
     public static <T> Stream<T> asStream(Iterator<T> sourceIterator) {
         Iterable<T> iterable = () -> sourceIterator;
         return StreamSupport.stream(iterable.spliterator(), false);
+    }
+
+    public static <T> T[] concatArrays(T[] array1, T[]... arrays) {
+        if (arrays.length == 0) {
+            return array1;
+        }
+        T[] result = Arrays.copyOf(array1, array1.length + Arrays.stream(arrays).mapToInt(a -> a.length).sum());
+        int offset = array1.length;
+        for (T[] array2 : arrays) {
+            System.arraycopy(array2, 0, result, offset, array2.length);
+            offset += array2.length;
+        }
+        return result;
     }
 }

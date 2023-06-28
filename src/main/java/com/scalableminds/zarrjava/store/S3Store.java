@@ -4,7 +4,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.scalableminds.zarrjava.v3.Utils;
+import com.scalableminds.zarrjava.utils.Utils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -12,7 +12,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
 
 public class S3Store implements Store, Store.ListableStore {
     @Nonnull
@@ -28,14 +27,14 @@ public class S3Store implements Store, Store.ListableStore {
         this.prefix = prefix;
     }
 
-    String dereferencePath(String key) {
+    String resolveKeys(String[] keys) {
         if (prefix == null) {
-            return key;
+            return String.join("/", keys);
         }
-        if (key == null || key.length() == 0) {
+        if (keys == null || keys.length == 0) {
             return prefix;
         }
-        return prefix + "/" + key;
+        return prefix + "/" + String.join("/", keys);
     }
 
     @Nullable
@@ -47,43 +46,54 @@ public class S3Store implements Store, Store.ListableStore {
         }
     }
 
-    @Nullable
     @Override
-    public ByteBuffer get(String key) {
-        return get(new GetObjectRequest(bucketName, dereferencePath(key)));
+    public boolean exists(String[] keys) {
+        return s3client.doesObjectExist(bucketName, resolveKeys(keys));
     }
 
     @Nullable
     @Override
-    public ByteBuffer get(String key, long start) {
-        return get(new GetObjectRequest(bucketName, dereferencePath(key)).withRange(start));
+    public ByteBuffer get(String[] keys) {
+        return get(new GetObjectRequest(bucketName, resolveKeys(keys)));
     }
 
     @Nullable
     @Override
-    public ByteBuffer get(String key, long start, long end) {
-        return get(new GetObjectRequest(bucketName, dereferencePath(key)).withRange(start, end));
+    public ByteBuffer get(String[] keys, long start) {
+        return get(new GetObjectRequest(bucketName, resolveKeys(keys)).withRange(start));
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer get(String[] keys, long start, long end) {
+        return get(new GetObjectRequest(bucketName, resolveKeys(keys)).withRange(start, end));
     }
 
     @Override
-    public void set(String key, ByteBuffer bytes) {
+    public void set(String[] keys, ByteBuffer bytes) {
         try (InputStream byteStream = new ByteArrayInputStream(bytes.array())) {
-            s3client.putObject(bucketName, dereferencePath(key), byteStream, new ObjectMetadata());
+            s3client.putObject(bucketName, resolveKeys(keys), byteStream, new ObjectMetadata());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public void delete(String key) {
-        s3client.deleteObject(bucketName, dereferencePath(key));
+    public void delete(String[] keys) {
+        s3client.deleteObject(bucketName, resolveKeys(keys));
     }
 
     @Override
-    public Iterator<String> list(String key) {
-        final String fullKey = dereferencePath(key);
+    public String[] list(String[] keys) {
+        final String fullKey = resolveKeys(keys);
         return s3client.listObjects(bucketName, fullKey).getObjectSummaries().stream().map(
-                p -> p.getKey().substring(fullKey.length() + 1)).iterator();
+                p -> p.getKey().substring(fullKey.length() + 1)).toArray(String[]::new);
+    }
+
+    @Nonnull
+    @Override
+    public StoreHandle resolve(String... keys) {
+        return new StoreHandle(this, keys);
     }
 
     @Override

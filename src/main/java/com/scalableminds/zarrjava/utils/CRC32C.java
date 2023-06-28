@@ -1,4 +1,4 @@
-package com.scalableminds.zarrjava.indexing;
+package com.scalableminds.zarrjava.utils;
 
 import java.nio.ByteBuffer;
 import java.util.zip.Checksum;
