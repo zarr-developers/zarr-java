@@ -16,9 +16,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.stream.Stream;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 public class ZarrTest {
 
@@ -72,25 +74,23 @@ public class ZarrTest {
 
     @Test
     public void testV3ShardingReadCutout() throws IOException, ZarrException {
-        Array array = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
+        Array array = Array.open(
+                new HttpStore("https://static.webknossos.org/data/zarr_v3").resolve("l4_sample", "color", "1"));
 
         ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new int[]{1, 64, 64, 64});
-        assert outArray.getSize() == 64 * 64 * 64;
-        assert outArray.getByte(0) == -98;
+        assertEquals(outArray.getSize(), 64 * 64 * 64);
+        assertEquals(outArray.getByte(0), -98);
     }
 
     @Test
     public void testV3ShardingReadWrite() throws IOException, ZarrException {
         Array readArray = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "4-4-1"));
-        System.out.println("READ");
         ucar.ma2.Array readArrayContent = readArray.read();
         Array writeArray = Array.create(new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "4-4-1"),
                 ArrayMetadata.builder().withShape(readArray.metadata.shape).withDataType(
                         readArray.metadata.dataType).withChunkShape(readArray.metadata.chunkShape()).withFillValue(
                         readArray.metadata.fillValue).withCodecs(readArray.metadata.codecs).build());
-        System.out.println("WRITE");
         writeArray.write(readArrayContent);
-        System.out.println("READ");
         ucar.ma2.Array outArray = writeArray.read();
 
         assert MultiArrayUtils.allValuesEqual(outArray, readArrayContent);
@@ -98,9 +98,9 @@ public class ZarrTest {
 
     @Test
     public void testV3FillValue() throws ZarrException {
-        assert (int) ArrayMetadata.parseFillValue(0, DataType.UINT32) == 0;
-        assert (int) ArrayMetadata.parseFillValue("0x00010203", DataType.UINT32) == 50462976;
-        assert (byte) ArrayMetadata.parseFillValue("0b00000010", DataType.UINT8) == 2;
+        assertEquals((int) ArrayMetadata.parseFillValue(0, DataType.UINT32), 0);
+        assertEquals((int) ArrayMetadata.parseFillValue("0x00010203", DataType.UINT32), 50462976);
+        assertEquals((byte) ArrayMetadata.parseFillValue("0b00000010", DataType.UINT8), 2);
         assert Double.isNaN((double) ArrayMetadata.parseFillValue("NaN", DataType.FLOAT64));
         assert Double.isInfinite((double) ArrayMetadata.parseFillValue("-Infinity", DataType.FLOAT64));
     }
@@ -116,8 +116,7 @@ public class ZarrTest {
                         5).withFillValue(0).build());
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        assert Arrays.equals(((Array) ((Group) group.list()[0]).list()[0]).metadata.chunkShape(),
-                new int[]{5, 5});
+        assertArrayEquals(((Array) ((Group) group.list()[0]).list()[0]).metadata.chunkShape(), new int[]{5, 5});
     }
 
     @Test
