@@ -1,29 +1,31 @@
 package com.scalableminds.zarrjava.store;
 
+import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.nio.ByteBuffer;
 
 public interface Store {
-    boolean exists(String[] keys);
 
-    @Nullable
-    ByteBuffer get(String[] keys);
+  boolean exists(String[] keys);
 
-    @Nullable
-    ByteBuffer get(String[] keys, long start);
+  @Nullable
+  ByteBuffer get(String[] keys);
 
-    @Nullable
-    ByteBuffer get(String[] keys, long start, long end);
+  @Nullable
+  ByteBuffer get(String[] keys, long start);
 
-    void set(String[] keys, ByteBuffer bytes);
+  @Nullable
+  ByteBuffer get(String[] keys, long start, long end);
 
-    void delete(String[] keys);
+  void set(String[] keys, ByteBuffer bytes);
 
-    @Nonnull
-    StoreHandle resolve(String... keys);
+  void delete(String[] keys);
 
-    interface ListableStore extends Store {
-        String[] list(String[] keys);
-    }
+  @Nonnull
+  StoreHandle resolve(String... keys);
+
+  interface ListableStore extends Store {
+
+    String[] list(String[] keys);
+  }
 }

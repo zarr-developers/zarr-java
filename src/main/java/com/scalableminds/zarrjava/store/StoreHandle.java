@@ -1,72 +1,72 @@
 package com.scalableminds.zarrjava.store;
 
 import com.scalableminds.zarrjava.utils.Utils;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class StoreHandle {
-    @Nonnull
-    final Store store;
-    @Nonnull
-    final String[] keys;
 
-    public StoreHandle(@Nonnull Store store, @Nonnull String... keys) {
-        this.store = store;
-        this.keys = keys;
-    }
+  @Nonnull
+  final Store store;
+  @Nonnull
+  final String[] keys;
 
-    @Nullable
-    public ByteBuffer read() {
-        return store.get(keys);
-    }
+  public StoreHandle(@Nonnull Store store, @Nonnull String... keys) {
+    this.store = store;
+    this.keys = keys;
+  }
 
-    @Nonnull
-    public ByteBuffer readNonNull() throws NoSuchFileException {
-        ByteBuffer bytes = read();
-        if (bytes == null) {
-            throw new NoSuchFileException(this.toString());
-        }
-        return bytes;
-    }
+  @Nullable
+  public ByteBuffer read() {
+    return store.get(keys);
+  }
 
-    @Nullable
-    public ByteBuffer read(long start) {
-        return store.get(keys, start);
+  @Nonnull
+  public ByteBuffer readNonNull() throws NoSuchFileException {
+    ByteBuffer bytes = read();
+    if (bytes == null) {
+      throw new NoSuchFileException(this.toString());
     }
+    return bytes;
+  }
 
-    @Nullable
-    public ByteBuffer read(long start, long end) {
-        return store.get(keys, start, end);
-    }
+  @Nullable
+  public ByteBuffer read(long start) {
+    return store.get(keys, start);
+  }
 
-    public void set(ByteBuffer bytes) {
-        store.set(keys, bytes);
-    }
+  @Nullable
+  public ByteBuffer read(long start, long end) {
+    return store.get(keys, start, end);
+  }
 
-    public void delete() {
-        store.delete(keys);
-    }
+  public void set(ByteBuffer bytes) {
+    store.set(keys, bytes);
+  }
 
-    public boolean exists() {
-        return store.exists(keys);
-    }
+  public void delete() {
+    store.delete(keys);
+  }
 
-    public String[] list() {
-        if (!(store instanceof Store.ListableStore)) {
-            throw new UnsupportedOperationException("The underlying store does not support listing.");
-        }
-        return ((Store.ListableStore) store).list(keys);
-    }
+  public boolean exists() {
+    return store.exists(keys);
+  }
 
-    @Override
-    public String toString() {
-        return store + "/" + String.join("/", keys);
+  public String[] list() {
+    if (!(store instanceof Store.ListableStore)) {
+      throw new UnsupportedOperationException("The underlying store does not support listing.");
     }
+    return ((Store.ListableStore) store).list(keys);
+  }
 
-    public StoreHandle resolve(String... subKeys) {
-        return new StoreHandle(store, Utils.concatArrays(keys, subKeys));
-    }
+  @Override
+  public String toString() {
+    return store + "/" + String.join("/", keys);
+  }
+
+  public StoreHandle resolve(String... subKeys) {
+    return new StoreHandle(store, Utils.concatArrays(keys, subKeys));
+  }
 }

@@ -2,27 +2,27 @@ package com.scalableminds.zarrjava.v2;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.Separator;
-
 import java.util.Optional;
 
 public class ArrayMetadata {
-    @JsonProperty("zarr_format")
-    public final int zarrFormat = 2;
 
-    public long[] shape;
-    public long[] chunks;
+  @JsonProperty("zarr_format")
+  public final int zarrFormat = 2;
 
-    @JsonProperty("dtype")
-    public DataType dataType;
+  public long[] shape;
+  public long[] chunks;
 
-    public Order order;
+  @JsonProperty("dtype")
+  public DataType dataType;
 
-    @JsonProperty("dimension_separator")
-    public Separator dimensionSeparator;
+  public Order order;
 
-    @JsonProperty("fill_value")
-    public Object fillValue;
+  @JsonProperty("dimension_separator")
+  public Separator dimensionSeparator;
 
-    public Optional<Object[]> filters;
-    public Optional<Object> compressor;
+  @JsonProperty("fill_value")
+  public Object fillValue;
+
+  public Optional<Object[]> filters;
+  public Optional<Object> compressor;
 }

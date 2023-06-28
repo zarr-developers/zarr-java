@@ -6,8 +6,10 @@ import ucar.ma2.Array;
 
 public interface ArrayArrayCodec extends Codec {
 
-    Array encode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException;
+  Array encode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+      throws ZarrException;
 
-    Array decode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException;
+  Array decode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+      throws ZarrException;
 
 }
