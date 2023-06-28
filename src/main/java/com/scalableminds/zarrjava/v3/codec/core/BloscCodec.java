@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
+import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
 
@@ -36,9 +37,7 @@ public class BloscCodec implements BytesBytesCodec {
 
     @Override
     public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
-        if (configuration.typesize < 1) {
-            throw new IllegalArgumentException("'typesize' needs to be larger than 0.");
-        }
+
         return ByteBuffer.wrap(
                 Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname, configuration.clevel,
                         configuration.shuffle, configuration.blocksize));
@@ -152,7 +151,13 @@ public class BloscCodec implements BytesBytesCodec {
                              @JsonDeserialize(using = BloscCodec.CustomShuffleDeserializer.class) Blosc.Shuffle shuffle,
                              @JsonProperty(value = "clevel", defaultValue = "5") int clevel,
                              @JsonProperty(value = "typesize", defaultValue = "0") int typesize,
-                             @JsonProperty(value = "blocksize", defaultValue = "0") int blocksize) {
+                             @JsonProperty(value = "blocksize", defaultValue = "0") int blocksize) throws ZarrException{
+            if (typesize < 1) {
+                throw new ZarrException("'typesize' needs to be larger than 0.");
+            }
+            if (clevel < 0 || clevel > 9) {
+                throw new ZarrException("'clevel' needs to be between 0 and 9.");
+            }
             this.cname = cname;
             this.shuffle = shuffle;
             this.clevel = clevel;

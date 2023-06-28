@@ -7,4 +7,10 @@
 + Write
 - Partial write
 - List iterator
-- Codec Builder
++ Codec Builder
++ Mutability (e.g. editing attributes, resizing)
+- Tests and docs
+- Windows support (e.g. file paths)?
+- CI
+- Caching hooks
+- Zarr v2 support

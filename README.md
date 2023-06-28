@@ -6,7 +6,7 @@ Java implementation of the Zarr Specification
 import com.scalableminds.zarrjava.store.FilesystemStore;
 import com.scalableminds.zarrjava.store.HttpStore;
 import com.scalableminds.zarrjava.v3.Array;
-import com.scalableminds.zarrjava.v3.ArrayMetadata;
+import com.scalableminds.zarrjava.v3.DataType;
 import com.scalableminds.zarrjava.v3.Group;
 
 Group hierarchy = Group.open(
@@ -21,12 +21,13 @@ ucar.ma2.Array outArray = array.read(
 
 Array array = Array.create(
     new FilesystemStore("/path/to/zarr").resolve("array"),
-    ArrayMetadata
-        .builder()
+    Array.metadataBuilder()
         .withShape(1, 4096, 4096, 1536)
-        .withDataType("uint32")
-        .withChunkShape(1, 128, 128, 182)
-        .build()
+        .withDataType(DataType.UINT32)
+        .withChunkShape(1, 1024, 1024, 1024)
+        .withFillValue(0)
+        .withCodecs(c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc(DataType.UINT32)))
+        .build();
 );
 array.write(
     new long[]{0, 0, 0, 0}, 

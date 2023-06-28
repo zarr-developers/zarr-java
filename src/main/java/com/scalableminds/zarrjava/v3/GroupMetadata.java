@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class GroupMetadata {
+    static final String NODE_TYPE = "group";
+    static final int ZARR_FORMAT = 3;
     @JsonProperty("zarr_format")
     public final int zarrFormat = 3;
     @JsonProperty("node_type")
@@ -16,6 +18,10 @@ public final class GroupMetadata {
 
     @Nullable
     public final Map<String, Object> attributes;
+
+    public GroupMetadata(@Nullable Map<String, Object> attributes) throws ZarrException {
+        this(ZARR_FORMAT, NODE_TYPE, attributes);
+    }
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public GroupMetadata(
@@ -36,7 +42,7 @@ public final class GroupMetadata {
     }
 
     public static GroupMetadata defaultValue() throws ZarrException {
-        return new GroupMetadata(3, "group", new HashMap<>());
+        return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new HashMap<>());
     }
 
     public static final class Builder {
@@ -48,7 +54,7 @@ public final class GroupMetadata {
         }
 
         public GroupMetadata build() throws ZarrException {
-            return new GroupMetadata(3, "group", attributes);
+            return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, attributes);
         }
     }
 }

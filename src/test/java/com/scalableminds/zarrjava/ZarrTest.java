@@ -96,6 +96,17 @@ public class ZarrTest {
     }
 
     @Test
+    public void testV3ArrayMetadataBuilder() throws ZarrException {
+        Array.metadataBuilder()
+                .withShape(1, 4096, 4096, 1536)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(1, 1024, 1024, 1024)
+                .withFillValue(0)
+                .withCodecs(c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc(DataType.UINT32)))
+                .build();
+    }
+
+    @Test
     public void testV3FillValue() throws ZarrException {
         assertEquals((int) ArrayMetadata.parseFillValue(0, DataType.UINT32), 0);
         assertEquals((int) ArrayMetadata.parseFillValue("0x00010203", DataType.UINT32), 50462976);

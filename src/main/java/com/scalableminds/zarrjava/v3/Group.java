@@ -9,7 +9,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class Group extends Node {
     public GroupMetadata metadata;
@@ -50,9 +52,9 @@ public class Group extends Node {
         try {
             String nodeType = objectMapper.readTree(metadataBytes.array()).get("node_type").asText();
             switch (nodeType) {
-                case "array":
+                case ArrayMetadata.NODE_TYPE:
                     return new Array(keyHandle, objectMapper.readValue(metadataBytearray, ArrayMetadata.class));
-                case "group":
+                case GroupMetadata.NODE_TYPE:
                     return new Group(keyHandle, objectMapper.readValue(metadataBytearray, GroupMetadata.class));
                 default:
                     throw new ZarrException("Unsupported node_type '" + nodeType + "' in " + keyHandle);
@@ -82,6 +84,23 @@ public class Group extends Node {
                 throw new RuntimeException(e);
             }
         }).filter(Objects::nonNull).toArray(Node[]::new);
+    }
+
+    private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {
+        ObjectMapper objectMapper = Node.makeObjectMapper();
+        ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(newGroupMetadata));
+        storeHandle.resolve(ZARR_JSON).set(metadataBytes);
+        return new Group(storeHandle, newGroupMetadata);
+    }
+
+    public Group setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
+        GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
+        return writeMetadata(newGroupMetadata);
+    }
+
+    public Group updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper) throws ZarrException,
+            IOException {
+        return setAttributes(attributeMapper.apply(metadata.attributes));
     }
 
     @Override

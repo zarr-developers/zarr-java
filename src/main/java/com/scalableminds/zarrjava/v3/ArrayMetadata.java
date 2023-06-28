@@ -13,6 +13,7 @@ import com.scalableminds.zarrjava.v3.chunkkeyencoding.DefaultChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.Separator;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.codec.Codec;
+import com.scalableminds.zarrjava.v3.codec.CodecBuilder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -20,13 +21,17 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 
 public final class ArrayMetadata {
+    static final String NODE_TYPE = "array";
+    static final int ZARR_FORMAT = 3;
+
     @JsonProperty("zarr_format")
-    public final int zarrFormat = 3;
+    public final int zarrFormat = ZARR_FORMAT;
     @JsonProperty("node_type")
-    public final String nodeType = "array";
+    public final String nodeType = NODE_TYPE;
 
 
     public final long[] shape;
@@ -58,6 +63,14 @@ public final class ArrayMetadata {
     @JsonIgnore
     public CoreArrayMetadata coreArrayMetadata;
 
+    public ArrayMetadata(long[] shape, DataType dataType, ChunkGrid chunkGrid, ChunkKeyEncoding chunkKeyEncoding, Object fillValue,
+                         @Nullable Codec[] codecs,
+                         @Nullable String[] dimensionNames,
+                         @Nullable Map<String, Object> attributes) throws ZarrException {
+        this(ZARR_FORMAT, NODE_TYPE, shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs, dimensionNames,
+                attributes);
+    }
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ArrayMetadata(
             @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
@@ -76,6 +89,7 @@ public final class ArrayMetadata {
         if (!nodeType.equals(this.nodeType)) {
             throw new ZarrException("Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
         }
+
         this.shape = shape;
         this.dataType = dataType;
         this.chunkGrid = chunkGrid;
@@ -323,6 +337,12 @@ public final class ArrayMetadata {
             return this;
         }
 
+        public Builder withCodecs(Function<CodecBuilder, CodecBuilder> codecBuilder) {
+            CodecBuilder nestedCodecBuilder = new CodecBuilder();
+            this.codecs = codecBuilder.apply(nestedCodecBuilder).build();
+            return this;
+        }
+
         public Builder withDimensionNames(String... dimensionNames) {
             this.dimensionNames = dimensionNames;
             return this;
@@ -351,8 +371,8 @@ public final class ArrayMetadata {
                         chunkGrid.configuration.chunkShape.length + ") need to have the same " +
                         "number of dimensions.");
             }
-            return new ArrayMetadata(3, "array", shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
-                    dimensionNames, attributes);
+            return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs, dimensionNames,
+                    attributes);
         }
     }
 }

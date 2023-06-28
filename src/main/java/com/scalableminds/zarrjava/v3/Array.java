@@ -13,6 +13,8 @@ import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Array extends Node {
@@ -126,8 +128,7 @@ public class Array extends Node {
 
                         ucar.ma2.Array chunkArray;
                         if (IndexingUtils.isFullChunk(chunkProjection.chunkOffset, chunkProjection.shape, chunkShape)) {
-                            chunkArray = array.sectionNoReduce(chunkProjection.outOffset, chunkProjection.shape,
-                                    null);
+                            chunkArray = array.sectionNoReduce(chunkProjection.outOffset, chunkProjection.shape, null);
                         } else {
                             chunkArray = readChunk(chunkCoords);
                             MultiArrayUtils.copyRegion(array, chunkProjection.outOffset, chunkArray,
@@ -152,11 +153,44 @@ public class Array extends Node {
         }
     }
 
+    private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
+        ObjectMapper objectMapper = Node.makeObjectMapper();
+        ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(newArrayMetadata));
+        storeHandle.resolve(ZARR_JSON).set(metadataBytes);
+        return new Array(storeHandle, newArrayMetadata);
+    }
+
+    public Array resize(long[] newShape) throws ZarrException, IOException {
+        if (newShape.length != metadata.ndim()) {
+            throw new IllegalArgumentException("'newShape' needs to have rank '" + metadata.ndim() + "'.");
+        }
+
+        ArrayMetadata newArrayMetadata =
+                new ArrayMetadata(newShape, metadata.dataType, metadata.chunkGrid, metadata.chunkKeyEncoding,
+                        metadata.parsedFillValue, metadata.codecs, metadata.dimensionNames, metadata.attributes);
+        return writeMetadata(newArrayMetadata);
+    }
+
+    public Array setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
+        ArrayMetadata newArrayMetadata =
+                new ArrayMetadata(metadata.shape, metadata.dataType, metadata.chunkGrid, metadata.chunkKeyEncoding,
+                        metadata.parsedFillValue, metadata.codecs, metadata.dimensionNames, newAttributes);
+        return writeMetadata(newArrayMetadata);
+    }
+
+    public Array updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper) throws ZarrException,
+            IOException {
+        return setAttributes(attributeMapper.apply(metadata.attributes));
+    }
 
     @Override
     public String toString() {
         return String.format("<v3.Array {%s} (%s) %s>", storeHandle,
                 Arrays.stream(metadata.shape).mapToObj(Long::toString).collect(Collectors.joining(", ")),
                 metadata.dataType);
+    }
+
+    public static ArrayMetadata.Builder metadataBuilder() {
+        return ArrayMetadata.builder();
     }
 }

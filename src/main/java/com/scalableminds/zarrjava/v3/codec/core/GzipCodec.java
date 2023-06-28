@@ -2,6 +2,7 @@ package com.scalableminds.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
 
@@ -56,7 +57,10 @@ public class GzipCodec implements BytesBytesCodec {
         public final int level;
 
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        public Configuration(@JsonProperty(value = "level", defaultValue = "5") int level) {
+        public Configuration(@JsonProperty(value = "level", defaultValue = "5") int level) throws ZarrException {
+            if (level < 0 || level > 9) {
+                throw new ZarrException("'level' needs to be between 0 and 9.");
+            }
             this.level = level;
         }
     }
