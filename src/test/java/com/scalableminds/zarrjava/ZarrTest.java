@@ -74,8 +74,7 @@ public class ZarrTest {
 
     @Test
     public void testV3ShardingReadCutout() throws IOException, ZarrException {
-        Array array = Array.open(
-                new HttpStore("https://static.webknossos.org/data/zarr_v3").resolve("l4_sample", "color", "1"));
+        Array array = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
 
         ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new int[]{1, 64, 64, 64});
         assertEquals(outArray.getSize(), 64 * 64 * 64);
