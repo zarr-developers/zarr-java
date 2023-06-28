@@ -6,3 +6,5 @@
 - Partial read
 + Write
 - Partial write
+- List iterator
+- Codec Builder
