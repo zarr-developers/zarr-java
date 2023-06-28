@@ -1,6 +1,5 @@
 package com.scalableminds.zarrjava.store;
 
-import com.scalableminds.zarrjava.ZarrException;
 import com.squareup.okhttp.*;
 
 import javax.annotation.Nonnull;
@@ -98,6 +97,6 @@ public class HttpStore implements Store {
 
     @Override
     public String toString() {
-        return uri.toString();
+        return uri;
     }
 }

@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.*;
-import java.util.Iterator;
 import java.util.stream.Stream;
 
 public class FilesystemStore implements Store, Store.ListableStore {

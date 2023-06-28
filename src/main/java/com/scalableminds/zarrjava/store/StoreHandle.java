@@ -6,8 +6,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
-import java.util.Iterator;
-import java.util.stream.Stream;
 
 public class StoreHandle {
     @Nonnull

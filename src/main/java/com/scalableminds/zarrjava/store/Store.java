@@ -3,8 +3,6 @@ package com.scalableminds.zarrjava.store;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
-import java.util.stream.Stream;
 
 public interface Store {
     boolean exists(String[] keys);
@@ -23,7 +21,7 @@ public interface Store {
     void delete(String[] keys);
 
     @Nonnull
-    StoreHandle resolve(String ...keys);
+    StoreHandle resolve(String... keys);
 
     interface ListableStore extends Store {
         String[] list(String[] keys);

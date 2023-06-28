@@ -196,7 +196,7 @@ public final class ArrayMetadata {
                 }
             }
         }
-        throw new ZarrException("Invalid fill value '"+ fillValue+"'.");
+        throw new ZarrException("Invalid fill value '" + fillValue + "'.");
     }
 
     public static Builder builder() {

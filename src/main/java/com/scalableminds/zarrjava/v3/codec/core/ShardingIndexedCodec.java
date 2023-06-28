@@ -6,8 +6,8 @@ import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.utils.CRC32C;
 import com.scalableminds.zarrjava.utils.IndexingUtils;
 import com.scalableminds.zarrjava.utils.MultiArrayUtils;
-import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.utils.Utils;
+import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.ArrayBytesCodec;
 import com.scalableminds.zarrjava.v3.codec.Codec;
 import com.scalableminds.zarrjava.v3.codec.CodecPipeline;
@@ -108,7 +108,8 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
                 new ArrayMetadata.CoreArrayMetadata(Utils.toLongArray(arrayMetadata.chunkShape),
                         configuration.chunkShape, arrayMetadata.dataType, arrayMetadata.parsedFillValue);
 
-        Arrays.stream(IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).parallel().forEach(
+        Arrays.stream(
+                IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).parallel().forEach(
                 chunkCoords -> {
                     try {
                         final int i = (int) IndexingUtils.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
@@ -118,7 +119,8 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
                         final int chunkByteLength = (int) shardIndex[i][1];
                         Array chunkArray = null;
                         final IndexingUtils.ChunkProjection chunkProjection =
-                                IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape, shardMetadata.chunkShape);
+                                IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
+                                        shardMetadata.chunkShape);
                         if (chunkByteOffset != -1 && chunkByteLength != -1) {
                             shardBytesSlice.limit(chunkByteOffset + chunkByteLength);
                             shardBytesSlice.position(chunkByteOffset);
@@ -151,12 +153,14 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
         final long[][] shardIndex = new long[chunkCount][2];
         final List<ByteBuffer> chunkBytesList = new ArrayList<>(chunkCount);
 
-        Arrays.stream(IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).parallel().forEach(
+        Arrays.stream(
+                IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape)).parallel().forEach(
                 chunkCoords -> {
                     try {
                         final int i = (int) IndexingUtils.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
                         final IndexingUtils.ChunkProjection chunkProjection =
-                                IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape, shardMetadata.chunkShape);
+                                IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
+                                        shardMetadata.chunkShape);
                         final Array chunkArray =
                                 shardArray.sectionNoReduce(chunkProjection.outOffset, chunkProjection.shape, null);
                         if (MultiArrayUtils.allValuesEqual(chunkArray, shardMetadata.parsedFillValue)) {

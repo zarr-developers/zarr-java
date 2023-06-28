@@ -2,9 +2,9 @@ package com.scalableminds.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.utils.IndexingUtils;
 import com.scalableminds.zarrjava.utils.MultiArrayUtils;
-import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.codec.CodecPipeline;
 import ucar.ma2.InvalidRangeException;

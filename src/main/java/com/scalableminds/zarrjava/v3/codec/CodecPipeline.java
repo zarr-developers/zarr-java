@@ -64,7 +64,9 @@ public class CodecPipeline {
     }
 
     @Nonnull
-    public Array decode(@Nonnull ByteBuffer chunkBytes, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    public Array decode(
+            @Nonnull ByteBuffer chunkBytes,
+            @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         for (BytesBytesCodec codec : getBytesBytesCodecs()) {
             chunkBytes = codec.decode(chunkBytes, arrayMetadata);
         }
@@ -78,7 +80,8 @@ public class CodecPipeline {
     }
 
     @Nonnull
-    public ByteBuffer encode(@Nonnull Array chunkArray, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    public ByteBuffer encode(
+            @Nonnull Array chunkArray, @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         for (ArrayArrayCodec codec : getArrayArrayCodecs()) {
             chunkArray = codec.encode(chunkArray, arrayMetadata);
         }
