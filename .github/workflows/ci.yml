@@ -22,7 +22,7 @@ jobs:
 
     - name: Download blosc jar
       run: |
-        wget https://static.webknossos.orgm/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar
+        wget https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar
         mkdir -p ../blosc-java/target
         mv *.jar ../blosc-java/target
         rm blosc-jar.zip
