@@ -8,8 +8,13 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu, windows, macos ]
+    runs-on: ${{ matrix.os }}-latest
+    defaults:
+      run:
+        shell: bash
 
     steps:
     - uses: actions/checkout@v3
