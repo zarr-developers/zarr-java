@@ -25,7 +25,6 @@ jobs:
         wget https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar
         mkdir -p ../blosc-java/target
         mv *.jar ../blosc-java/target
-        rm blosc-jar.zip
 
     - name: Build
       run: mvn -B package --file pom.xml
