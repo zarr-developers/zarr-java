@@ -3,6 +3,8 @@ package com.scalableminds.zarrjava;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -76,7 +78,7 @@ public class ZarrTest {
   public void testS3Store() throws IOException, ZarrException {
     S3Store s3Store = new S3Store(AmazonS3ClientBuilder.standard()
         .withRegion("eu-west-1")
-        .withCredentials(new ProfileCredentialsProvider())
+        .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
         .build(), "static.webknossos.org", "data");
     System.out.println(Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1")));
   }

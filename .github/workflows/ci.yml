@@ -38,7 +38,7 @@ jobs:
         unzip l4_sample.zip
 
     - name: Build
-      run: mvn -B package --file pom.xml -DargLine="-Xmx6g"
+      run: mvn compile
 
     - name: Test
       env:
