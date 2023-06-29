@@ -9,6 +9,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -85,15 +86,12 @@ public class S3Store implements Store, Store.ListableStore {
   }
 
   @Override
-  public String[] list(String[] keys) {
+  public Stream<String> list(String[] keys) {
     final String fullKey = resolveKeys(keys);
     return s3client.listObjects(bucketName, fullKey)
         .getObjectSummaries()
         .stream()
-        .map(
-            p -> p.getKey()
-                .substring(fullKey.length() + 1))
-        .toArray(String[]::new);
+        .map(p -> p.getKey().substring(fullKey.length() + 1));
   }
 
   @Nonnull

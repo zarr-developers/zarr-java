@@ -1,6 +1,8 @@
 package com.scalableminds.zarrjava.store;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -26,6 +28,6 @@ public interface Store {
 
   interface ListableStore extends Store {
 
-    String[] list(String[] keys);
+    Stream<String> list(String[] keys);
   }
 }

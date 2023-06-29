@@ -6,7 +6,7 @@
 - Partial read
 + Write
 - Partial write
-- List iterator
++ List iterator
 + Codec Builder
 + Mutability (e.g. editing attributes, resizing)
 - Tests and docs

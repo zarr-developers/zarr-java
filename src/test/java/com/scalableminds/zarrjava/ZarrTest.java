@@ -142,7 +142,7 @@ public class ZarrTest {
     );
     array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-    assertArrayEquals(((Array) ((Group) group.list()[0]).list()[0]).metadata.chunkShape(),
+    assertArrayEquals(((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape(),
         new int[]{5, 5});
   }
 

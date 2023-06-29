@@ -3,6 +3,7 @@ package com.scalableminds.zarrjava.store;
 import com.scalableminds.zarrjava.utils.Utils;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -54,7 +55,7 @@ public class StoreHandle {
     return store.exists(keys);
   }
 
-  public String[] list() {
+  public Stream<String> list() {
     if (!(store instanceof Store.ListableStore)) {
       throw new UnsupportedOperationException("The underlying store does not support listing.");
     }

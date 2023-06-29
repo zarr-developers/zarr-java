@@ -5,10 +5,10 @@ import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.store.StoreHandle;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -96,9 +96,9 @@ public class Group extends Node {
       throws IOException, ZarrException {
     return Array.create(storeHandle.resolve(key), arrayMetadata);
   }
-
-  public Node[] list() {
-    return Arrays.stream(storeHandle.list())
+  
+  public Stream<Node> list() {
+    return storeHandle.list()
         .map(key -> {
           try {
             return get(key);
@@ -106,8 +106,13 @@ public class Group extends Node {
             throw new RuntimeException(e);
           }
         })
-        .filter(Objects::nonNull)
-        .toArray(Node[]::new);
+        .filter(Objects::nonNull);
+  }
+
+  public Node[] listAsArray() {
+    try (Stream<Node> nodeStream = list()) {
+      return nodeStream.toArray(Node[]::new);
+    }
   }
 
   private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {

@@ -121,11 +121,9 @@ public class FilesystemStore implements Store, Store.ListableStore {
     }
   }
 
-  public String[] list(String[] keys) {
-    try (Stream<Path> paths = Files.list(resolveKeys(keys))) {
-      return paths.map(p -> p.toFile()
-              .getName())
-          .toArray(String[]::new);
+  public Stream<String> list(String[] keys) {
+    try {
+      return Files.list(resolveKeys(keys)).map(p -> p.toFile().getName());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
