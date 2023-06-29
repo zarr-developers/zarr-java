@@ -22,8 +22,7 @@ jobs:
 
     - name: Download blosc jar
       run: |
-        wget https://github.com/scalableminds/blosc-java/suites/13916752572/artifacts/774573653 -O blosc-jar.zip
-        unzip blosc-jar.zip
+        wget https://static.webknossos.orgm/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar
         mkdir -p ../blosc-java/target
         mv *.jar ../blosc-java/target
         rm blosc-jar.zip
