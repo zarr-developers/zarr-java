@@ -10,7 +10,7 @@
 + Codec Builder
 + Mutability (e.g. editing attributes, resizing)
 - Tests and docs
-- Windows support (e.g. file paths)?
-- CI
++ Windows support (e.g. file paths)?
++ CI
 - Caching hooks
 - Zarr v2 support
