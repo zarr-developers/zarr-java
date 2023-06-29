@@ -44,15 +44,8 @@ public class ZarrTest {
   }
 
   @Test
-  public void testStores() throws IOException, ZarrException {
-    FilesystemStore fsDataStore = new FilesystemStore(TESTDATA);
-    FilesystemStore fsOutStore = new FilesystemStore(TESTOUTPUT);
-    HttpStore httpStore = new HttpStore("https://static.webknossos.org/data/");
-    S3Store s3Store = new S3Store(AmazonS3ClientBuilder.standard()
-        .withRegion("eu-west-1")
-        .withCredentials(new ProfileCredentialsProvider())
-        .build(), "static.webknossos.org", "data");
-
+  public void testFileSystemStores() throws IOException, ZarrException {
+    FilesystemStore fsStore = new FilesystemStore(TESTDATA);
     ObjectMapper objectMapper = Node.makeObjectMapper();
 
     GroupMetadata group = objectMapper.readValue(
@@ -71,19 +64,29 @@ public class ZarrTest {
     System.out.println(objectMapper.writeValueAsString(arrayMetadata));
 
     System.out.println(
-        Array.open(fsDataStore.resolve("l4_sample", "color", "1")));
+        Array.open(fsStore.resolve("l4_sample", "color", "1")));
     System.out.println(
-        Arrays.toString(Group.open(fsDataStore.resolve("l4_sample")).list().toArray(Node[]::new)));
+        Arrays.toString(Group.open(fsStore.resolve("l4_sample")).list().toArray(Node[]::new)));
     System.out.println(
-        Arrays.toString(((Group) Group.open(fsDataStore.resolve("l4_sample")).get("color")).list()
+        Arrays.toString(((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).list()
             .toArray(Node[]::new)));
+  }
 
+  @Test
+  public void testS3Store() throws IOException, ZarrException {
+    S3Store s3Store = new S3Store(AmazonS3ClientBuilder.standard()
+        .withRegion("eu-west-1")
+        .withCredentials(new ProfileCredentialsProvider())
+        .build(), "static.webknossos.org", "data");
+    System.out.println(Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1")));
+  }
+
+  @Test
+  public void testHttpStore() throws IOException, ZarrException {
+    HttpStore httpStore = new HttpStore("https://static.webknossos.org/data/");
     System.out.println(
         com.scalableminds.zarrjava.v2.Array.open(httpStore.resolve("l4_sample", "color", "1")));
-
     System.out.println(Array.open(httpStore.resolve("zarr_v3", "l4_sample", "color", "1")));
-    System.out.println(Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1")));
-
   }
 
   @Test
