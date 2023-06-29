@@ -10,7 +10,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu, macos ]
+        os: [ ubuntu, windows, macos ]
     runs-on: ${{ matrix.os }}-latest
     defaults:
       run:
@@ -27,14 +27,13 @@ jobs:
 
     - name: Download blosc jar
       run: |
-        wget https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar
         mkdir -p ../blosc-java/target
-        mv *.jar ../blosc-java/target
+        curl https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar -O ../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar
 
     - name: Download testdata
       run: |
         mkdir testdata testoutput
-        wget https://static.webknossos.org/data/zarr_v3/l4_sample.zip -O testdata/l4_sample.zip
+        curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -O testdata/l4_sample.zip
         unzip testdata/l4_sample.zip
 
     - name: Build
