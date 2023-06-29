@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.stream.Stream;
@@ -44,7 +45,8 @@ public class ZarrTest {
 
   @Test
   public void testStores() throws IOException, ZarrException {
-    FilesystemStore fsStore = new FilesystemStore(TESTOUTPUT);
+    FilesystemStore fsDataStore = new FilesystemStore(TESTDATA);
+    FilesystemStore fsOutStore = new FilesystemStore(TESTOUTPUT);
     HttpStore httpStore = new HttpStore("https://static.webknossos.org/data/");
     S3Store s3Store = new S3Store(AmazonS3ClientBuilder.standard()
         .withRegion("eu-west-1")
@@ -54,7 +56,7 @@ public class ZarrTest {
     ObjectMapper objectMapper = Node.makeObjectMapper();
 
     GroupMetadata group = objectMapper.readValue(
-        Files.readAllBytes(TESTDATA.resolve("l4_sample_no_sharding").resolve("zarr.json")),
+        Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
         GroupMetadata.class
     );
 
@@ -62,16 +64,19 @@ public class ZarrTest {
     System.out.println(objectMapper.writeValueAsString(group));
 
     ArrayMetadata arrayMetadata = objectMapper.readValue(Files.readAllBytes(TESTDATA.resolve(
-            "l4_sample_no_sharding").resolve("color").resolve("1").resolve("zarr.json")),
+            "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
         ArrayMetadata.class);
 
     System.out.println(arrayMetadata);
     System.out.println(objectMapper.writeValueAsString(arrayMetadata));
 
     System.out.println(
-        Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample_no_sharding", "color", "1")));
-    // System.out.println(new Group(fsStore, "l4_sample_no_sharding").list());
-    // System.out.println(((Group) new Group(fsStore, "l4_sample_no_sharding").get("color")).list());
+        Array.open(fsDataStore.resolve("l4_sample", "color", "1")));
+    System.out.println(
+        Arrays.toString(Group.open(fsDataStore.resolve("l4_sample")).list().toArray(Node[]::new)));
+    System.out.println(
+        Arrays.toString(((Group) Group.open(fsDataStore.resolve("l4_sample")).get("color")).list()
+            .toArray(Node[]::new)));
 
     System.out.println(
         com.scalableminds.zarrjava.v2.Array.open(httpStore.resolve("l4_sample", "color", "1")));
@@ -142,7 +147,8 @@ public class ZarrTest {
     );
     array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-    assertArrayEquals(((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape(),
+    assertArrayEquals(
+        ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape(),
         new int[]{5, 5});
   }
 
