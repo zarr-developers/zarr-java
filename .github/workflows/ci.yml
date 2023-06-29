@@ -38,11 +38,9 @@ jobs:
         unzip l4_sample.zip
 
     - name: Build
-      env:
-        MAVEN_OPTS: "-Xmx6g"
-      run: mvn -B package --file pom.xml
+      run: mvn -B package --file pom.xml -DargLine="-Xmx6g"
 
     - name: Test
       env:
         MAVEN_OPTS: "-Xmx6g"
-      run: mvn test
+      run: mvn test -DargLine="-Xmx6g"
