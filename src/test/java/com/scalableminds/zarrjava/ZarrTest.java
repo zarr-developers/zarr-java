@@ -98,10 +98,10 @@ public class ZarrTest {
   @Test
   public void testV3ShardingReadWrite() throws IOException, ZarrException {
     Array readArray = Array.open(
-        new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "4-4-1"));
+        new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
     ucar.ma2.Array readArrayContent = readArray.read();
     Array writeArray = Array.create(
-        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "4-4-1"),
+        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "8-8-2"),
         readArray.metadata
     );
     writeArray.write(readArrayContent);
