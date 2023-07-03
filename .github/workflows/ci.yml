@@ -46,7 +46,7 @@ jobs:
         run: mvn test -DargLine="-Xmx6g"
 
       - name: Assemble JAR
-        run: mvn package
+        run: mvn package -DskipTests
 
       - uses: actions/upload-artifact@v3
         with:
