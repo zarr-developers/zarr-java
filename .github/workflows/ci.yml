@@ -17,30 +17,38 @@ jobs:
         shell: bash
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK
-      uses: actions/setup-java@v3
-      with:
-        java-version: '8'
-        distribution: 'temurin'
-        cache: maven
+      - uses: actions/checkout@v3
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
 
-    - name: Download blosc jar
-      run: |
-        mkdir -p ../blosc-java/target
-        curl https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar -o ../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar
+      - name: Download blosc jar
+        run: |
+          mkdir -p ../blosc-java/target
+          curl https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar -o ../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar
 
-    - name: Download testdata
-      run: |
-        mkdir testdata testoutput
-        curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
-        cd testdata
-        unzip l4_sample.zip
+      - name: Download testdata
+        run: |
+          mkdir testdata testoutput
+          curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
+          cd testdata
+          unzip l4_sample.zip
 
-    - name: Build
-      run: mvn compile
+      - name: Build
+        run: mvn compile
 
-    - name: Test
-      env:
-        MAVEN_OPTS: "-Xmx6g"
-      run: mvn test -DargLine="-Xmx6g"
+      - name: Test
+        env:
+          MAVEN_OPTS: "-Xmx6g"
+        run: mvn test -DargLine="-Xmx6g"
+
+      - name: Assemble JAR
+        run: mvn package
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: jar
+          path: target/*.jar
