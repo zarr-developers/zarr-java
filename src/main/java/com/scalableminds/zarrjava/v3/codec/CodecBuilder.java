@@ -4,11 +4,14 @@ import com.scalableminds.bloscjava.Blosc;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.DataType;
 import com.scalableminds.zarrjava.v3.codec.core.BloscCodec;
-import com.scalableminds.zarrjava.v3.codec.core.EndianCodec;
+import com.scalableminds.zarrjava.v3.codec.core.BytesCodec;
+import com.scalableminds.zarrjava.v3.codec.core.BytesCodec.Endian;
 import com.scalableminds.zarrjava.v3.codec.core.GzipCodec;
 import com.scalableminds.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import com.scalableminds.zarrjava.v3.codec.core.TransposeCodec;
+import com.scalableminds.zarrjava.v3.codec.core.ZstdCodec;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
@@ -66,13 +69,13 @@ public class CodecBuilder {
     return this;
   }
 
-  public CodecBuilder withEndian(EndianCodec.Endian endian) {
-    codecs.add(new EndianCodec(new EndianCodec.Configuration(endian)));
+  public CodecBuilder withBytes(BytesCodec.Endian endian) {
+    codecs.add(new BytesCodec(new BytesCodec.Configuration(endian)));
     return this;
   }
 
-  public CodecBuilder withEndian(String endian) {
-    return withEndian(EndianCodec.Endian.valueOf(endian));
+  public CodecBuilder withBytes(String endian) {
+    return withBytes(BytesCodec.Endian.valueOf(endian));
   }
 
   public CodecBuilder withGzip(int clevel) {
@@ -86,6 +89,23 @@ public class CodecBuilder {
 
   public CodecBuilder withGzip() {
     return withGzip(5);
+  }
+
+  public CodecBuilder withZstd(int clevel, boolean checksum) {
+    try {
+      codecs.add(new ZstdCodec(new ZstdCodec.Configuration(clevel, checksum)));
+    } catch (ZarrException e) {
+      throw new RuntimeException(e);
+    }
+    return this;
+  }
+
+  public CodecBuilder withZstd() {
+    return withZstd(5, true);
+  }
+
+  public CodecBuilder withZstd(int clevel) {
+    return withZstd(clevel, true);
   }
 
   public CodecBuilder withSharding(int[] chunkShape) {
@@ -111,7 +131,22 @@ public class CodecBuilder {
     return this;
   }
 
+  private void autoInsertBytesCodec() {
+    if (codecs.stream().noneMatch(c -> c instanceof ArrayBytesCodec)) {
+      Codec[] arrayArrayCodecs = codecs.stream().filter(c -> c instanceof ArrayArrayCodec)
+          .toArray(Codec[]::new);
+      Codec[] bytesBytesCodecs = codecs.stream().filter(c -> c instanceof BytesBytesCodec)
+          .toArray(Codec[]::new);
+      this.codecs = new ArrayList<>();
+      Collections.addAll(this.codecs, arrayArrayCodecs);
+      this.codecs.add(new BytesCodec(new BytesCodec.Configuration(Endian.LITTLE)));
+      Collections.addAll(this.codecs, bytesBytesCodecs);
+    }
+  }
+
   public Codec[] build() {
+    autoInsertBytesCodec();
+
     return codecs.toArray(new Codec[0]);
   }
 }

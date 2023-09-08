@@ -15,6 +15,7 @@
         <jackson.version>2.14.2</jackson.version>
         <aws.version>1.12.477</aws.version>
         <netcdfJavaVersion>5.5.3</netcdfJavaVersion>
+        <zstdVersion>1.5.5-5</zstdVersion>
     </properties>
 
     <dependencies>
@@ -42,6 +43,11 @@
             <groupId>com.scalableminds</groupId>
             <artifactId>blosc-java</artifactId>
             <version>0.1-1.21.4</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
+            <version>${zstdVersion}</version>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp</groupId>

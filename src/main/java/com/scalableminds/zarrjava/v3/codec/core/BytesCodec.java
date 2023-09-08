@@ -10,14 +10,14 @@ import java.nio.ByteOrder;
 import javax.annotation.Nonnull;
 import ucar.ma2.Array;
 
-public class EndianCodec implements ArrayBytesCodec {
+public class BytesCodec implements ArrayBytesCodec {
 
-  public final String name = "endian";
+  public final String name = "bytes";
   @Nonnull
   public final Configuration configuration;
 
   @JsonCreator
-  public EndianCodec(
+  public BytesCodec(
       @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration
   ) {
     this.configuration = configuration;
@@ -64,11 +64,11 @@ public class EndianCodec implements ArrayBytesCodec {
   public static final class Configuration {
 
     @Nonnull
-    public final EndianCodec.Endian endian;
+    public final BytesCodec.Endian endian;
 
     @JsonCreator
     public Configuration(
-        @JsonProperty(value = "endian", defaultValue = "little") EndianCodec.Endian endian) {
+        @JsonProperty(value = "endian", defaultValue = "little") BytesCodec.Endian endian) {
       this.endian = endian;
     }
   }

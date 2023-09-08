@@ -5,7 +5,6 @@ import static org.junit.Assert.assertEquals;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scalableminds.zarrjava.store.FilesystemStore;
@@ -113,6 +112,37 @@ public class ZarrTest {
     ucar.ma2.Array outArray = writeArray.read();
 
     assert MultiArrayUtils.allValuesEqual(outArray, readArrayContent);
+  }
+
+  @Test
+  public void testV3Codecs() throws IOException, ZarrException {
+    Array readArray = Array.open(
+        new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
+    ucar.ma2.Array readArrayContent = readArray.read();
+
+    Array gzipArray = Array.create(
+        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_gzip", "color", "8-8-2"),
+        Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withGzip(5)).build()
+    );
+    gzipArray.write(readArrayContent);
+    ucar.ma2.Array outGzipArray = gzipArray.read();
+    assert MultiArrayUtils.allValuesEqual(outGzipArray, readArrayContent);
+
+    Array bloscArray = Array.create(
+        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_blosc", "color", "8-8-2"),
+        Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withBlosc("zstd", 5)).build()
+    );
+    bloscArray.write(readArrayContent);
+    ucar.ma2.Array outBloscArray = gzipArray.read();
+    assert MultiArrayUtils.allValuesEqual(outBloscArray, readArrayContent);
+
+    Array zstdArray = Array.create(
+        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_zstd", "color", "8-8-2"),
+        Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withZstd(10)).build()
+    );
+    zstdArray.write(readArrayContent);
+    ucar.ma2.Array outZstdArray = gzipArray.read();
+    assert MultiArrayUtils.allValuesEqual(outZstdArray, readArrayContent);
   }
 
   @Test

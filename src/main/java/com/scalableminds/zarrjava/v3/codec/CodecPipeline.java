@@ -3,7 +3,6 @@ package com.scalableminds.zarrjava.v3.codec;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
-import com.scalableminds.zarrjava.v3.codec.core.EndianCodec;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
@@ -19,6 +18,12 @@ public class CodecPipeline {
     if (codecs == null) {
       this.codecs = new Codec[0];
     } else {
+      long arrayBytesCodecCount = Arrays.stream(codecs).filter(c -> c instanceof ArrayBytesCodec)
+          .count();
+      if (arrayBytesCodecCount != 1) {
+        throw new ZarrException(
+            "Exactly 1 ArrayBytesCodec is required. Found " + arrayBytesCodecCount + ".");
+      }
       Codec prevCodec = null;
       for (Codec codec : codecs) {
         if (prevCodec != null) {
@@ -57,12 +62,13 @@ public class CodecPipeline {
   }
 
   ArrayBytesCodec getArrayBytesCodec() {
-      for (Codec codec : codecs) {
-          if (codec instanceof ArrayBytesCodec) {
-              return (ArrayBytesCodec) codec;
-          }
+    for (Codec codec : codecs) {
+      if (codec instanceof ArrayBytesCodec) {
+        return (ArrayBytesCodec) codec;
       }
-    return new EndianCodec(new EndianCodec.Configuration(EndianCodec.Endian.LITTLE));
+    }
+    throw new RuntimeException(
+        "Unreachable because the existence of exactly 1 ArrayBytes codec is asserted upon construction.");
   }
 
   BytesBytesCodec[] getBytesBytesCodecs() {
@@ -76,14 +82,25 @@ public class CodecPipeline {
       @Nonnull ByteBuffer chunkBytes,
       @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata
   ) throws ZarrException {
-    for (BytesBytesCodec codec : getBytesBytesCodecs()) {
+    if (chunkBytes == null) {
+      throw new ZarrException("chunkBytes is null. Ohh nooo.");
+    }
+    for (BytesBytesCodec codec : getBytesBytesCodecs()) { // TODO iterate in reverse
       chunkBytes = codec.decode(chunkBytes, arrayMetadata);
     }
-
+    if (chunkBytes == null) {
+      throw new ZarrException("chunkBytes is null. This is likely a bug in one of the codecs. " + Arrays.toString(
+          getBytesBytesCodecs()));
+    }
     Array chunkArray = getArrayBytesCodec().decode(chunkBytes, arrayMetadata);
-
-    for (ArrayArrayCodec codec : getArrayArrayCodecs()) {
+    if (chunkArray == null) {
+      throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
+    }
+    for (ArrayArrayCodec codec : getArrayArrayCodecs()) { // TODO iterate in reverse
       chunkArray = codec.decode(chunkArray, arrayMetadata);
+    }
+    if (chunkArray == null) {
+      throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
     }
     return chunkArray;
   }

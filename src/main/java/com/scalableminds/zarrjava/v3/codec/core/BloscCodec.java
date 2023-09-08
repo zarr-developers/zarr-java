@@ -32,18 +32,27 @@ public class BloscCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
-    return ByteBuffer.wrap(Blosc.decompress(chunkBytes.array()));
+  public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+      throws ZarrException {
+    try {
+      return ByteBuffer.wrap(Blosc.decompress(chunkBytes.array()));
+    } catch (Exception ex) {
+      throw new ZarrException("Error in decoding blosc.", ex);
+    }
   }
 
   @Override
-  public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
-
-    return ByteBuffer.wrap(
-        Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname,
-            configuration.clevel,
-            configuration.shuffle, configuration.blocksize
-        ));
+  public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+      throws ZarrException {
+    try {
+      return ByteBuffer.wrap(
+          Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname,
+              configuration.clevel,
+              configuration.shuffle, configuration.blocksize
+          ));
+    } catch (Exception ex) {
+      throw new ZarrException("Error in encoding blosc.", ex);
+    }
   }
 
   public static final class CustomShuffleSerializer extends StdSerializer<Blosc.Shuffle> {

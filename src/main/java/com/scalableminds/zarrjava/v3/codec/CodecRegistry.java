@@ -2,10 +2,11 @@ package com.scalableminds.zarrjava.v3.codec;
 
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.scalableminds.zarrjava.v3.codec.core.BloscCodec;
-import com.scalableminds.zarrjava.v3.codec.core.EndianCodec;
+import com.scalableminds.zarrjava.v3.codec.core.BytesCodec;
 import com.scalableminds.zarrjava.v3.codec.core.GzipCodec;
 import com.scalableminds.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import com.scalableminds.zarrjava.v3.codec.core.TransposeCodec;
+import com.scalableminds.zarrjava.v3.codec.core.ZstdCodec;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,9 +16,10 @@ public class CodecRegistry {
 
   static {
     addType("transpose", TransposeCodec.class);
-    addType("endian", EndianCodec.class);
+    addType("bytes", BytesCodec.class);
     addType("blosc", BloscCodec.class);
     addType("gzip", GzipCodec.class);
+    addType("zstd", ZstdCodec.class);
     addType("sharding_indexed", ShardingIndexedCodec.class);
   }
 

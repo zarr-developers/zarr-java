@@ -29,6 +29,17 @@ public class ArrayMetadataBuilder {
   protected ArrayMetadataBuilder() {
   }
 
+  protected ArrayMetadataBuilder(ArrayMetadata existingMetadata) {
+    this.shape = existingMetadata.shape;
+    this.dataType = existingMetadata.dataType;
+    this.chunkGrid = existingMetadata.chunkGrid;
+    this.chunkKeyEncoding = existingMetadata.chunkKeyEncoding;
+    this.fillValue = existingMetadata.fillValue;
+    this.codecs = existingMetadata.codecs;
+    this.attributes = existingMetadata.attributes;
+    this.dimensionNames = existingMetadata.dimensionNames;
+  }
+
   protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata) {
     ArrayMetadataBuilder builder = new ArrayMetadataBuilder();
     builder.shape = arrayMetadata.shape;
@@ -97,7 +108,7 @@ public class ArrayMetadataBuilder {
   }
 
   public ArrayMetadataBuilder withCodecs(Function<CodecBuilder, CodecBuilder> codecBuilder) {
-    if (dataType==null) {
+    if (dataType == null) {
       throw new IllegalStateException("Please call `withDataType` first.");
     }
     CodecBuilder nestedCodecBuilder = new CodecBuilder(dataType);

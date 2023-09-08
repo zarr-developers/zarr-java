@@ -2,6 +2,8 @@ package com.scalableminds.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.luben.zstd.ZstdInputStream;
+import com.github.luben.zstd.ZstdOutputStream;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
@@ -11,18 +13,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 
-public class GzipCodec implements BytesBytesCodec {
+public class ZstdCodec implements BytesBytesCodec {
 
-  public final String name = "gzip";
+  public final String name = "zstd";
   @Nonnull
   public final Configuration configuration;
 
   @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-  public GzipCodec(
+  public ZstdCodec(
       @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration) {
     this.configuration = configuration;
   }
@@ -38,40 +38,44 @@ public class GzipCodec implements BytesBytesCodec {
   @Override
   public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
       throws ZarrException {
-    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPInputStream inputStream = new GZIPInputStream(
+    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdInputStream inputStream = new ZstdInputStream(
         new ByteArrayInputStream(chunkBytes.array()))) {
       copy(inputStream, outputStream);
       inputStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {
-      throw new ZarrException("Error in decoding gzip.", ex);
+      throw new ZarrException("Error in decoding zstd.", ex);
     }
   }
 
   @Override
   public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
       throws ZarrException {
-    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPOutputStream gzipStream = new GZIPOutputStream(
-        outputStream)) {
-      gzipStream.write(chunkBytes.array());
-      gzipStream.close();
+    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdOutputStream zstdStream = new ZstdOutputStream(
+        outputStream, configuration.level).setChecksum(
+        configuration.checksum)) {
+      zstdStream.write(chunkBytes.array());
+      zstdStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {
-      throw new ZarrException("Error in encoding gzip.", ex);
+      throw new ZarrException("Error in decoding zstd.", ex);
     }
   }
 
   public static final class Configuration {
 
     public final int level;
+    public final boolean checksum;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public Configuration(@JsonProperty(value = "level", defaultValue = "5") int level)
+    public Configuration(@JsonProperty(value = "level", defaultValue = "5") int level,
+        @JsonProperty(value = "checksum", defaultValue = "true") boolean checksum)
         throws ZarrException {
-      if (level < 0 || level > 9) {
-        throw new ZarrException("'level' needs to be between 0 and 9.");
+      if (level < -131072 || level > 22) {
+        throw new ZarrException("'level' needs to be between -131072 and 22.");
       }
       this.level = level;
+      this.checksum = checksum;
     }
   }
 }
