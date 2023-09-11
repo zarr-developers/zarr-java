@@ -6,7 +6,6 @@ import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import ucar.ma2.Array;
 
 public class CodecPipeline {
@@ -14,45 +13,41 @@ public class CodecPipeline {
   @Nonnull
   final Codec[] codecs;
 
-  public CodecPipeline(@Nullable Codec[] codecs) throws ZarrException {
-    if (codecs == null) {
-      this.codecs = new Codec[0];
-    } else {
-      long arrayBytesCodecCount = Arrays.stream(codecs).filter(c -> c instanceof ArrayBytesCodec)
-          .count();
-      if (arrayBytesCodecCount != 1) {
-        throw new ZarrException(
-            "Exactly 1 ArrayBytesCodec is required. Found " + arrayBytesCodecCount + ".");
-      }
-      Codec prevCodec = null;
-      for (Codec codec : codecs) {
-        if (prevCodec != null) {
-          if (codec instanceof ArrayBytesCodec && prevCodec instanceof ArrayBytesCodec) {
-            throw new ZarrException(
-                "ArrayBytesCodec '" + codec.getClass() + "' cannot follow after ArrayBytesCodec '" +
-                    prevCodec.getClass() + "' because only 1 ArrayBytesCodec is allowed.");
-          }
-          if (codec instanceof ArrayBytesCodec && prevCodec instanceof BytesBytesCodec) {
-            throw new ZarrException(
-                "ArrayBytesCodec '" + codec.getClass() + "' cannot follow after BytesBytesCodec '" +
-                    prevCodec.getClass() + "'.");
-          }
-          if (codec instanceof ArrayArrayCodec && prevCodec instanceof ArrayBytesCodec) {
-            throw new ZarrException(
-                "ArrayArrayCodec '" + codec.getClass() + "' cannot follow after ArrayBytesCodec '" +
-                    prevCodec.getClass() + "'.");
-          }
-          if (codec instanceof ArrayArrayCodec && prevCodec instanceof BytesBytesCodec) {
-            throw new ZarrException(
-                "ArrayArrayCodec '" + codec.getClass() + "' cannot follow after BytesBytesCodec '" +
-                    prevCodec.getClass() + "'.");
-          }
-        }
-        prevCodec = codec;
-      }
-
-      this.codecs = codecs;
+  public CodecPipeline(@Nonnull Codec[] codecs) throws ZarrException {
+    long arrayBytesCodecCount = Arrays.stream(codecs).filter(c -> c instanceof ArrayBytesCodec)
+        .count();
+    if (arrayBytesCodecCount != 1) {
+      throw new ZarrException(
+          "Exactly 1 ArrayBytesCodec is required. Found " + arrayBytesCodecCount + ".");
     }
+    Codec prevCodec = null;
+    for (Codec codec : codecs) {
+      if (prevCodec != null) {
+        if (codec instanceof ArrayBytesCodec && prevCodec instanceof ArrayBytesCodec) {
+          throw new ZarrException(
+              "ArrayBytesCodec '" + codec.getClass() + "' cannot follow after ArrayBytesCodec '" +
+                  prevCodec.getClass() + "' because only 1 ArrayBytesCodec is allowed.");
+        }
+        if (codec instanceof ArrayBytesCodec && prevCodec instanceof BytesBytesCodec) {
+          throw new ZarrException(
+              "ArrayBytesCodec '" + codec.getClass() + "' cannot follow after BytesBytesCodec '" +
+                  prevCodec.getClass() + "'.");
+        }
+        if (codec instanceof ArrayArrayCodec && prevCodec instanceof ArrayBytesCodec) {
+          throw new ZarrException(
+              "ArrayArrayCodec '" + codec.getClass() + "' cannot follow after ArrayBytesCodec '" +
+                  prevCodec.getClass() + "'.");
+        }
+        if (codec instanceof ArrayArrayCodec && prevCodec instanceof BytesBytesCodec) {
+          throw new ZarrException(
+              "ArrayArrayCodec '" + codec.getClass() + "' cannot follow after BytesBytesCodec '" +
+                  prevCodec.getClass() + "'.");
+        }
+      }
+      prevCodec = codec;
+    }
+
+    this.codecs = codecs;
   }
 
   ArrayArrayCodec[] getArrayArrayCodecs() {
@@ -89,8 +84,9 @@ public class CodecPipeline {
       chunkBytes = codec.decode(chunkBytes, arrayMetadata);
     }
     if (chunkBytes == null) {
-      throw new ZarrException("chunkBytes is null. This is likely a bug in one of the codecs. " + Arrays.toString(
-          getBytesBytesCodecs()));
+      throw new ZarrException(
+          "chunkBytes is null. This is likely a bug in one of the codecs. " + Arrays.toString(
+              getBytesBytesCodecs()));
     }
     Array chunkArray = getArrayBytesCodec().decode(chunkBytes, arrayMetadata);
     if (chunkArray == null) {

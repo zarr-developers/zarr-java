@@ -3,16 +3,15 @@ package com.scalableminds.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.scalableminds.zarrjava.ZarrException;
-import com.scalableminds.zarrjava.utils.CRC32C;
 import com.scalableminds.zarrjava.utils.IndexingUtils;
 import com.scalableminds.zarrjava.utils.MultiArrayUtils;
 import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
+import com.scalableminds.zarrjava.v3.DataType;
 import com.scalableminds.zarrjava.v3.codec.ArrayBytesCodec;
 import com.scalableminds.zarrjava.v3.codec.Codec;
 import com.scalableminds.zarrjava.v3.codec.CodecPipeline;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -29,6 +28,7 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
   @Nonnull
   public final Configuration configuration;
   final CodecPipeline codecPipeline;
+  final CodecPipeline indexCodecPipeline;
 
   @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
   public ShardingIndexedCodec(
@@ -37,63 +37,49 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
   ) throws ZarrException {
     this.configuration = configuration;
     this.codecPipeline = new CodecPipeline(configuration.codecs);
+    this.indexCodecPipeline = new CodecPipeline(configuration.indexCodecs);
   }
 
-  long[][] parseShardIndex(ByteBuffer buffer, int count) throws ZarrException {
-    final long[][] index = new long[count][2];
-    buffer.order(ByteOrder.LITTLE_ENDIAN);
-
-    buffer.limit(buffer.position() + count * 16);
-
-    final CRC32C crc32c = new CRC32C();
-    crc32c.update(buffer);
-    int computedCrc32c = (int) crc32c.getValue();
-
-    buffer.limit(buffer.capacity());
-    int storedCrc32c = buffer.getInt();
-
-    if (computedCrc32c != storedCrc32c) {
-      throw new ZarrException(
-          "The checksum of the sharding index is invalid. Stored: " + storedCrc32c + " "
-              + "Computed: " +
-              computedCrc32c);
-    }
-    buffer.rewind();
-
-    for (int i = 0; i < count; i++) {
-      index[i][0] = buffer.getLong();
-      index[i][1] = buffer.getLong();
-    }
-    return index;
-  }
-
-  ByteBuffer writeShardIndex(long[][] shardIndex) {
-    ByteBuffer buffer = Utils.makeByteBuffer(shardIndex.length * 16 + 4, b -> {
-      for (final long[] shardEntry : shardIndex) {
-        b.putLong(shardEntry[0]);
-        b.putLong(shardEntry[1]);
-      }
-      return b;
-    });
-    buffer.limit(shardIndex.length * 16);
-
-    final CRC32C crc32c = new CRC32C();
-    crc32c.update(buffer);
-    int computedCrc32c = (int) crc32c.getValue();
-    buffer.limit(buffer.capacity());
-    buffer.putInt(computedCrc32c);
-    buffer.rewind();
-    return buffer;
+  ArrayMetadata.CoreArrayMetadata getShardIndexArrayMetadata(int[] chunksPerShard) {
+    int[] indexShape = extendArrayBy1(chunksPerShard, 2);
+    return new ArrayMetadata.CoreArrayMetadata(
+        Utils.toLongArray(indexShape), indexShape, DataType.UINT64, -1);
   }
 
   public int[] getChunksPerShard(ArrayMetadata.CoreArrayMetadata arrayMetadata) {
     final int ndim = arrayMetadata.ndim();
     final int[] chunksPerShard = new int[ndim];
-      for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-          chunksPerShard[dimIdx] =
-                  arrayMetadata.chunkShape[dimIdx] / configuration.chunkShape[dimIdx];
-      }
+    for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+      chunksPerShard[dimIdx] =
+          arrayMetadata.chunkShape[dimIdx] / configuration.chunkShape[dimIdx];
+    }
     return chunksPerShard;
+  }
+
+  int[] extendArrayBy1(int[] array, int value) {
+    int[] out = new int[array.length + 1];
+    System.arraycopy(array, 0, out, 0, array.length);
+    out[out.length - 1] = value;
+    return out;
+  }
+
+  long[] extendArrayBy1(long[] array, long value) {
+    long[] out = new long[array.length + 1];
+    System.arraycopy(array, 0, out, 0, array.length);
+    out[out.length - 1] = value;
+    return out;
+  }
+
+  long getValueFromShardIndexArray(Array shardIndexArray, long[] chunkCoords, int idx) {
+    return shardIndexArray.getLong(
+        shardIndexArray.getIndex()
+            .set(Utils.toIntArray(extendArrayBy1(chunkCoords, idx))));
+  }
+
+  void setValueFromShardIndexArray(Array shardIndexArray, long[] chunkCoords, int idx, long value) {
+    shardIndexArray.setLong(
+        shardIndexArray.getIndex()
+            .set(Utils.toIntArray(extendArrayBy1(chunkCoords, idx))), value);
   }
 
   @Override
@@ -109,7 +95,10 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
     final int shardIndexByteLength = chunkCount * 16 + 4;
     shardBytes.position(shardBytes.capacity() - shardIndexByteLength);
     final ByteBuffer shardIndexBytes = shardBytes.slice();
-    final long[][] shardIndex = parseShardIndex(shardIndexBytes, chunkCount);
+    final Array shardIndexArray = indexCodecPipeline.decode(
+        shardIndexBytes,
+        getShardIndexArrayMetadata(chunksPerShard)
+    );
 
     shardBytes.position(0);
 
@@ -125,21 +114,21 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
         .forEach(
             chunkCoords -> {
               try {
-                final int i =
-                    (int) IndexingUtils.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
                 final ByteBuffer shardBytesSlice = shardBytes.slice();
 
-                final int chunkByteOffset = (int) shardIndex[i][0];
-                final int chunkByteLength = (int) shardIndex[i][1];
+                final long chunkByteOffset = getValueFromShardIndexArray(shardIndexArray,
+                    chunkCoords, 0);
+                final long chunkByteLength = getValueFromShardIndexArray(shardIndexArray,
+                    chunkCoords, 1);
                 Array chunkArray = null;
                 final IndexingUtils.ChunkProjection chunkProjection =
                     IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
                         shardMetadata.chunkShape
                     );
                 if (chunkByteOffset != -1 && chunkByteLength != -1) {
-                  shardBytesSlice.limit(chunkByteOffset + chunkByteLength);
-                  shardBytesSlice.position(chunkByteOffset);
-                  final ByteBuffer chunkBytes = ByteBuffer.allocate(chunkByteLength)
+                  shardBytesSlice.limit((int) (chunkByteOffset + chunkByteLength));
+                  shardBytesSlice.position((int) chunkByteOffset);
+                  final ByteBuffer chunkBytes = ByteBuffer.allocate((int) chunkByteLength)
                       .put(shardBytesSlice);
 
                   chunkArray = codecPipeline.decode(chunkBytes, shardMetadata);
@@ -161,7 +150,7 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
 
   @Override
   public ByteBuffer encode(final Array shardArray,
-      final ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+      final ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
     final ArrayMetadata.CoreArrayMetadata shardMetadata =
         new ArrayMetadata.CoreArrayMetadata(Utils.toLongArray(arrayMetadata.chunkShape),
             configuration.chunkShape, arrayMetadata.dataType,
@@ -171,7 +160,8 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
     final int chunkCount = Arrays.stream(chunksPerShard)
         .reduce(1, (r, a) -> r * a);
 
-    final long[][] shardIndex = new long[chunkCount][2];
+    final Array shardIndexArray = Array.factory(ucar.ma2.DataType.ULONG,
+        extendArrayBy1(chunksPerShard, 2));
     final List<ByteBuffer> chunkBytesList = new ArrayList<>(chunkCount);
 
     Arrays.stream(
@@ -191,16 +181,17 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
                         null
                     );
                 if (MultiArrayUtils.allValuesEqual(chunkArray, shardMetadata.parsedFillValue)) {
-                  shardIndex[i][0] = -1;
-                  shardIndex[i][1] = -1;
+                  setValueFromShardIndexArray(shardIndexArray, chunkCoords, 0, -1);
+                  setValueFromShardIndexArray(shardIndexArray, chunkCoords, 1, -1);
                 } else {
                   final ByteBuffer chunkBytes = codecPipeline.encode(chunkArray, shardMetadata);
                   synchronized (chunkBytesList) {
                     int chunkByteOffset = chunkBytesList.stream()
                         .mapToInt(ByteBuffer::capacity)
                         .sum();
-                    shardIndex[i][0] = chunkByteOffset;
-                    shardIndex[i][1] = chunkBytes.capacity();
+                    setValueFromShardIndexArray(shardIndexArray, chunkCoords, 0, chunkByteOffset);
+                    setValueFromShardIndexArray(shardIndexArray, chunkCoords, 1,
+                        chunkBytes.capacity());
                     chunkBytesList.add(chunkBytes);
                   }
                 }
@@ -215,7 +206,8 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
     for (final ByteBuffer chunkBytes : chunkBytesList) {
       shardBytes.put(chunkBytes);
     }
-    shardBytes.put(writeShardIndex(shardIndex));
+    shardBytes.put(
+        indexCodecPipeline.encode(shardIndexArray, getShardIndexArrayMetadata(chunksPerShard)));
     shardBytes.rewind();
     return shardBytes;
   }
@@ -244,14 +236,18 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
     public final int[] chunkShape;
     @Nullable
     public final Codec[] codecs;
+    @Nullable
+    public final Codec[] indexCodecs;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Configuration(
         @JsonProperty(value = "chunk_shape", required = true) int[] chunkShape,
-        @Nullable @JsonProperty("codecs") Codec[] codecs
+        @Nonnull @JsonProperty("codecs") Codec[] codecs,
+        @Nonnull @JsonProperty("index_codecs") Codec[] indexCodecs
     ) {
       this.chunkShape = chunkShape;
       this.codecs = codecs;
+      this.indexCodecs = indexCodecs;
     }
   }
 }

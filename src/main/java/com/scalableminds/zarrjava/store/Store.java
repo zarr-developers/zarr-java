@@ -1,6 +1,5 @@
 package com.scalableminds.zarrjava.store;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;

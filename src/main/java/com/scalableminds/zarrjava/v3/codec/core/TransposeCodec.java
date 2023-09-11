@@ -24,9 +24,9 @@ public class TransposeCodec implements ArrayArrayCodec {
 
   int[] reverseDims(int ndim) {
     int[] dims = new int[ndim];
-      for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-          dims[dimIdx] = ndim - dimIdx - 1;
-      }
+    for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+      dims[dimIdx] = ndim - dimIdx - 1;
+    }
     return dims;
   }
 

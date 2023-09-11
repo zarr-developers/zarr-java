@@ -23,6 +23,10 @@ public class BytesCodec implements ArrayBytesCodec {
     this.configuration = configuration;
   }
 
+  public BytesCodec(Endian endian) {
+    this(new BytesCodec.Configuration(endian));
+  }
+
   @Override
   public Array decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
     chunkBytes.order(configuration.endian.getByteOrder());
@@ -34,6 +38,7 @@ public class BytesCodec implements ArrayBytesCodec {
   public ByteBuffer encode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
     return chunkArray.getDataAsByteBuffer(configuration.endian.getByteOrder());
   }
+
 
   public enum Endian {
     LITTLE("little"),

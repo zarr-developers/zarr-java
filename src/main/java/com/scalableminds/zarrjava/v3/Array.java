@@ -65,7 +65,7 @@ public class Array extends Node {
   }
 
   public static ArrayMetadataBuilder metadataBuilder(ArrayMetadata existingMetadata) {
-    return new ArrayMetadataBuilder(existingMetadata);
+    return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
   }
 
   public ucar.ma2.Array read() throws ZarrException {

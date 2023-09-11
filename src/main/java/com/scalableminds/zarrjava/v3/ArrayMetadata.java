@@ -44,7 +44,6 @@ public final class ArrayMetadata {
   @JsonIgnore
   public final Object parsedFillValue;
 
-  @Nullable
   @JsonProperty("codecs")
   public final Codec[] codecs;
   @Nullable
@@ -60,7 +59,7 @@ public final class ArrayMetadata {
   public ArrayMetadata(
       long[] shape, DataType dataType, ChunkGrid chunkGrid, ChunkKeyEncoding chunkKeyEncoding,
       Object fillValue,
-      @Nullable Codec[] codecs,
+      @Nonnull Codec[] codecs,
       @Nullable String[] dimensionNames,
       @Nullable Map<String, Object> attributes
   ) throws ZarrException {
@@ -79,7 +78,7 @@ public final class ArrayMetadata {
       @JsonProperty(value = "chunk_grid", required = true) ChunkGrid chunkGrid,
       @JsonProperty(value = "chunk_key_encoding", required = true) ChunkKeyEncoding chunkKeyEncoding,
       @JsonProperty(value = "fill_value", required = true) Object fillValue,
-      @Nullable @JsonProperty(value = "codecs") Codec[] codecs,
+      @Nonnull @JsonProperty(value = "codecs") Codec[] codecs,
       @Nullable @JsonProperty(value = "dimension_names") String[] dimensionNames,
       @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes
   ) throws ZarrException {

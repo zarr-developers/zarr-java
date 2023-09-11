@@ -5,7 +5,9 @@ import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.DataType;
 import com.scalableminds.zarrjava.v3.codec.core.BloscCodec;
 import com.scalableminds.zarrjava.v3.codec.core.BytesCodec;
+import com.scalableminds.zarrjava.v3.codec.core.BytesCodec.Configuration;
 import com.scalableminds.zarrjava.v3.codec.core.BytesCodec.Endian;
+import com.scalableminds.zarrjava.v3.codec.core.Crc32cCodec;
 import com.scalableminds.zarrjava.v3.codec.core.GzipCodec;
 import com.scalableminds.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import com.scalableminds.zarrjava.v3.codec.core.TransposeCodec;
@@ -17,7 +19,7 @@ import java.util.function.Function;
 
 public class CodecBuilder {
 
-  private DataType dataType;
+  final private DataType dataType;
   private List<Codec> codecs;
 
   public CodecBuilder(DataType dataType) {
@@ -111,7 +113,9 @@ public class CodecBuilder {
   public CodecBuilder withSharding(int[] chunkShape) {
     try {
       codecs.add(
-          new ShardingIndexedCodec(new ShardingIndexedCodec.Configuration(chunkShape, null)));
+          new ShardingIndexedCodec(new ShardingIndexedCodec.Configuration(chunkShape,
+              new Codec[]{new BytesCodec(new Configuration(Endian.LITTLE))},
+              new Codec[]{new BytesCodec(new Configuration(Endian.LITTLE)), new Crc32cCodec()})));
     } catch (ZarrException e) {
       throw new RuntimeException(e);
     }
@@ -123,8 +127,9 @@ public class CodecBuilder {
     CodecBuilder nestedBuilder = new CodecBuilder(dataType);
     try {
       codecs.add(new ShardingIndexedCodec(
-          new ShardingIndexedCodec.Configuration(chunkShape, codecBuilder.apply(nestedBuilder)
-              .build())));
+          new ShardingIndexedCodec.Configuration(chunkShape,
+              codecBuilder.apply(nestedBuilder).build(),
+              new Codec[]{new BytesCodec(Endian.LITTLE), new Crc32cCodec()})));
     } catch (ZarrException e) {
       throw new RuntimeException(e);
     }

@@ -9,6 +9,8 @@ import com.scalableminds.zarrjava.v3.chunkkeyencoding.Separator;
 import com.scalableminds.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import com.scalableminds.zarrjava.v3.codec.Codec;
 import com.scalableminds.zarrjava.v3.codec.CodecBuilder;
+import com.scalableminds.zarrjava.v3.codec.core.BytesCodec;
+import com.scalableminds.zarrjava.v3.codec.core.BytesCodec.Endian;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -22,22 +24,11 @@ public class ArrayMetadataBuilder {
       new DefaultChunkKeyEncoding(new DefaultChunkKeyEncoding.Configuration(Separator.SLASH));
 
   Object fillValue = 0;
-  Codec[] codecs = null;
+  Codec[] codecs = new Codec[]{new BytesCodec(Endian.LITTLE)};
   Map<String, Object> attributes = new HashMap<>();
   String[] dimensionNames = null;
 
   protected ArrayMetadataBuilder() {
-  }
-
-  protected ArrayMetadataBuilder(ArrayMetadata existingMetadata) {
-    this.shape = existingMetadata.shape;
-    this.dataType = existingMetadata.dataType;
-    this.chunkGrid = existingMetadata.chunkGrid;
-    this.chunkKeyEncoding = existingMetadata.chunkKeyEncoding;
-    this.fillValue = existingMetadata.fillValue;
-    this.codecs = existingMetadata.codecs;
-    this.attributes = existingMetadata.attributes;
-    this.dimensionNames = existingMetadata.dimensionNames;
   }
 
   protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata) {

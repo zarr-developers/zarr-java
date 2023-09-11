@@ -96,7 +96,7 @@ public class Group extends Node {
       throws IOException, ZarrException {
     return Array.create(storeHandle.resolve(key), arrayMetadata);
   }
-  
+
   public Stream<Node> list() {
     return storeHandle.list()
         .map(key -> {
