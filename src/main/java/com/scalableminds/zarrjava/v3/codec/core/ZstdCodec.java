@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
 import java.io.ByteArrayInputStream;
@@ -39,7 +40,7 @@ public class ZstdCodec implements BytesBytesCodec {
   public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdInputStream inputStream = new ZstdInputStream(
-        new ByteArrayInputStream(chunkBytes.array()))) {
+        new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
       copy(inputStream, outputStream);
       inputStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
@@ -54,12 +55,18 @@ public class ZstdCodec implements BytesBytesCodec {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdOutputStream zstdStream = new ZstdOutputStream(
         outputStream, configuration.level).setChecksum(
         configuration.checksum)) {
-      zstdStream.write(chunkBytes.array());
+      zstdStream.write(Utils.toArray(chunkBytes));
       zstdStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {
       throw new ZarrException("Error in decoding zstd.", ex);
     }
+  }
+
+  @Override
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    throw new ZarrException("Not implemented for Zstd codec.");
   }
 
   public static final class Configuration {

@@ -3,10 +3,12 @@ package com.scalableminds.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.utils.IndexingUtils;
 import com.scalableminds.zarrjava.utils.MultiArrayUtils;
 import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
+import com.scalableminds.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
 import com.scalableminds.zarrjava.v3.DataType;
 import com.scalableminds.zarrjava.v3.codec.ArrayBytesCodec;
 import com.scalableminds.zarrjava.v3.codec.Codec;
@@ -16,18 +18,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import ucar.ma2.Array;
 import ucar.ma2.InvalidRangeException;
 
 
-public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.WithPartialEncode,
-    ArrayBytesCodec.WithPartialDecode {
+public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.WithPartialDecode {
 
   public final String name = "sharding_indexed";
   @Nonnull
   public final Configuration configuration;
+  @Nonnull
   final CodecPipeline codecPipeline;
+  @Nonnull
   final CodecPipeline indexCodecPipeline;
 
   @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -85,68 +87,9 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
   @Override
   public Array decode(ByteBuffer shardBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
       throws ZarrException {
-    final Array outputArray = Array.factory(arrayMetadata.dataType.getMA2DataType(),
-        arrayMetadata.chunkShape);
-
-    final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
-    final int chunkCount = Arrays.stream(chunksPerShard)
-        .reduce(1, (r, a) -> r * a);
-
-    final int shardIndexByteLength = chunkCount * 16 + 4;
-    shardBytes.position(shardBytes.capacity() - shardIndexByteLength);
-    final ByteBuffer shardIndexBytes = shardBytes.slice();
-    final Array shardIndexArray = indexCodecPipeline.decode(
-        shardIndexBytes,
-        getShardIndexArrayMetadata(chunksPerShard)
-    );
-
-    shardBytes.position(0);
-
-    final ArrayMetadata.CoreArrayMetadata shardMetadata =
-        new ArrayMetadata.CoreArrayMetadata(Utils.toLongArray(arrayMetadata.chunkShape),
-            configuration.chunkShape, arrayMetadata.dataType,
-            arrayMetadata.parsedFillValue
-        );
-
-    Arrays.stream(
-            IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape))
-        .parallel()
-        .forEach(
-            chunkCoords -> {
-              try {
-                final ByteBuffer shardBytesSlice = shardBytes.slice();
-
-                final long chunkByteOffset = getValueFromShardIndexArray(shardIndexArray,
-                    chunkCoords, 0);
-                final long chunkByteLength = getValueFromShardIndexArray(shardIndexArray,
-                    chunkCoords, 1);
-                Array chunkArray = null;
-                final IndexingUtils.ChunkProjection chunkProjection =
-                    IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
-                        shardMetadata.chunkShape
-                    );
-                if (chunkByteOffset != -1 && chunkByteLength != -1) {
-                  shardBytesSlice.limit((int) (chunkByteOffset + chunkByteLength));
-                  shardBytesSlice.position((int) chunkByteOffset);
-                  final ByteBuffer chunkBytes = ByteBuffer.allocate((int) chunkByteLength)
-                      .put(shardBytesSlice);
-
-                  chunkArray = codecPipeline.decode(chunkBytes, shardMetadata);
-                }
-                if (chunkArray == null) {
-                  chunkArray = shardMetadata.allocateFillValueChunk();
-                }
-                MultiArrayUtils.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray,
-                    chunkProjection.outOffset, chunkProjection.shape
-                );
-              } catch (ZarrException e) {
-                throw new RuntimeException(e);
-              }
-            });
-
-    return outputArray;
+    return decodeInternal(new ByteBufferDataProvider(shardBytes), new long[arrayMetadata.ndim()],
+        arrayMetadata.chunkShape, arrayMetadata);
   }
-
 
   @Override
   public ByteBuffer encode(final Array shardArray,
@@ -201,7 +144,7 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
             });
     final int shardBytesLength = chunkBytesList.stream()
         .mapToInt(ByteBuffer::capacity)
-        .sum() + chunkCount * 16 + 4;
+        .sum() + (int) getShardIndexSize(arrayMetadata);
     final ByteBuffer shardBytes = ByteBuffer.allocate(shardBytesLength);
     for (final ByteBuffer chunkBytes : chunkBytesList) {
       shardBytes.put(chunkBytes);
@@ -213,30 +156,112 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
   }
 
   @Override
-  public ByteBuffer encodePartial(
-      Array chunkArray, long[] offset, int[] shape,
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    return inputByteLength + getShardIndexSize(arrayMetadata);
+  }
+
+  private long getShardIndexSize(CoreArrayMetadata arrayMetadata) throws ZarrException {
+    return indexCodecPipeline.computeEncodedSize(
+        16 * (long) Arrays.stream(getChunksPerShard(arrayMetadata)).reduce(1, (r, a) -> r * a),
+        arrayMetadata
+    );
+  }
+
+  private Array decodeInternal(
+      DataProvider dataProvider, long[] offset, int[] shape,
       ArrayMetadata.CoreArrayMetadata arrayMetadata
-  ) {
-    // TODO
-    return null;
+  ) throws ZarrException {
+    final Array outputArray = Array.factory(arrayMetadata.dataType.getMA2DataType(), shape);
+    final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
+    final int shardIndexByteLength = (int) getShardIndexSize(arrayMetadata);
+    ByteBuffer shardIndexBytes = dataProvider.readSuffix(shardIndexByteLength);
+
+    if (shardIndexBytes == null) {
+      throw new ZarrException("Could not read shard index.");
+    }
+    final Array shardIndexArray = indexCodecPipeline.decode(
+        shardIndexBytes,
+        getShardIndexArrayMetadata(chunksPerShard)
+    );
+
+    final ArrayMetadata.CoreArrayMetadata shardMetadata =
+        new ArrayMetadata.CoreArrayMetadata(Utils.toLongArray(arrayMetadata.chunkShape),
+            configuration.chunkShape, arrayMetadata.dataType,
+            arrayMetadata.parsedFillValue
+        );
+
+    long[][] allChunkCoords = IndexingUtils.computeChunkCoords(shardMetadata.shape,
+        shardMetadata.chunkShape, offset,
+        shape);
+
+    Arrays.stream(allChunkCoords)
+        // .parallel()
+        .forEach(
+            chunkCoords -> {
+              try {
+                final long chunkByteOffset = getValueFromShardIndexArray(shardIndexArray,
+                    chunkCoords, 0);
+                final long chunkByteLength = getValueFromShardIndexArray(shardIndexArray,
+                    chunkCoords, 1);
+                Array chunkArray = null;
+                final IndexingUtils.ChunkProjection chunkProjection =
+                    IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
+                        shardMetadata.chunkShape, offset, shape
+                    );
+                if (chunkByteOffset != -1 && chunkByteLength != -1) {
+                  final ByteBuffer chunkBytes = dataProvider.read(chunkByteOffset, chunkByteLength);
+                  if (chunkBytes == null) {
+                    throw new ZarrException(String.format("Could not load byte data for chunk %s",
+                        Arrays.toString(chunkCoords)));
+                  }
+                  chunkArray = codecPipeline.decode(chunkBytes, shardMetadata);
+                }
+                if (chunkArray == null) {
+                  chunkArray = shardMetadata.allocateFillValueChunk();
+                }
+                MultiArrayUtils.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray,
+                    chunkProjection.outOffset, chunkProjection.shape
+                );
+              } catch (ZarrException e) {
+                throw new RuntimeException(e);
+              }
+            });
+
+    return outputArray;
   }
 
   @Override
-  public Array partialDecode(
-      ByteBuffer chunkBytes, long[] offset, int[] shape,
+  public Array decodePartial(
+      StoreHandle chunkHandle, long[] offset, int[] shape,
       ArrayMetadata.CoreArrayMetadata arrayMetadata
-  ) {
-    // TODO
-    return null;
+  ) throws ZarrException {
+    if (Arrays.equals(shape, arrayMetadata.chunkShape)) {
+      ByteBuffer chunkBytes = chunkHandle.read();
+      if (chunkBytes == null) {
+        return arrayMetadata.allocateFillValueChunk();
+      }
+      return decodeInternal(new ByteBufferDataProvider(chunkHandle.read()), offset, shape,
+          arrayMetadata);
+    }
+    return decodeInternal(new StoreHandleDataProvider(chunkHandle), offset, shape, arrayMetadata);
+  }
+
+
+  interface DataProvider {
+
+    ByteBuffer read(long start, long length);
+
+    ByteBuffer readSuffix(long suffixLength);
   }
 
   public static final class Configuration {
 
     @JsonProperty("chunk_shape")
     public final int[] chunkShape;
-    @Nullable
+    @Nonnull
     public final Codec[] codecs;
-    @Nullable
+    @Nonnull
     public final Codec[] indexCodecs;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -250,4 +275,52 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
       this.indexCodecs = indexCodecs;
     }
   }
+
+  static class ByteBufferDataProvider implements DataProvider {
+
+    @Nonnull
+    final ByteBuffer buffer;
+
+
+    ByteBufferDataProvider(@Nonnull ByteBuffer buffer) {
+      this.buffer = buffer;
+    }
+
+    @Override
+    public ByteBuffer readSuffix(long suffixLength) {
+      ByteBuffer bufferSlice = buffer.slice();
+      bufferSlice.position((int) (bufferSlice.capacity() - suffixLength));
+      return bufferSlice.slice();
+    }
+
+    @Override
+    public ByteBuffer read(long start, long length) {
+      ByteBuffer bufferSlice = buffer.slice();
+      bufferSlice.position((int) start);
+      bufferSlice.limit((int) (start + length));
+      return bufferSlice.slice();
+    }
+  }
+
+  static class StoreHandleDataProvider implements DataProvider {
+
+    @Nonnull
+    final StoreHandle storeHandle;
+
+    StoreHandleDataProvider(@Nonnull StoreHandle storeHandle) {
+      this.storeHandle = storeHandle;
+    }
+
+
+    @Override
+    public ByteBuffer readSuffix(long suffixLength) {
+      return storeHandle.read(-suffixLength);
+    }
+
+    @Override
+    public ByteBuffer read(long start, long length) {
+      return storeHandle.read(start, start + length);
+    }
+  }
+
 }

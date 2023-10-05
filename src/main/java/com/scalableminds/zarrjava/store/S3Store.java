@@ -73,7 +73,7 @@ public class S3Store implements Store, Store.ListableStore {
 
   @Override
   public void set(String[] keys, ByteBuffer bytes) {
-    try (InputStream byteStream = new ByteArrayInputStream(bytes.array())) {
+    try (InputStream byteStream = new ByteArrayInputStream(Utils.toArray(bytes))) {
       s3client.putObject(bucketName, resolveKeys(keys), byteStream, new ObjectMetadata());
     } catch (IOException e) {
       throw new RuntimeException(e);

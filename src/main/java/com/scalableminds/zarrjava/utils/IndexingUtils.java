@@ -87,7 +87,7 @@ public class IndexingUtils {
 
       if (selOffset[dimIdx] + selShape[dimIdx] > dimLimit) {
         // selection ends after current chunk
-        shape[dimIdx] = (int) (chunkShape[dimIdx] - selOffset[dimIdx]);
+        shape[dimIdx] = (int) (chunkShape[dimIdx] - (selOffset[dimIdx] % chunkShape[dimIdx]));
       } else {
         // selection ends within current chunk
         shape[dimIdx] = (int) (selOffset[dimIdx] + selShape[dimIdx] - dimOffset

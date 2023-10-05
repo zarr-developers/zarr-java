@@ -3,6 +3,7 @@ package com.scalableminds.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
 import java.io.ByteArrayInputStream;
@@ -39,7 +40,7 @@ public class GzipCodec implements BytesBytesCodec {
   public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPInputStream inputStream = new GZIPInputStream(
-        new ByteArrayInputStream(chunkBytes.array()))) {
+        new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
       copy(inputStream, outputStream);
       inputStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
@@ -53,12 +54,18 @@ public class GzipCodec implements BytesBytesCodec {
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPOutputStream gzipStream = new GZIPOutputStream(
         outputStream)) {
-      gzipStream.write(chunkBytes.array());
+      gzipStream.write(Utils.toArray(chunkBytes));
       gzipStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {
       throw new ZarrException("Error in encoding gzip.", ex);
     }
+  }
+
+  @Override
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    throw new ZarrException("Not implemented for Gzip codec.");
   }
 
   public static final class Configuration {

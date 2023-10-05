@@ -3,6 +3,7 @@ package com.scalableminds.zarrjava.v2;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.scalableminds.zarrjava.store.StoreHandle;
+import com.scalableminds.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -19,9 +20,7 @@ public class Array {
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
     this.metadata = objectMapper.readValue(
-        storeHandle.resolve(ZARRAY)
-            .readNonNull()
-            .array(),
+        Utils.toArray(storeHandle.resolve(ZARRAY).readNonNull()),
         ArrayMetadata.class
     );
   }

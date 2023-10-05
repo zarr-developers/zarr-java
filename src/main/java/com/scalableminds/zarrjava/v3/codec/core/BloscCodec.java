@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
 import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.utils.Utils;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.BytesBytesCodec;
 import java.io.IOException;
@@ -35,7 +36,7 @@ public class BloscCodec implements BytesBytesCodec {
   public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
       throws ZarrException {
     try {
-      return ByteBuffer.wrap(Blosc.decompress(chunkBytes.array()));
+      return ByteBuffer.wrap(Blosc.decompress(Utils.toArray(chunkBytes)));
     } catch (Exception ex) {
       throw new ZarrException("Error in decoding blosc.", ex);
     }
@@ -46,13 +47,19 @@ public class BloscCodec implements BytesBytesCodec {
       throws ZarrException {
     try {
       return ByteBuffer.wrap(
-          Blosc.compress(chunkBytes.array(), configuration.typesize, configuration.cname,
+          Blosc.compress(Utils.toArray(chunkBytes), configuration.typesize, configuration.cname,
               configuration.clevel,
               configuration.shuffle, configuration.blocksize
           ));
     } catch (Exception ex) {
       throw new ZarrException("Error in encoding blosc.", ex);
     }
+  }
+
+  @Override
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    throw new ZarrException("Not implemented for Blosc codec.");
   }
 
   public static final class CustomShuffleSerializer extends StdSerializer<Blosc.Shuffle> {

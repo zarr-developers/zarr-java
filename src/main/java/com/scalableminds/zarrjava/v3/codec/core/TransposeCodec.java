@@ -46,6 +46,12 @@ public class TransposeCodec implements ArrayArrayCodec {
     return chunkArray;
   }
 
+  @Override
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    return inputByteLength;
+  }
+
   public static final class Configuration {
 
     public final String order;

@@ -56,5 +56,11 @@ public class Crc32cCodec implements BytesBytesCodec {
       return b;
     });
   }
+
+  @Override
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    return inputByteLength + 4;
+  }
 }
 

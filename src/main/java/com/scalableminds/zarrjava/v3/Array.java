@@ -33,9 +33,7 @@ public class Array extends Node {
         storeHandle,
         Node.makeObjectMapper()
             .readValue(
-                storeHandle.resolve(ZARR_JSON)
-                    .readNonNull()
-                    .array(),
+                Utils.toArray(storeHandle.resolve(ZARR_JSON).readNonNull()),
                 ArrayMetadata.class
             )
     );
@@ -96,10 +94,31 @@ public class Array extends Node {
                         shape
                     );
 
-                final ucar.ma2.Array chunkArray = readChunk(chunkCoords);
-                MultiArrayUtils.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray,
-                    chunkProjection.outOffset, chunkProjection.shape
-                );
+                if (chunkIsInArray(chunkCoords)) {
+                  MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
+                      chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
+                      chunkProjection.shape
+                  );
+                }
+
+                final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
+                final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+                if (codecPipeline.supportsPartialDecode()) {
+                  System.out.println("decodePartial");
+                  final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
+                      Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape,
+                      metadata.coreArrayMetadata);
+                  MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
+                      chunkProjection.outOffset, chunkProjection.shape
+                  );
+                } else {
+                  System.out.println("decode");
+                  MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
+                      outputArray, chunkProjection.outOffset, chunkProjection.shape
+                  );
+                }
+
               } catch (ZarrException e) {
                 throw new RuntimeException(e);
               }
@@ -107,15 +126,22 @@ public class Array extends Node {
     return outputArray;
   }
 
-  @Nonnull
-  public ucar.ma2.Array readChunk(long[] chunkCoords) throws ZarrException {
+  boolean chunkIsInArray(long[] chunkCoords) {
     final int[] chunkShape = metadata.chunkShape();
-
     for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
       if (chunkCoords[dimIdx] < 0
           || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata.shape[dimIdx]) {
-        return metadata.allocateFillValueChunk();
+        return false;
       }
+    }
+    return true;
+  }
+
+  @Nonnull
+  public ucar.ma2.Array readChunk(long[] chunkCoords)
+      throws ZarrException {
+    if (chunkIsInArray(chunkCoords)) {
+      return metadata.allocateFillValueChunk();
     }
 
     final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
@@ -126,8 +152,7 @@ public class Array extends Node {
       return metadata.allocateFillValueChunk();
     }
 
-    ucar.ma2.Array chunkArray = codecPipeline.decode(chunkBytes, metadata.coreArrayMetadata);
-    return chunkArray;
+    return codecPipeline.decode(chunkBytes, metadata.coreArrayMetadata);
   }
 
   public void write(ucar.ma2.Array array) {

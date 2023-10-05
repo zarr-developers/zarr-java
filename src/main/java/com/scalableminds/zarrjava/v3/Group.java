@@ -3,6 +3,7 @@ package com.scalableminds.zarrjava.v3;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.store.StoreHandle;
+import com.scalableminds.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
@@ -25,7 +26,7 @@ public class Group extends Node {
     StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
     ByteBuffer metadataBytes = metadataHandle.readNonNull();
     return new Group(storeHandle, Node.makeObjectMapper()
-        .readValue(metadataBytes.array(), GroupMetadata.class));
+        .readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
   }
 
   public static Group create(
@@ -58,9 +59,9 @@ public class Group extends Node {
     if (metadataBytes == null) {
       return null;
     }
-    byte[] metadataBytearray = metadataBytes.array();
+    byte[] metadataBytearray = Utils.toArray(metadataBytes);
     try {
-      String nodeType = objectMapper.readTree(metadataBytes.array())
+      String nodeType = objectMapper.readTree(metadataBytearray)
           .get("node_type")
           .asText();
       switch (nodeType) {

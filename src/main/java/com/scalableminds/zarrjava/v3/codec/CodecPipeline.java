@@ -3,6 +3,7 @@ package com.scalableminds.zarrjava.v3.codec;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.store.StoreHandle;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
+import com.scalableminds.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
@@ -72,6 +73,28 @@ public class CodecPipeline {
         .toArray(BytesBytesCodec[]::new);
   }
 
+  public boolean supportsPartialDecode() {
+    return codecs.length == 1 && codecs[0] instanceof ArrayBytesCodec.WithPartialDecode;
+  }
+
+  @Nonnull
+  public Array decodePartial(
+      @Nonnull StoreHandle storeHandle,
+      long[] offset, int[] shape,
+      @Nonnull ArrayMetadata.CoreArrayMetadata arrayMetadata
+  ) throws ZarrException {
+    if (!supportsPartialDecode()) {
+      throw new ZarrException(
+          "Partial decode is not supported for these codecs. " + Arrays.toString(codecs));
+    }
+    Array chunkArray = ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).decodePartial(
+        storeHandle, offset, shape, arrayMetadata);
+    if (chunkArray == null) {
+      throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
+    }
+    return chunkArray;
+  }
+
   @Nonnull
   public Array decode(
       @Nonnull ByteBuffer chunkBytes,
@@ -80,9 +103,13 @@ public class CodecPipeline {
     if (chunkBytes == null) {
       throw new ZarrException("chunkBytes is null. Ohh nooo.");
     }
-    for (BytesBytesCodec codec : getBytesBytesCodecs()) { // TODO iterate in reverse
+
+    BytesBytesCodec[] bytesBytesCodecs = getBytesBytesCodecs();
+    for (int i = bytesBytesCodecs.length - 1; i >= 0; --i) {
+      BytesBytesCodec codec = bytesBytesCodecs[i];
       chunkBytes = codec.decode(chunkBytes, arrayMetadata);
     }
+
     if (chunkBytes == null) {
       throw new ZarrException(
           "chunkBytes is null. This is likely a bug in one of the codecs. " + Arrays.toString(
@@ -92,9 +119,13 @@ public class CodecPipeline {
     if (chunkArray == null) {
       throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
     }
-    for (ArrayArrayCodec codec : getArrayArrayCodecs()) { // TODO iterate in reverse
+
+    ArrayArrayCodec[] arrayArrayCodecs = getArrayArrayCodecs();
+    for (int i = arrayArrayCodecs.length - 1; i >= 0; --i) {
+      ArrayArrayCodec codec = arrayArrayCodecs[i];
       chunkArray = codec.decode(chunkArray, arrayMetadata);
     }
+
     if (chunkArray == null) {
       throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
     }
@@ -115,6 +146,14 @@ public class CodecPipeline {
       chunkBytes = codec.encode(chunkBytes, arrayMetadata);
     }
     return chunkBytes;
+  }
+
+  public long computeEncodedSize(long inputByteLength, CoreArrayMetadata arrayMetadata)
+      throws ZarrException {
+    for (Codec codec : codecs) {
+      inputByteLength = codec.computeEncodedSize(inputByteLength, arrayMetadata);
+    }
+    return inputByteLength;
   }
 
   public Array partialDecode(

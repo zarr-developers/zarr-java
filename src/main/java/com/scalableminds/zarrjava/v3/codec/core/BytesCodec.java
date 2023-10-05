@@ -3,6 +3,7 @@ package com.scalableminds.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.codec.ArrayBytesCodec;
 import java.nio.ByteBuffer;
@@ -39,6 +40,11 @@ public class BytesCodec implements ArrayBytesCodec {
     return chunkArray.getDataAsByteBuffer(configuration.endian.getByteOrder());
   }
 
+  @Override
+  public long computeEncodedSize(long inputByteLength,
+      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    return inputByteLength;
+  }
 
   public enum Endian {
     LITTLE("little"),
