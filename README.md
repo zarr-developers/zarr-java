@@ -1,3 +1,8 @@
+## Early preview of `zarr-java`
+
+This repository contains an early preview of a Java implementation of the Zarr specification. 
+It is intended for collecting feedback from the community and not for use. 
+
 # zarr-java
 Java implementation of the Zarr Specification
 
