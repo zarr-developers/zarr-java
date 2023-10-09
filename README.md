@@ -7,11 +7,11 @@ Refer to [JZarr](https://github.com/zarr-developers/jzarr) for a stable implemen
 
 ## Usage
 ```java
-import com.scalableminds.zarrjava.store.FilesystemStore;
-import com.scalableminds.zarrjava.store.HttpStore;
-import com.scalableminds.zarrjava.v3.Array;
-import com.scalableminds.zarrjava.v3.DataType;
-import com.scalableminds.zarrjava.v3.Group;
+import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.HttpStore;
+import dev.zarr.zarrjava.v3.Array;
+import dev.zarr.zarrjava.v3.DataType;
+import dev.zarr.zarrjava.v3.Group;
 
 Group hierarchy = Group.open(
     new HttpStore("https://static.webknossos.org/data/zarr_v3")
