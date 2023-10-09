@@ -98,6 +98,12 @@ public class Group extends Node {
     return Array.create(storeHandle.resolve(key), arrayMetadata);
   }
 
+  public Array createArray(String key,
+      Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper)
+      throws IOException, ZarrException {
+    return Array.create(storeHandle.resolve(key), arrayMetadataBuilderMapper, false);
+  }
+
   public Stream<Node> list() {
     return storeHandle.list()
         .map(key -> {

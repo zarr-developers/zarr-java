@@ -48,7 +48,7 @@ public class Utils {
 
   public static int[] toIntArray(long[] array) {
     return Arrays.stream(array)
-        .mapToInt(i -> (int) i)
+        .mapToInt(Math::toIntExact)
         .toArray();
   }
 

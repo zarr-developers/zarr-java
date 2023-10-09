@@ -3,6 +3,7 @@
 This repository contains an early preview of a Java implementation of the Zarr specification. 
 It is intended for collecting feedback from the community and not for use. The API is subject to changes.
 
+Refer to [JZarr](https://github.com/zarr-developers/jzarr) for a stable implementation of Zarr version 2.
 
 ## Usage
 ```java
@@ -18,8 +19,8 @@ Group hierarchy = Group.open(
 );
 Array array = hierarchy.get("color").get("1");
 ucar.ma2.Array outArray = array.read(
-    new long[]{0, 3073, 3073, 513}, 
-    new int[]{1, 64, 64, 64}
+    new long[]{0, 3073, 3073, 513}, // offset
+    new int[]{1, 64, 64, 64} // shape
 );
 
 Array array = Array.create(
@@ -33,7 +34,7 @@ Array array = Array.create(
         .build();
 );
 array.write(
-    new long[]{0, 0, 0, 0}, 
+    new long[]{0, 0, 0, 0}, // offset
     ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1, 1024, 1024, 1024})
 );
 ```

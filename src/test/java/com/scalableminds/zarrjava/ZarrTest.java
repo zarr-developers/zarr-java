@@ -100,12 +100,29 @@ public class ZarrTest {
   }
 
   @Test
+  public void testV3Access() throws IOException, ZarrException {
+    Array readArray = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
+
+    ucar.ma2.Array outArray = readArray.access().withOffset(0, 3073, 3073, 513)
+        .withShape(1, 64, 64, 64)
+        .read();
+    assertEquals(outArray.getSize(), 64 * 64 * 64);
+    assertEquals(outArray.getByte(0), -98);
+
+    Array writeArray = Array.create(
+        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "1"),
+        readArray.metadata
+    );
+    writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
+  }
+
+  @Test
   public void testV3ShardingReadWrite() throws IOException, ZarrException {
     Array readArray = Array.open(
         new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
     ucar.ma2.Array readArrayContent = readArray.read();
     Array writeArray = Array.create(
-        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "8-8-2"),
+        new FilesystemStore(TESTOUTPUT).resolve("l4_sample_3", "color", "8-8-2"),
         readArray.metadata
     );
     writeArray.write(readArrayContent);
@@ -177,11 +194,10 @@ public class ZarrTest {
     Group group2 = group.createGroup("test2", new HashMap<String, Object>() {{
       put("hello", "world");
     }});
-    Array array = group2.createArray("array", Array.metadataBuilder()
-        .withShape(10, 10)
-        .withDataType(DataType.UINT8)
-        .withChunkShape(5, 5)
-        .build()
+    Array array = group2.createArray("array", b ->
+        b.withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
     );
     array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
