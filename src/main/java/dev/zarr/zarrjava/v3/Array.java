@@ -212,7 +212,7 @@ public class Array extends Node {
   public ucar.ma2.Array readChunk(long[] chunkCoords)
       throws ZarrException {
     if (!chunkIsInArray(chunkCoords)) {
-      return metadata.allocateFillValueChunk();
+      throw new ZarrException("Attempting to read data outside of the array's domain.");
     }
 
     final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
