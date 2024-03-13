@@ -211,7 +211,7 @@ public class Array extends Node {
   @Nonnull
   public ucar.ma2.Array readChunk(long[] chunkCoords)
       throws ZarrException {
-    if (chunkIsInArray(chunkCoords)) {
+    if (!chunkIsInArray(chunkCoords)) {
       return metadata.allocateFillValueChunk();
     }
 
