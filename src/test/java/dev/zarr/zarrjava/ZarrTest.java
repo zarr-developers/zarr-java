@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
 import dev.zarr.zarrjava.store.S3Store;
+import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
@@ -17,22 +18,33 @@ import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 import dev.zarr.zarrjava.v3.Node;
+
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Stream;
+
+import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.Before;
 import org.junit.Test;
+
+import javax.xml.crypto.Data;
+
 
 public class ZarrTest {
 
   final Path TESTDATA = Paths.get("testdata");
   final Path TESTOUTPUT = Paths.get("testoutput");
+  final Path ZARRITA = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\run_zarrita.py");
+  final String CONDA_ENVIRONMENT = "zarrita_env";
 
   @Before
   public void clearTestoutputFolder() throws IOException {
@@ -43,6 +55,66 @@ public class ZarrTest {
     }
     Files.createDirectory(TESTOUTPUT);
   }
+
+  @Before
+  public void installZarritaInCondaEnv() throws IOException {
+    Process process = Runtime.getRuntime().exec("conda run -n "+CONDA_ENVIRONMENT+" pip install zarrita");
+
+    BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+    String s;
+    boolean environmentLocationNotFound = false;
+    while ((s = stdError.readLine()) != null) {
+      System.err.println(s);
+      if(s.contains("EnvironmentLocationNotFound")){
+        environmentLocationNotFound = true;
+
+      }
+    }
+    if (environmentLocationNotFound){
+      System.out.println("creating conda environment: " + CONDA_ENVIRONMENT);
+      Runtime.getRuntime().exec("conda create --name "+CONDA_ENVIRONMENT+" -y");
+      Runtime.getRuntime().exec("conda run -n "+CONDA_ENVIRONMENT+" pip install zarrita");
+    }
+    while ((s = stdError.readLine()) != null) {
+      System.err.println(s);
+    }
+  }
+
+
+  @Test
+  public void testReadFromZarrita() throws IOException, ZarrException {
+
+    String zarritaCommand = "conda run -n "+CONDA_ENVIRONMENT+" python " + ZARRITA;
+    Process process = Runtime.getRuntime().exec(zarritaCommand);
+    System.out.println(zarritaCommand);
+
+    BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
+    BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+    String s;
+    System.out.println("out: ");
+    while ((s = stdInput.readLine()) != null) {
+      System.out.println(s);
+    }
+    System.out.println("err:");
+    while ((s = stdError.readLine()) != null) {
+      System.err.println(s);
+    }
+
+    Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("array"));
+
+    ucar.ma2.Array result = array.read();
+
+
+    //for expected values see run_zarrita.py
+    assertArrayEquals(new int[] {16, 16}, result.getShape());
+    assertEquals(DataType.INT32, array.metadata.dataType);
+    assertArrayEquals(new int[]{2, 8}, array.metadata.chunkShape());
+    assertEquals(42, array.metadata.attributes.get("answer"));
+    int[] expectedData = new int[16 * 16];
+    for (int i = 0; i < 16 * 16; i++) {
+      expectedData[i] = i;
+    }
+    assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
 
   @Test
   public void testFileSystemStores() throws IOException, ZarrException {
