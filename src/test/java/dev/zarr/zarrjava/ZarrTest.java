@@ -43,7 +43,7 @@ public class ZarrTest {
 
   final Path TESTDATA = Paths.get("testdata");
   final Path TESTOUTPUT = Paths.get("testoutput");
-  final Path ZARRITA = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\run_zarrita.py");
+  final Path ZARRITA = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_write.py");
   final String CONDA_ENVIRONMENT = "zarrita_env";
 
   @Before
@@ -105,7 +105,7 @@ public class ZarrTest {
     ucar.ma2.Array result = array.read();
 
 
-    //for expected values see run_zarrita.py
+    //for expected values see zarrita_write.py
     assertArrayEquals(new int[] {16, 16}, result.getShape());
     assertEquals(DataType.INT32, array.metadata.dataType);
     assertArrayEquals(new int[]{2, 8}, array.metadata.chunkShape());
@@ -116,6 +116,7 @@ public class ZarrTest {
     }
     assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
 
+  }
   @Test
   public void testFileSystemStores() throws IOException, ZarrException {
     FilesystemStore fsStore = new FilesystemStore(TESTDATA);
