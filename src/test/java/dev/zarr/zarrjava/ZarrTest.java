@@ -34,21 +34,25 @@ import java.util.stream.Stream;
 
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.xml.crypto.Data;
 
-
 public class ZarrTest {
 
-    final Path TESTDATA = Paths.get("testdata");
-    final Path TESTOUTPUT = Paths.get("testoutput");
-    final Path ZARRITA_WRITE_PATH = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_write.py");
-    final Path ZARRITA_READ_PATH = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_read.py");
-    final String CONDA_ENVIRONMENT = "zarrita_env";
+    final static Path TESTDATA = Paths.get("testdata");
+    final static Path TESTOUTPUT = Paths.get("testoutput");
+    final static Path ZARRITA_WRITE_PATH = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_write.py");
+    final static Path ZARRITA_READ_PATH = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_read.py");
+    final static String CONDA_ENVIRONMENT = "zarrita_env";
 
-    @Before
-    public void clearTestoutputFolder() throws IOException {
+    @BeforeAll
+    public static void clearTestoutputFolder() throws IOException {
         if (Files.exists(TESTOUTPUT)) {
             try (Stream<Path> walk = Files.walk(TESTOUTPUT)) {
                 walk.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
@@ -57,8 +61,8 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    @Before
-    public void installZarritaInCondaEnv() throws IOException {
+    @BeforeAll
+    public static void installZarritaInCondaEnv() throws IOException {
         Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
 
         BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -98,42 +102,43 @@ public class ZarrTest {
         }
     }
 
-//TODO parametrized for different codecs
-    @Test
-    public void testReadFromZarrita() throws IOException, ZarrException {
-
-        String command = "conda run -n " + CONDA_ENVIRONMENT + " python " + ZARRITA_WRITE_PATH;
+    @ParameterizedTest
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
+    public void testReadFromZarrita(String codec) throws IOException, ZarrException {
+        String command = "conda run -n " + CONDA_ENVIRONMENT + " python " + ZARRITA_WRITE_PATH + " " + codec + " " + TESTOUTPUT;
         Process process = Runtime.getRuntime().exec(command);
         System.out.println("exec: " + command);
 
-        //TODO assert exit code 0
         BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
         String s;
         while ((s = stdError.readLine()) != null) {
             System.err.println(s);
         }
+        assert process.exitValue() == 0;
 
-        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("array"));
+        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("zarrita_write", codec));
         ucar.ma2.Array result = array.read();
 
         //for expected values see zarrita_write.py
-        assertArrayEquals(new int[]{16, 16}, result.getShape());
-        assertEquals(DataType.INT32, array.metadata.dataType);
-        assertArrayEquals(new int[]{2, 8}, array.metadata.chunkShape());
-        assertEquals(42, array.metadata.attributes.get("answer"));
+        Assertions.assertArrayEquals(new int[]{16, 16}, result.getShape());
+        Assertions.assertEquals(DataType.INT32, array.metadata.dataType);
+        Assertions.assertArrayEquals(new int[]{2, 8}, array.metadata.chunkShape());
+        Assertions.assertEquals(42, array.metadata.attributes.get("answer"));
         int[] expectedData = new int[16 * 16];
         for (int i = 0; i < 16 * 16; i++) {
             expectedData[i] = i;
         }
-        assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
     @Test
+    @Ignore("not yet implemented")
     public void testJSONSnakeCase(){
         //TODO
     }
 
     @Test
+    @Ignore("not yet implemented")
     public void testWriteToZarrita() throws IOException, ZarrException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("array");
 
