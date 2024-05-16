@@ -33,7 +33,6 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
-import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -132,13 +131,6 @@ public class ZarrTest {
     }
 
     @Test
-    @Ignore("not yet implemented")
-    public void testJSONSnakeCase(){
-        //TODO
-    }
-
-    @Test
-    @Ignore("not yet implemented")
     public void testWriteToZarrita() throws IOException, ZarrException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("array");
 
@@ -171,6 +163,8 @@ public class ZarrTest {
         while ((s = stdError.readLine()) != null) {
             System.err.println(s);
         }
+        //TODO return metadata from zarrita_read.py and do assertions here
+        assert process.exitValue() == 0;
     }
 
 

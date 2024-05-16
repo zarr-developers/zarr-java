@@ -260,8 +260,10 @@ public class ShardingIndexedCodec implements ArrayBytesCodec, ArrayBytesCodec.Wi
     @JsonProperty("chunk_shape")
     public final int[] chunkShape;
     @Nonnull
+    @JsonProperty("codecs")
     public final Codec[] codecs;
     @Nonnull
+    @JsonProperty("index_codecs")
     public final Codec[] indexCodecs;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
