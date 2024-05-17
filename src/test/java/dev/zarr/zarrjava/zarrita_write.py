@@ -20,7 +20,7 @@ elif codec_string == "sharding":
 elif codec_string == "crc32c":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.crc32c_codec()]
 else:
-    raise ValueError("Invalid codec")
+    raise ValueError(f"Invalid {codec=}")
 
 store = zarrita.LocalStore(sys.argv[2])
 testdata = np.arange(0, 16 * 16, dtype='int32').reshape((16, 16))
