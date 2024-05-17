@@ -46,8 +46,11 @@ public class ZarrTest {
 
     final static Path TESTDATA = Paths.get("testdata");
     final static Path TESTOUTPUT = Paths.get("testoutput");
-    final static Path ZARRITA_WRITE_PATH = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_write.py");
-    final static Path ZARRITA_READ_PATH = Paths.get("src\\test\\java\\dev\\zarr\\zarrjava\\zarrita_read.py");
+
+    //TODO: is the Path with / instead of \ readable in Windows?
+    final static Path ZARRITA_WRITE_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_write.py");
+    final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
+
     final static String CONDA_ENVIRONMENT = "zarrita_env";
 
     @BeforeAll
@@ -60,9 +63,11 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    @BeforeAll
+    //@BeforeAll
+    //TODO: might be needed for Windows
     public static void installZarritaInCondaEnv() throws IOException {
-        Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
+        // Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
+        Process process = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", "conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita"});
 
         BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
         String s;
@@ -103,17 +108,25 @@ public class ZarrTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
-    public void testReadFromZarrita(String codec) throws IOException, ZarrException {
-        String command = "conda run -n " + CONDA_ENVIRONMENT + " python " + ZARRITA_WRITE_PATH + " " + codec + " " + TESTOUTPUT;
-        Process process = Runtime.getRuntime().exec(command);
-        System.out.println("exec: " + command);
+    public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
+        String command = "zarrita/bin/python";
 
-        BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        String s;
-        while ((s = stdError.readLine()) != null) {
-            System.err.println(s);
+        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_WRITE_PATH.toString(), codec, TESTOUTPUT.toString());
+        Process process = pb.start();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
         }
-        assert process.exitValue() == 0;
+
+        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        while ((line = readerErr.readLine()) != null) {
+            System.err.println(line);
+        }
+
+        int exitCode = process.waitFor();
+        assert exitCode == 0;
 
         Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("zarrita_write", codec));
         ucar.ma2.Array result = array.read();
@@ -130,8 +143,11 @@ public class ZarrTest {
         Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
-    @Test
-    public void testWriteToZarrita() throws IOException, ZarrException {
+    //ParameterizedTest instead of Test is a workaround to trigger @BeforeAll
+    //TODO: dont misuse ParameterizedTest
+    @ParameterizedTest
+    @ValueSource(strings = "dummy")
+    public void testWriteToZarrita(String dummy) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("array");
 
         Array array = Array.create(
@@ -149,22 +165,26 @@ public class ZarrTest {
         array.write(testData);
 
 
-        String command = "conda run -n " + CONDA_ENVIRONMENT + " python " + ZARRITA_READ_PATH;
-        Process process = Runtime.getRuntime().exec(command);
-        System.out.println("exec: " + command);
+        String command = "zarrita/bin/python";
 
-        BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        String s;
-        System.out.println("result: ");
-        while ((s = stdInput.readLine()) != null) {
-            System.out.println(s);
+        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(), TESTOUTPUT.toString());
+        Process process = pb.start();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
         }
-        while ((s = stdError.readLine()) != null) {
-            System.err.println(s);
+
+        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        while ((line = readerErr.readLine()) != null) {
+            System.err.println(line);
         }
+
+        int exitCode = process.waitFor();
+        assert exitCode == 0;
         //TODO return metadata from zarrita_read.py and do assertions here
-        assert process.exitValue() == 0;
+
     }
 
 
