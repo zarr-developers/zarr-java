@@ -23,10 +23,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Stream;
 
-import org.junit.Ignore;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -174,7 +173,6 @@ public class ZarrTest {
         Arrays.setAll(data, p -> p);
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16}, data));
 
-
         String command = "zarrita/bin/python";
 
         ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(),  codec, TESTOUTPUT.toString());
@@ -196,6 +194,60 @@ public class ZarrTest {
         //TODO return metadata from zarrita_read.py and do assertions here
     }
 
+
+     @ParameterizedTest
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding"})
+    public void testCodecsWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
+        int[] testData = new int[16 * 16 * 16];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testWriteAndRead3d", codec);
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                        .withShape(16, 16, 16)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(2, 4, 8)
+                        .withFillValue(0)
+                        .withAttributes(Map.of("test_key", "test_value"));
+
+        switch (codec){
+            case "blosc":
+                builder = builder.withCodecs(c -> c.withBlosc());
+                break;
+            case "gzip":
+                builder = builder.withCodecs(c -> c.withGzip());
+                break;
+            case "zstd":
+                builder = builder.withCodecs(c -> c.withZstd(0));
+                break;
+            case "bytes":
+                builder = builder.withCodecs(c -> c.withBytes("LITTLE"));
+                break;
+            case "transpose":
+                builder = builder.withCodecs(c -> c.withTranspose("F"));
+                break;
+            case "sharding":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE")));
+                break;
+            case "crc32c":
+                //missing
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid Codec: "+codec);
+        }
+
+        Array writeArray = Array.create(storeHandle,builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
+        Assertions.assertEquals(DataType.UINT32, readArray.metadata.dataType);
+        Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
+        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
+
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+    }
 
     @Test
     public void testFileSystemStores() throws IOException, ZarrException {
@@ -269,7 +321,7 @@ public class ZarrTest {
         writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
     }
 
-    @Ignore
+    @Disabled("uses excessive memory")
     @Test
     public void testV3ShardingReadWrite() throws IOException, ZarrException {
         Array readArray = Array.open(
@@ -287,16 +339,17 @@ public class ZarrTest {
 
     @Test
     public void testV3Codecs() throws IOException, ZarrException {
+        int[] readShape = new int[]{1, 1, 1024, 1024};
         Array readArray = Array.open(
                 new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
-        ucar.ma2.Array readArrayContent = readArray.read();
+        ucar.ma2.Array readArrayContent = readArray.read(new long[4], readShape);
         {
             Array gzipArray = Array.create(
                     new FilesystemStore(TESTOUTPUT).resolve("l4_sample_gzip", "color", "8-8-2"),
                     Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withGzip(5)).build()
             );
             gzipArray.write(readArrayContent);
-            ucar.ma2.Array outGzipArray = gzipArray.read();
+            ucar.ma2.Array outGzipArray = gzipArray.read(new long[4], readShape);
             assert MultiArrayUtils.allValuesEqual(outGzipArray, readArrayContent);
         }
         {
@@ -305,7 +358,7 @@ public class ZarrTest {
                     Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withBlosc("zstd", 5)).build()
             );
             bloscArray.write(readArrayContent);
-            ucar.ma2.Array outBloscArray = bloscArray.read();
+            ucar.ma2.Array outBloscArray = bloscArray.read(new long[4], readShape);
             assert MultiArrayUtils.allValuesEqual(outBloscArray, readArrayContent);
         }
         {
@@ -314,7 +367,7 @@ public class ZarrTest {
                     Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withZstd(10)).build()
             );
             zstdArray.write(readArrayContent);
-            ucar.ma2.Array outZstdArray = zstdArray.read();
+            ucar.ma2.Array outZstdArray = zstdArray.read(new long[4], readShape);
             assert MultiArrayUtils.allValuesEqual(outZstdArray, readArrayContent);
         }
     }
@@ -345,9 +398,7 @@ public class ZarrTest {
         FilesystemStore fsStore = new FilesystemStore(TESTOUTPUT);
 
         Group group = Group.create(fsStore.resolve("testgroup"));
-        Group group2 = group.createGroup("test2", new HashMap<String, Object>() {{
-            put("hello", "world");
-        }});
+        Group group2 = group.createGroup("test2", Map.of("hello", "world"));
         Array array = group2.createArray("array", b ->
                 b.withShape(10, 10)
                         .withDataType(DataType.UINT8)
