@@ -12,12 +12,7 @@ import dev.zarr.zarrjava.store.HttpStore;
 import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
-import dev.zarr.zarrjava.v3.Array;
-import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.DataType;
-import dev.zarr.zarrjava.v3.Group;
-import dev.zarr.zarrjava.v3.GroupMetadata;
-import dev.zarr.zarrjava.v3.Node;
+import dev.zarr.zarrjava.v3.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -38,6 +33,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import javax.management.InvalidAttributeValueException;
 import javax.xml.crypto.Data;
 
 public class ZarrTest {
@@ -134,32 +130,54 @@ public class ZarrTest {
         Assertions.assertEquals(DataType.INT32, array.metadata.dataType);
         Assertions.assertArrayEquals(new int[]{2, 8}, array.metadata.chunkShape());
         Assertions.assertEquals(42, array.metadata.attributes.get("answer"));
+
         int[] expectedData = new int[16 * 16];
-        for (int i = 0; i < 16 * 16; i++) {
-            expectedData[i] = i;
-        }
+        Arrays.setAll(expectedData, p -> p);
         Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
+    //TODO: add crc32c
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding"})
     public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
-
-//TODO: have correct codecs
-        Array array = Array.create(
-                storeHandle,
-                Array.metadataBuilder()
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
                         .withShape(16, 16)
                         .withDataType(DataType.UINT32)
                         .withChunkShape(8, 8)
-                        .withFillValue(0)
-                        .withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE")))
-                        .build());
+                        .withFillValue(0);
 
-        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16});
-        testData.setInt(10, 42);
-        array.write(testData);
+        switch (codec){
+            case "blosc":
+                builder = builder.withCodecs(c -> c.withBlosc());
+                break;
+            case "gzip":
+                builder = builder.withCodecs(c -> c.withGzip());
+                break;
+            case "zstd":
+                builder = builder.withCodecs(c -> c.withZstd(0));
+                break;
+            case "bytes":
+                builder = builder.withCodecs(c -> c.withBytes("LITTLE"));
+                break;
+            case "transpose":
+                builder = builder.withCodecs(c -> c.withTranspose("F"));
+                break;
+            case "sharding":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE")));
+                break;
+            case "crc32c":
+                //missing
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid Codec: "+codec);
+        }
+
+        Array array = Array.create(storeHandle,builder.build());
+
+        int[] data = new int[16*16];
+        Arrays.setAll(data, p -> p);
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16}, data));
 
 
         String command = "zarrita/bin/python";
@@ -181,7 +199,6 @@ public class ZarrTest {
         int exitCode = process.waitFor();
         assert exitCode == 0;
         //TODO return metadata from zarrita_read.py and do assertions here
-
     }
 
 
