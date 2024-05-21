@@ -1,8 +1,5 @@
 package dev.zarr.zarrjava;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -13,6 +10,12 @@ import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -26,9 +29,8 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 public class ZarrTest {
 
@@ -136,12 +138,12 @@ public class ZarrTest {
     public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
-                        .withShape(16, 16)
-                        .withDataType(DataType.UINT32)
-                        .withChunkShape(8, 8)
-                        .withFillValue(0);
+                .withShape(16, 16)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(8, 8)
+                .withFillValue(0);
 
-        switch (codec){
+        switch (codec) {
             case "blosc":
                 builder = builder.withCodecs(c -> c.withBlosc());
                 break;
@@ -164,18 +166,18 @@ public class ZarrTest {
                 //missing
                 break;
             default:
-                throw new IllegalArgumentException("Invalid Codec: "+codec);
+                throw new IllegalArgumentException("Invalid Codec: " + codec);
         }
 
-        Array array = Array.create(storeHandle,builder.build());
+        Array array = Array.create(storeHandle, builder.build());
 
-        int[] data = new int[16*16];
+        int[] data = new int[16 * 16];
         Arrays.setAll(data, p -> p);
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16}, data));
 
         String command = "zarrita/bin/python";
 
-        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(),  codec, TESTOUTPUT.toString());
+        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -195,7 +197,7 @@ public class ZarrTest {
     }
 
 
-     @ParameterizedTest
+    @ParameterizedTest
     @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding"})
     public void testCodecsWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
         int[] testData = new int[16 * 16 * 16];
@@ -203,13 +205,13 @@ public class ZarrTest {
 
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testWriteAndRead3d", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
-                        .withShape(16, 16, 16)
-                        .withDataType(DataType.UINT32)
-                        .withChunkShape(2, 4, 8)
-                        .withFillValue(0)
-                        .withAttributes(Map.of("test_key", "test_value"));
+                .withShape(16, 16, 16)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(2, 4, 8)
+                .withFillValue(0)
+                .withAttributes(Map.of("test_key", "test_value"));
 
-        switch (codec){
+        switch (codec) {
             case "blosc":
                 builder = builder.withCodecs(c -> c.withBlosc());
                 break;
@@ -232,10 +234,10 @@ public class ZarrTest {
                 //missing
                 break;
             default:
-                throw new IllegalArgumentException("Invalid Codec: "+codec);
+                throw new IllegalArgumentException("Invalid Codec: " + codec);
         }
 
-        Array writeArray = Array.create(storeHandle,builder.build());
+        Array writeArray = Array.create(storeHandle, builder.build());
         writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
 
         Array readArray = Array.open(storeHandle);
@@ -263,7 +265,7 @@ public class ZarrTest {
         System.out.println(objectMapper.writeValueAsString(group));
 
         ArrayMetadata arrayMetadata = objectMapper.readValue(Files.readAllBytes(TESTDATA.resolve(
-                "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
+                        "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
                 ArrayMetadata.class);
 
         System.out.println(arrayMetadata);
