@@ -8,7 +8,7 @@ codec = []
 if codec_string == "blosc":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.blosc_codec(typesize=4)]
 elif codec_string == "gzip":
-    codecs = [zarrita.codecs.gzip_codec()], zarrita.codecs.bytes_codec()
+    codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.gzip_codec()]
 elif codec_string == "zstd":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.zstd_codec()]
 elif codec_string == "bytes":
@@ -24,9 +24,10 @@ else:
 
 store = zarrita.LocalStore(sys.argv[2])
 testdata = np.arange(0, 16 * 16, dtype='int32').reshape((16, 16))
+print(f"{codec=}")
 
 a = zarrita.Array.create(
-    store / 'zarrita_write' / codec_string,
+    store / 'read_from_zarrita' / codec_string,
     shape=(16, 16),
     dtype='int32',
     chunk_shape=(2, 8),
@@ -34,4 +35,3 @@ a = zarrita.Array.create(
     attributes={'answer': 42}
 )
 a[:, :] = testdata
-print(testdata)

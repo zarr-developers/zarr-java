@@ -33,10 +33,8 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -66,8 +64,8 @@ public class ZarrTest {
     //@BeforeAll
     //TODO: might be needed for Windows
     public static void installZarritaInCondaEnv() throws IOException {
-        // Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-        Process process = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", "conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita"});
+        Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
+        //Process process = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", "conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita"});
 
         BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
         String s;
@@ -128,7 +126,7 @@ public class ZarrTest {
         int exitCode = process.waitFor();
         assert exitCode == 0;
 
-        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("zarrita_write", codec));
+        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("read_from_zarrita", codec));
         ucar.ma2.Array result = array.read();
 
         //for expected values see zarrita_write.py
@@ -143,21 +141,20 @@ public class ZarrTest {
         Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
-    //ParameterizedTest instead of Test is a workaround to trigger @BeforeAll
-    //TODO: dont misuse ParameterizedTest
     @ParameterizedTest
-    @ValueSource(strings = "dummy")
-    public void testWriteToZarrita(String dummy) throws IOException, ZarrException, InterruptedException {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("array");
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
+    public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
 
+//TODO: have correct codecs
         Array array = Array.create(
                 storeHandle,
                 Array.metadataBuilder()
                         .withShape(16, 16)
                         .withDataType(DataType.UINT32)
-                        .withChunkShape(4, 4)
+                        .withChunkShape(8, 8)
                         .withFillValue(0)
-                        .withCodecs(c -> c.withSharding(new int[]{4, 4}, CodecBuilder::withBlosc))
+                        .withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE")))
                         .build());
 
         ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16});
@@ -167,7 +164,7 @@ public class ZarrTest {
 
         String command = "zarrita/bin/python";
 
-        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(), TESTOUTPUT.toString());
+        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(),  codec, TESTOUTPUT.toString());
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
