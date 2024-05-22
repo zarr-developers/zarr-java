@@ -54,6 +54,8 @@ public class TransposeCodec implements ArrayArrayCodec {
 
   public static final class Configuration {
 
+    // TODO: order 'C' and 'F' are deprecated
+    // https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/v1.0.html#transpose-codec-v1
     public final String order;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
