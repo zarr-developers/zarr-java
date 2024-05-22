@@ -56,14 +56,10 @@ public class TransposeCodec implements ArrayArrayCodec {
 
     // TODO: order 'C' and 'F' are deprecated
     // https://zarr-specs.readthedocs.io/en/latest/v3/codecs/transpose/v1.0.html#transpose-codec-v1
-    public final String order;
+    public final int[] order;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public Configuration(@JsonProperty(value = "order", defaultValue = "C") String order)
-        throws ZarrException {
-      if (!order.equals("C") && !order.equals("F")) {
-        throw new ZarrException("Only 'C' or 'F' are supported.");
-      }
+    public Configuration(@JsonProperty(value = "order") int[] order){
       this.order = order;
     }
   }

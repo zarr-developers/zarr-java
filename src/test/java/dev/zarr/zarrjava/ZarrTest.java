@@ -11,7 +11,10 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -27,8 +30,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 public class ZarrTest {
 
@@ -38,8 +40,6 @@ public class ZarrTest {
     final static Path ZARRITA_WRITE_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_write.py");
     final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
     final static String CONDA_ENVIRONMENT = "zarrita_env";
-    static ucar.ma2.Array testData;
-    static ucar.ma2.Array testDataTransposed;
 
     @BeforeAll
     public static void clearTestoutputFolder() throws IOException {
@@ -92,52 +92,6 @@ public class ZarrTest {
                 System.err.println(s);
             }
         }
-    }
-
-    @BeforeEach
-    public void fillTestData() {
-        testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{4, 4, 4}, new int[]{
-                0, 1, 2, 3,
-                4, 5, 6, 7,
-                8, 9, 10, 11,
-                12, 13, 14, 15,
-
-                16, 17, 18, 19,
-                20, 21, 22, 23,
-                24, 25, 26, 27,
-                28, 29, 30, 31,
-
-                32, 33, 34, 35,
-                36, 37, 38, 39,
-                40, 41, 42, 43,
-                44, 45, 46, 47,
-
-                48, 49, 50, 51,
-                52, 53, 54, 55,
-                56, 57, 58, 59,
-                60, 61, 62, 63
-        });
-        testDataTransposed = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{4, 4, 4}, new int[]{
-                0, 16, 32, 48,
-                4, 20, 36, 52,
-                8, 24, 40, 56,
-                12, 28, 44, 60,
-
-                1, 17, 33, 49,
-                5, 21, 37, 53,
-                9, 25, 41, 57,
-                13, 29, 45, 61,
-
-                2, 18, 34, 50,
-                6, 22, 38, 54,
-                10, 26, 42, 58,
-                14, 30, 46, 62,
-
-                3, 19, 35, 51,
-                7, 23, 39, 55,
-                11, 27, 43, 59,
-                15, 31, 47, 63
-        });
     }
 
     @ParameterizedTest
@@ -295,19 +249,28 @@ public class ZarrTest {
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"F", "C"})
-    public void testCodecTranspose(String order) throws IOException, ZarrException, InterruptedException {
+    @Test
+    public void testCodecTranspose() throws IOException, ZarrException, InterruptedException {
+        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
+        ucar.ma2.Array testDataTransposed120 = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
+                0, 9, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7, 16, 8, 17});
+
         ArrayMetadata.CoreArrayMetadata metadata = new ArrayMetadata.CoreArrayMetadata(
-                new long[]{4, 4, 4},
-                new int[]{4, 4, 4},
+                new long[]{2, 3, 3},
+                new int[]{2, 3, 3},
                 DataType.UINT32,
                 null);
-        TransposeCodec transposeCodec = new TransposeCodec(new TransposeCodec.Configuration(order));
+        TransposeCodec transposeCodec = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 0}));
+        TransposeCodec transposeCodecWrongOrder1 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 2}));
+        TransposeCodec transposeCodecWrongOrder2 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 3}));
+        TransposeCodec transposeCodecWrongOrder3 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 3, 0}));
 
-        //TODO is that what is expected?
-        assertEquals(testDataTransposed, transposeCodec.encode(testData, metadata));
-        assertEquals(testData, transposeCodec.decode(testDataTransposed, metadata));
+        assertEquals(testDataTransposed120, transposeCodec.encode(testData, metadata));
+        assertEquals(testData, transposeCodec.decode(testDataTransposed120, metadata));
+        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder1.encode(testData, metadata));
+        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder2.encode(testData, metadata));
+        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder3.encode(testData, metadata));
     }
 
     @Test
