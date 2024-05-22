@@ -23,7 +23,7 @@ else:
     raise ValueError(f"Invalid {codec=}")
 
 store = zarrita.LocalStore(sys.argv[2])
-testdata = np.arange(0, 16 * 16, dtype='int32').reshape((16, 16))
+testdata = np.arange(16 * 16, dtype='int32').reshape((16, 16))
 print(f"{codec=}")
 
 a = zarrita.Array.create(
