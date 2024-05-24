@@ -155,7 +155,7 @@ public class ZarrTest {
                 builder = builder.withCodecs(c -> c.withBytes("LITTLE"));
                 break;
             case "transpose":
-                builder = builder.withCodecs(c -> c.withTranspose("F"));
+                builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0}));
                 break;
             case "sharding":
                 builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE")));
@@ -223,7 +223,7 @@ public class ZarrTest {
                 builder = builder.withCodecs(c -> c.withBytes("LITTLE"));
                 break;
             case "transpose":
-                builder = builder.withCodecs(c -> c.withTranspose("F"));
+                builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0, 2}));
                 break;
             case "sharding":
                 builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE")));
@@ -253,7 +253,7 @@ public class ZarrTest {
     public void testCodecTranspose() throws IOException, ZarrException, InterruptedException {
         ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
-        ucar.ma2.Array testDataTransposed120 = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
+        ucar.ma2.Array testDataTransposed120 = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{3, 3, 2}, new int[]{
                 0, 9, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7, 16, 8, 17});
 
         ArrayMetadata.CoreArrayMetadata metadata = new ArrayMetadata.CoreArrayMetadata(
@@ -265,12 +265,16 @@ public class ZarrTest {
         TransposeCodec transposeCodecWrongOrder1 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 2}));
         TransposeCodec transposeCodecWrongOrder2 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 3}));
         TransposeCodec transposeCodecWrongOrder3 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 3, 0}));
+        transposeCodec.setCoreArrayMetadata(metadata);
+        transposeCodecWrongOrder1.setCoreArrayMetadata(metadata);
+        transposeCodecWrongOrder2.setCoreArrayMetadata(metadata);
+        transposeCodecWrongOrder3.setCoreArrayMetadata(metadata);
 
-        assertEquals(testDataTransposed120, transposeCodec.encode(testData, metadata));
-        assertEquals(testData, transposeCodec.decode(testDataTransposed120, metadata));
-        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder1.encode(testData, metadata));
-        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder2.encode(testData, metadata));
-        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder3.encode(testData, metadata));
+        assert ucar.ma2.MAMath.equals(testDataTransposed120, transposeCodec.encode(testData));
+        assert ucar.ma2.MAMath.equals(testData, transposeCodec.decode(testDataTransposed120));
+        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder1.encode(testData));
+        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder2.encode(testData));
+        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder3.encode(testData));
     }
 
     @Test

@@ -62,13 +62,9 @@ public class CodecBuilder {
     return withBlosc("zstd");
   }
 
-  public CodecBuilder withTranspose(String order) {
-    try {
+  public CodecBuilder withTranspose(int[] order) {
       codecs.add(new TransposeCodec(new TransposeCodec.Configuration(order)));
-    } catch (ZarrException e) {
-      throw new RuntimeException(e);
-    }
-    return this;
+      return this;
   }
 
   public CodecBuilder withBytes(Endian endian) {

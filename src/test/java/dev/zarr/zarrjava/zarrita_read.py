@@ -14,7 +14,7 @@ elif codec_string == "zstd":
 elif codec_string == "bytes":
     codec = [zarrita.codecs.bytes_codec()]
 elif codec_string == "transpose":
-    codec = [zarrita.codecs.transpose_codec("F"), zarrita.codecs.bytes_codec()]
+    codec = [zarrita.codecs.transpose_codec((1, 0)), zarrita.codecs.bytes_codec()]
 elif codec_string == "sharding":
     codec= zarrita.codecs.sharding_codec(chunk_shape=(4, 4), codecs=[zarrita.codecs.bytes_codec("little")]),
 elif codec_string == "crc32c":

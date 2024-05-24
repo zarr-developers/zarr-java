@@ -16,7 +16,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 
-public class ZstdCodec implements BytesBytesCodec {
+public class ZstdCodec extends BytesBytesCodec {
 
   public final String name = "zstd";
   @Nonnull
@@ -37,7 +37,7 @@ public class ZstdCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+  public ByteBuffer decode(ByteBuffer chunkBytes)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdInputStream inputStream = new ZstdInputStream(
         new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
@@ -50,7 +50,7 @@ public class ZstdCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+  public ByteBuffer encode(ByteBuffer chunkBytes)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdOutputStream zstdStream = new ZstdOutputStream(
         outputStream, configuration.level).setChecksum(

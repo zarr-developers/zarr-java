@@ -1,15 +1,13 @@
 package dev.zarr.zarrjava.v3.codec;
 
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
+
 import java.nio.ByteBuffer;
 
-public interface BytesBytesCodec extends Codec {
+public abstract class BytesBytesCodec extends Codec {
 
-  ByteBuffer encode(ByteBuffer chunkBytes, CoreArrayMetadata arrayMetadata)
-      throws ZarrException;
+    protected abstract ByteBuffer encode(ByteBuffer chunkBytes) throws ZarrException;
 
-  ByteBuffer decode(ByteBuffer chunkBytes, CoreArrayMetadata arrayMetadata)
-      throws ZarrException;
+    public abstract ByteBuffer decode(ByteBuffer chunkBytes) throws ZarrException;
 
 }
