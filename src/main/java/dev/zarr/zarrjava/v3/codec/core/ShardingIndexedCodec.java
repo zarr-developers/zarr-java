@@ -255,16 +255,21 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
     @Nonnull
     @JsonProperty("index_codecs")
     public final Codec[] indexCodecs;
+    @Nonnull
+    @JsonProperty("index_location")
+    public final String indexLocation;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Configuration(
-        @JsonProperty(value = "chunk_shape", required = true) int[] chunkShape,
-        @Nonnull @JsonProperty("codecs") Codec[] codecs,
-        @Nonnull @JsonProperty("index_codecs") Codec[] indexCodecs
+            @JsonProperty(value = "chunk_shape", required = true) int[] chunkShape,
+            @Nonnull @JsonProperty("codecs") Codec[] codecs,
+            @Nonnull @JsonProperty("index_codecs") Codec[] indexCodecs,
+            @Nonnull @JsonProperty("index_location") String indexLocation
     ) {
       this.chunkShape = chunkShape;
       this.codecs = codecs;
       this.indexCodecs = indexCodecs;
+      this.indexLocation = indexLocation;
     }
   }
 
