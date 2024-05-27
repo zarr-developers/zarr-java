@@ -41,6 +41,13 @@ public class ZarrTest {
     final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
     final static String CONDA_ENVIRONMENT = "zarrita_env";
 
+    public static String pythonPath() {
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            return "venv_zarrita\\Scripts\\python.exe";
+        }
+        return "venv_zarrita/bin/python";
+    }
+
     @BeforeAll
     public static void clearTestoutputFolder() throws IOException {
         if (Files.exists(TESTOUTPUT)) {
@@ -55,7 +62,7 @@ public class ZarrTest {
     @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
     public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
 
-        String command = "venv_zarrita/bin/python";
+        String command = pythonPath();
         ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_WRITE_PATH.toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
 
@@ -131,7 +138,7 @@ public class ZarrTest {
         Arrays.setAll(data, p -> p);
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16}, data));
 
-        String command = "venv_zarrita/bin/python";
+        String command = pythonPath();
 
         ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
