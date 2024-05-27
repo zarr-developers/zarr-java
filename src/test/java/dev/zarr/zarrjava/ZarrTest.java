@@ -51,54 +51,11 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    //@BeforeAll
-    //TODO: might be needed for Windows
-    public static void installZarritaInCondaEnv() throws IOException {
-        Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-        //Process process = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", "conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita"});
-
-        BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        String s;
-        boolean environmentLocationNotFound = false;
-        while ((s = stdError.readLine()) != null) {
-            System.err.println(s);
-            if (s.contains("EnvironmentLocationNotFound")) {
-                environmentLocationNotFound = true;
-
-            }
-        }
-        if (environmentLocationNotFound) {
-            System.out.println("creating conda environment: " + CONDA_ENVIRONMENT);
-            process = Runtime.getRuntime().exec("conda create --name " + CONDA_ENVIRONMENT + " -y");
-            System.out.println("exec: conda create --name " + CONDA_ENVIRONMENT + " -y");
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            while ((s = stdInput.readLine()) != null) {
-                System.out.println(s);
-            }
-            stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            while ((s = stdError.readLine()) != null) {
-                System.err.println(s);
-            }
-
-            process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-            System.out.println("exec: conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-
-            stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            while ((s = stdInput.readLine()) != null) {
-                System.out.println(s);
-            }
-            stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            while ((s = stdError.readLine()) != null) {
-                System.err.println(s);
-            }
-        }
-    }
-
     @ParameterizedTest
     @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
     public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
-        String command = "zarrita/bin/python";
 
+        String command = "venv_zarrita/bin/python";
         ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_WRITE_PATH.toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
 

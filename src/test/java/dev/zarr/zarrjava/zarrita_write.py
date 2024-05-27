@@ -24,7 +24,6 @@ else:
 
 store = zarrita.LocalStore(sys.argv[2])
 testdata = np.arange(16 * 16, dtype='int32').reshape((16, 16))
-print(f"{codec=}")
 
 a = zarrita.Array.create(
     store / 'read_from_zarrita' / codec_string,
