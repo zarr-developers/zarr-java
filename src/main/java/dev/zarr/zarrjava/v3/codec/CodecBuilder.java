@@ -109,9 +109,10 @@ public class CodecBuilder {
   public CodecBuilder withSharding(int[] chunkShape) {
     try {
       codecs.add(
-          new ShardingIndexedCodec(new ShardingIndexedCodec.Configuration(chunkShape,
-              new Codec[]{new BytesCodec(new Configuration(Endian.LITTLE))},
-              new Codec[]{new BytesCodec(new Configuration(Endian.LITTLE)), new Crc32cCodec()})));
+              new ShardingIndexedCodec(new ShardingIndexedCodec.Configuration(chunkShape,
+                      new Codec[]{new BytesCodec(new Configuration(Endian.LITTLE))},
+                      new Codec[]{new BytesCodec(new Configuration(Endian.LITTLE)), new Crc32cCodec()},
+                      "end")));
     } catch (ZarrException e) {
       throw new RuntimeException(e);
     }
@@ -119,13 +120,19 @@ public class CodecBuilder {
   }
 
   public CodecBuilder withSharding(int[] chunkShape,
-      Function<CodecBuilder, CodecBuilder> codecBuilder) {
+                                   Function<CodecBuilder, CodecBuilder> codecBuilder) {
+    return withSharding(chunkShape, codecBuilder, "end");
+  }
+
+  public CodecBuilder withSharding(int[] chunkShape,
+                                   Function<CodecBuilder, CodecBuilder> codecBuilder, String indexLocation) {
     CodecBuilder nestedBuilder = new CodecBuilder(dataType);
     try {
       codecs.add(new ShardingIndexedCodec(
-          new ShardingIndexedCodec.Configuration(chunkShape,
-              codecBuilder.apply(nestedBuilder).build(),
-              new Codec[]{new BytesCodec(Endian.LITTLE), new Crc32cCodec()})));
+              new ShardingIndexedCodec.Configuration(chunkShape,
+                      codecBuilder.apply(nestedBuilder).build(),
+                      new Codec[]{new BytesCodec(Endian.LITTLE), new Crc32cCodec()},
+                      indexLocation)));
     } catch (ZarrException e) {
       throw new RuntimeException(e);
     }

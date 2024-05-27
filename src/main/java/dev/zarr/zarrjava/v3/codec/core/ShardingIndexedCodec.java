@@ -257,15 +257,21 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
     public final Codec[] indexCodecs;
     @Nonnull
     @JsonProperty("index_location")
-    public final String indexLocation;
+    public String indexLocation;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public Configuration(
             @JsonProperty(value = "chunk_shape", required = true) int[] chunkShape,
             @Nonnull @JsonProperty("codecs") Codec[] codecs,
             @Nonnull @JsonProperty("index_codecs") Codec[] indexCodecs,
-            @Nonnull @JsonProperty("index_location") String indexLocation
-    ) {
+            @JsonProperty(value = "index_location", defaultValue = "end") String indexLocation
+    ) throws ZarrException {
+      if (indexLocation == null) {
+        indexLocation = "end";
+      }
+      if (!indexLocation.equals("start") && !indexLocation.equals("end")) {
+        throw new ZarrException("Only index_location \"start\" or \"end\" are supported.");
+      }
       this.chunkShape = chunkShape;
       this.codecs = codecs;
       this.indexCodecs = indexCodecs;

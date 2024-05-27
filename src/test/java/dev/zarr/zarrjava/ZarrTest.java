@@ -349,20 +349,21 @@ public class ZarrTest {
         writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
     }
 
-    @Disabled("uses excessive memory")
-    @Test
-    public void testV3ShardingReadWrite() throws IOException, ZarrException {
+
+    @ParameterizedTest
+    @ValueSource(strings = {"start", "end"})
+    public void testV3ShardingReadWrite(String indexLocation) throws IOException, ZarrException {
         Array readArray = Array.open(
-                new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
+                new FilesystemStore(TESTDATA).resolve("sharding_index_location", indexLocation));
         ucar.ma2.Array readArrayContent = readArray.read();
         Array writeArray = Array.create(
-                new FilesystemStore(TESTOUTPUT).resolve("l4_sample_3", "color", "8-8-2"),
+                new FilesystemStore(TESTOUTPUT).resolve("sharding_index_location", indexLocation),
                 readArray.metadata
         );
         writeArray.write(readArrayContent);
         ucar.ma2.Array outArray = writeArray.read();
 
-        assert MultiArrayUtils.allValuesEqual(outArray, readArrayContent);
+        assert MultiArrayUtils.allValuesEqual(readArrayContent, outArray);
     }
 
     @Test

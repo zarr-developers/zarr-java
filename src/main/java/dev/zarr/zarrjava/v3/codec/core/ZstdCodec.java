@@ -59,7 +59,7 @@ public class ZstdCodec extends BytesBytesCodec {
       zstdStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {
-      throw new ZarrException("Error in decoding zstd.", ex);
+      throw new ZarrException("Error in encoding zstd.", ex);
     }
   }
 
