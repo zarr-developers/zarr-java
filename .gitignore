@@ -38,3 +38,4 @@ build/
 ### Custom ###
 /testdata/l4_sample
 /testoutput
+/venv_zarrita
