@@ -34,7 +34,7 @@ jobs:
 
       - name: Download testdata
         run: |
-          mkdir testdata testoutput
+          mkdir testoutput
           curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
           cd testdata
           unzip l4_sample.zip
