@@ -36,7 +36,7 @@ jobs:
       - name: Install zarrita
         run: |
           python -m venv venv_zarrita
-          venv_zarrita/bin/pip install zarrita
+          if [ "${{ runner.os }}" = "Windows" ]; then venv_zarrita/Scripts/pip install zarrita; else venv_zarrita/bin/pip install zarrita; fi
 
       - name: Download blosc jar
         run: |
