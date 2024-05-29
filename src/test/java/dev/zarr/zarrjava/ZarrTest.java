@@ -13,7 +13,6 @@ import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -36,10 +35,15 @@ public class ZarrTest {
 
     final static Path TESTDATA = Paths.get("testdata");
     final static Path TESTOUTPUT = Paths.get("testoutput");
-    //TODO: is the Path with / instead of \ readable in Windows?
     final static Path ZARRITA_WRITE_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_write.py");
     final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
-    final static String CONDA_ENVIRONMENT = "zarrita_env";
+
+    public static String pythonPath() {
+        if (System.getProperty("os.name").startsWith("Windows")) {
+            return "venv_zarrita\\Scripts\\python.exe";
+        }
+        return "venv_zarrita/bin/python";
+    }
 
     @BeforeAll
     public static void clearTestoutputFolder() throws IOException {
@@ -51,54 +55,11 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    //@BeforeAll
-    //TODO: might be needed for Windows
-    public static void installZarritaInCondaEnv() throws IOException {
-        Process process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-        //Process process = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", "conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita"});
-
-        BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        String s;
-        boolean environmentLocationNotFound = false;
-        while ((s = stdError.readLine()) != null) {
-            System.err.println(s);
-            if (s.contains("EnvironmentLocationNotFound")) {
-                environmentLocationNotFound = true;
-
-            }
-        }
-        if (environmentLocationNotFound) {
-            System.out.println("creating conda environment: " + CONDA_ENVIRONMENT);
-            process = Runtime.getRuntime().exec("conda create --name " + CONDA_ENVIRONMENT + " -y");
-            System.out.println("exec: conda create --name " + CONDA_ENVIRONMENT + " -y");
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            while ((s = stdInput.readLine()) != null) {
-                System.out.println(s);
-            }
-            stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            while ((s = stdError.readLine()) != null) {
-                System.err.println(s);
-            }
-
-            process = Runtime.getRuntime().exec("conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-            System.out.println("exec: conda run -n " + CONDA_ENVIRONMENT + " pip install zarrita");
-
-            stdInput = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            while ((s = stdInput.readLine()) != null) {
-                System.out.println(s);
-            }
-            stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            while ((s = stdError.readLine()) != null) {
-                System.err.println(s);
-            }
-        }
-    }
-
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
     public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
-        String command = "zarrita/bin/python";
 
+        String command = pythonPath();
         ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_WRITE_PATH.toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
 
@@ -131,8 +92,9 @@ public class ZarrTest {
     }
 
     //TODO: add crc32c
+    //Disabled "zstd": known issue
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding"})
+    @ValueSource(strings = {"blosc", "gzip", "bytes", "transpose", "sharding_start", "sharding_end"})
     public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
@@ -157,8 +119,11 @@ public class ZarrTest {
             case "transpose":
                 builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0}));
                 break;
-            case "sharding":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE")));
+            case "sharding_start":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
+                break;
+            case "sharding_end":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
                 break;
             case "crc32c":
                 //missing
@@ -173,7 +138,7 @@ public class ZarrTest {
         Arrays.setAll(data, p -> p);
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16}, data));
 
-        String command = "zarrita/bin/python";
+        String command = pythonPath();
 
         ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
@@ -191,12 +156,11 @@ public class ZarrTest {
 
         int exitCode = process.waitFor();
         assert exitCode == 0;
-        //TODO return metadata from zarrita_read.py and do assertions here
     }
 
 
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end"})
     public void testCodecsWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
@@ -225,8 +189,11 @@ public class ZarrTest {
             case "transpose":
                 builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0, 2}));
                 break;
-            case "sharding":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE")));
+            case "sharding_start":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
+                break;
+            case "sharding_end":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
                 break;
             case "crc32c":
                 //missing
@@ -349,20 +316,20 @@ public class ZarrTest {
         writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
     }
 
-    @Disabled("uses excessive memory")
-    @Test
-    public void testV3ShardingReadWrite() throws IOException, ZarrException {
+    @ParameterizedTest
+    @ValueSource(strings = {"start", "end"})
+    public void testV3ShardingReadWrite(String indexLocation) throws IOException, ZarrException {
         Array readArray = Array.open(
-                new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
+                new FilesystemStore(TESTDATA).resolve("sharding_index_location", indexLocation));
         ucar.ma2.Array readArrayContent = readArray.read();
         Array writeArray = Array.create(
-                new FilesystemStore(TESTOUTPUT).resolve("l4_sample_3", "color", "8-8-2"),
+                new FilesystemStore(TESTOUTPUT).resolve("sharding_index_location", indexLocation),
                 readArray.metadata
         );
         writeArray.write(readArrayContent);
         ucar.ma2.Array outArray = writeArray.read();
 
-        assert MultiArrayUtils.allValuesEqual(outArray, readArrayContent);
+        assert MultiArrayUtils.allValuesEqual(readArrayContent, outArray);
     }
 
     @Test

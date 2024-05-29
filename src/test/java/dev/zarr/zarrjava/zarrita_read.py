@@ -15,8 +15,10 @@ elif codec_string == "bytes":
     codec = [zarrita.codecs.bytes_codec()]
 elif codec_string == "transpose":
     codec = [zarrita.codecs.transpose_codec((1, 0)), zarrita.codecs.bytes_codec()]
-elif codec_string == "sharding":
-    codec= zarrita.codecs.sharding_codec(chunk_shape=(4, 4), codecs=[zarrita.codecs.bytes_codec("little")]),
+elif codec_string == "sharding_start":
+    codec= zarrita.codecs.sharding_codec(chunk_shape=(4, 4), codecs=[zarrita.codecs.bytes_codec("little")], index_location= zarrita.metadata.ShardingCodecIndexLocation.start),
+elif codec_string == "sharding_end":
+    codec= zarrita.codecs.sharding_codec(chunk_shape=(4, 4), codecs=[zarrita.codecs.bytes_codec("little")], index_location= zarrita.metadata.ShardingCodecIndexLocation.end),
 elif codec_string == "crc32c":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.crc32c_codec()]
 else:

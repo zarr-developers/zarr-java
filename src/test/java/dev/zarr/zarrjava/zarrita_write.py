@@ -15,16 +15,17 @@ elif codec_string == "bytes":
     codec = [zarrita.codecs.bytes_codec()]
 elif codec_string == "transpose":
     codec = [zarrita.codecs.transpose_codec([0, 1]), zarrita.codecs.bytes_codec()]
-elif codec_string == "sharding":
-    codec = [zarrita.codecs.sharding_codec(chunk_shape=(1, 2), codecs=[zarrita.codecs.bytes_codec()])]
+elif codec_string == "sharding_start":
+    codec = [zarrita.codecs.sharding_codec(chunk_shape=(1, 2), codecs=[zarrita.codecs.bytes_codec()], index_location=zarrita.metadata.ShardingCodecIndexLocation.start)]
+elif codec_string == "sharding_end":
+    codec = [zarrita.codecs.sharding_codec(chunk_shape=(1, 2), codecs=[zarrita.codecs.bytes_codec()], index_location=zarrita.metadata.ShardingCodecIndexLocation.end)]
 elif codec_string == "crc32c":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.crc32c_codec()]
 else:
-    raise ValueError(f"Invalid {codec=}")
+    raise ValueError(f"Invalid {codec_string=}")
 
 store = zarrita.LocalStore(sys.argv[2])
 testdata = np.arange(16 * 16, dtype='int32').reshape((16, 16))
-print(f"{codec=}")
 
 a = zarrita.Array.create(
     store / 'read_from_zarrita' / codec_string,
