@@ -43,7 +43,7 @@ array.write(
 ### Run Tests Locally
 To be able to run the tests locally, make sure to have `python3.11` installed. 
 Also, you need to set up a venv for zarrita at the root of the project:
-`python -m venv venv_zarrita`.
+`python3.11 -m venv venv_zarrita`.
 
 Then install zarrita there with `venv_zarrita/Scripts/pip install zarrita` 
 for Windows and `venv_zarrita/bin/pip install zarrita` for Linux.
