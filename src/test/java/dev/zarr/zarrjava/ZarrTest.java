@@ -13,7 +13,6 @@ import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -36,10 +35,8 @@ public class ZarrTest {
 
     final static Path TESTDATA = Paths.get("testdata");
     final static Path TESTOUTPUT = Paths.get("testoutput");
-    //TODO: is the Path with / instead of \ readable in Windows?
     final static Path ZARRITA_WRITE_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_write.py");
     final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
-    final static String CONDA_ENVIRONMENT = "zarrita_env";
 
     public static String pythonPath() {
         if (System.getProperty("os.name").startsWith("Windows")) {
@@ -159,7 +156,6 @@ public class ZarrTest {
 
         int exitCode = process.waitFor();
         assert exitCode == 0;
-        //TODO return metadata from zarrita_read.py and do assertions here
     }
 
 
