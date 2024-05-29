@@ -4,23 +4,24 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.luben.zstd.ZstdOutputStream;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
 import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
+import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,6 +38,7 @@ public class ZarrTest {
     final static Path TESTOUTPUT = Paths.get("testoutput");
     final static Path ZARRITA_WRITE_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_write.py");
     final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
+    final static Path TEST_ZSTD_LIBRARY_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/test_zstd_library.py");
 
     public static String pythonPath() {
         if (System.getProperty("os.name").startsWith("Windows")) {
@@ -91,10 +93,43 @@ public class ZarrTest {
         Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
-    //TODO: add crc32c
-    //Disabled "zstd": known issue
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "bytes", "transpose", "sharding_start", "sharding_end"})
+    @CsvSource({"0,true", "0,false", "5, true", "5, false"})
+    public void testZstdLibrary(int clevel, boolean checksum) throws IOException, InterruptedException {
+        String zstd_file = TESTOUTPUT + "/testZstdLibrary" + clevel + checksum + ".zstd";
+
+        ByteBuffer testBytes = ByteBuffer.allocate(1024);
+        testBytes.putInt(42);
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        ZstdOutputStream zstdStream = new ZstdOutputStream(outputStream, clevel);
+        zstdStream.setChecksum(checksum);
+        zstdStream.write(Utils.toArray(testBytes));
+        zstdStream.close();
+        ByteBuffer encodedBytes = ByteBuffer.wrap(outputStream.toByteArray());
+        try (FileOutputStream fileOutputStream = new FileOutputStream(zstd_file)) {
+            fileOutputStream.write(encodedBytes.array());
+        }
+        String command = pythonPath();
+        ProcessBuilder pb = new ProcessBuilder(command, TEST_ZSTD_LIBRARY_PATH.toString(), zstd_file);
+        Process process = pb.start();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
+        }
+        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        while ((line = readerErr.readLine()) != null) {
+            System.err.println(line);
+        }
+        int exitCode = process.waitFor();
+        assert exitCode == 0;
+    }
+
+    //TODO: add crc32c
+    @ParameterizedTest
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end"})
     public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
@@ -216,8 +251,31 @@ public class ZarrTest {
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
+    @ParameterizedTest
+    @CsvSource({"0,true", "0,false", "5, true", "5, false"})
+    public void testZstdCodecReadWrite(int clevel, boolean checksum) throws ZarrException, IOException {
+        int[] testData = new int[16 * 16 * 16];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZstdCodecReadWrite", "checksum_" + checksum, "clevel_" + clevel);
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(16, 16, 16)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(2, 4, 8)
+                .withFillValue(0)
+                .withCodecs(c -> c.withZstd(clevel, checksum));
+        Array writeArray = Array.create(storeHandle, builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+
+    }
+
     @Test
-    public void testCodecTranspose() throws IOException, ZarrException, InterruptedException {
+    public void testTransposeCodec() throws ZarrException {
         ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
         ucar.ma2.Array testDataTransposed120 = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{3, 3, 2}, new int[]{
