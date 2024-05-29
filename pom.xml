@@ -68,12 +68,6 @@
             <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>dev.zarr.zarrjava</groupId>
-            <artifactId>zarr-java</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <repositories>
@@ -84,4 +78,7 @@
         </repository>
     </repositories>
 
+    <build>
+        <testSourceDirectory>src/test/java/dev/zarr/zarrjava</testSourceDirectory>
+    </build>
 </project>

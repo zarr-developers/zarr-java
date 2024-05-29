@@ -11,7 +11,7 @@ import java.nio.ByteOrder;
 import javax.annotation.Nonnull;
 import ucar.ma2.Array;
 
-public class BytesCodec implements ArrayBytesCodec {
+public class BytesCodec extends ArrayBytesCodec {
 
   public final String name = "bytes";
   @Nonnull
@@ -29,14 +29,14 @@ public class BytesCodec implements ArrayBytesCodec {
   }
 
   @Override
-  public Array decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+  public Array decode(ByteBuffer chunkBytes) {
     chunkBytes.order(configuration.endian.getByteOrder());
     return Array.factory(arrayMetadata.dataType.getMA2DataType(), arrayMetadata.chunkShape,
         chunkBytes);
   }
 
   @Override
-  public ByteBuffer encode(Array chunkArray, ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+  public ByteBuffer encode(Array chunkArray) {
     return chunkArray.getDataAsByteBuffer(configuration.endian.getByteOrder());
   }
 
@@ -72,7 +72,7 @@ public class BytesCodec implements ArrayBytesCodec {
     }
   }
 
-  public static final class Configuration {
+  public static final class Configuration{
 
     @Nonnull
     public final BytesCodec.Endian endian;

@@ -1,15 +1,14 @@
 package dev.zarr.zarrjava.v3.codec;
 
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
 import ucar.ma2.Array;
 
-public interface ArrayArrayCodec extends Codec {
+public abstract class ArrayArrayCodec extends Codec {
 
-  Array encode(Array chunkArray, CoreArrayMetadata arrayMetadata)
+  protected abstract Array encode(Array chunkArray)
       throws ZarrException;
 
-  Array decode(Array chunkArray, CoreArrayMetadata arrayMetadata)
+  protected abstract Array decode(Array chunkArray)
       throws ZarrException;
 
 }

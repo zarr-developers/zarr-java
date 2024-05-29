@@ -27,7 +27,7 @@ public class Array extends Node {
       throws IOException, ZarrException {
     super(storeHandle);
     this.metadata = arrayMetadata;
-    this.codecPipeline = new CodecPipeline(arrayMetadata.codecs);
+    this.codecPipeline = new CodecPipeline(arrayMetadata.codecs, arrayMetadata.coreArrayMetadata);
   }
 
   /**
@@ -171,8 +171,7 @@ public class Array extends Node {
 
                 if (codecPipeline.supportsPartialDecode()) {
                   final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
-                      Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape,
-                      metadata.coreArrayMetadata);
+                      Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
                   MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
                       chunkProjection.outOffset, chunkProjection.shape
                   );
@@ -223,7 +222,7 @@ public class Array extends Node {
       return metadata.allocateFillValueChunk();
     }
 
-    return codecPipeline.decode(chunkBytes, metadata.coreArrayMetadata);
+    return codecPipeline.decode(chunkBytes);
   }
 
   /**
@@ -299,7 +298,7 @@ public class Array extends Node {
     if (MultiArrayUtils.allValuesEqual(chunkArray, metadata.parsedFillValue)) {
       chunkHandle.delete();
     } else {
-      ByteBuffer chunkBytes = codecPipeline.encode(chunkArray, metadata.coreArrayMetadata);
+      ByteBuffer chunkBytes = codecPipeline.encode(chunkArray);
       chunkHandle.set(chunkBytes);
     }
   }

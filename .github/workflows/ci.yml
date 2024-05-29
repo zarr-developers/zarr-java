@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu, windows, macos ]
+      fail-fast: false
     runs-on: ${{ matrix.os }}-latest
     defaults:
       run:
@@ -22,7 +23,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: '8'
+          java-version: '22'
           distribution: 'temurin'
           cache: maven
 
