@@ -59,7 +59,7 @@ public class ZarrTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding", "crc32c"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
     public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
 
         String command = pythonPath();
@@ -97,7 +97,7 @@ public class ZarrTest {
     //TODO: add crc32c
     //Disabled "zstd": known issue
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "bytes", "transpose", "sharding"})
+    @ValueSource(strings = {"blosc", "gzip", "bytes", "transpose", "sharding_start", "sharding_end"})
     public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
@@ -122,8 +122,11 @@ public class ZarrTest {
             case "transpose":
                 builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0}));
                 break;
-            case "sharding":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE")));
+            case "sharding_start":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
+                break;
+            case "sharding_end":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
                 break;
             case "crc32c":
                 //missing
@@ -161,7 +164,7 @@ public class ZarrTest {
 
 
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end"})
     public void testCodecsWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
@@ -190,8 +193,11 @@ public class ZarrTest {
             case "transpose":
                 builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0, 2}));
                 break;
-            case "sharding":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE")));
+            case "sharding_start":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
+                break;
+            case "sharding_end":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
                 break;
             case "crc32c":
                 //missing
@@ -314,7 +320,6 @@ public class ZarrTest {
         writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
     }
 
-    @Disabled("not implemented yet")
     @ParameterizedTest
     @ValueSource(strings = {"start", "end"})
     public void testV3ShardingReadWrite(String indexLocation) throws IOException, ZarrException {

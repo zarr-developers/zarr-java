@@ -133,8 +133,11 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
                   final ByteBuffer chunkBytes = codecPipeline.encode(chunkArray);
                   synchronized (chunkBytesList) {
                     int chunkByteOffset = chunkBytesList.stream()
-                        .mapToInt(ByteBuffer::capacity)
-                        .sum();
+                            .mapToInt(ByteBuffer::capacity)
+                            .sum();
+                    if (configuration.indexLocation.equals("start")) {
+                      chunkByteOffset += (int) getShardIndexSize(arrayMetadata);
+                    }
                     setValueFromShardIndexArray(shardIndexArray, chunkCoords, 0, chunkByteOffset);
                     setValueFromShardIndexArray(shardIndexArray, chunkCoords, 1,
                         chunkBytes.capacity());
@@ -149,11 +152,15 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
         .mapToInt(ByteBuffer::capacity)
         .sum() + (int) getShardIndexSize(arrayMetadata);
     final ByteBuffer shardBytes = ByteBuffer.allocate(shardBytesLength);
+    if(configuration.indexLocation.equals("start")){
+      shardBytes.put(indexCodecPipeline.encode(shardIndexArray));
+    }
     for (final ByteBuffer chunkBytes : chunkBytesList) {
       shardBytes.put(chunkBytes);
     }
-    shardBytes.put(
-        indexCodecPipeline.encode(shardIndexArray));
+    if(configuration.indexLocation.equals("end")){
+      shardBytes.put(indexCodecPipeline.encode(shardIndexArray));
+    }
     shardBytes.rewind();
     return shardBytes;
   }
@@ -179,8 +186,14 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
 
     final Array outputArray = Array.factory(arrayMetadata.dataType.getMA2DataType(), shape);
     final int shardIndexByteLength = (int) getShardIndexSize(arrayMetadata);
-    ByteBuffer shardIndexBytes = dataProvider.readSuffix(shardIndexByteLength);
-
+    ByteBuffer shardIndexBytes;
+    if (this.configuration.indexLocation.equals("start")) {
+      shardIndexBytes = dataProvider.readPrefix(shardIndexByteLength);
+    }else if(this.configuration.indexLocation.equals("end")){
+      shardIndexBytes = dataProvider.readSuffix(shardIndexByteLength);
+    }else{
+      throw new ZarrException("Only index_location \"start\" or \"end\" are supported.");
+    }
     if (shardIndexBytes == null) {
       throw new ZarrException("Could not read shard index.");
     }
@@ -243,6 +256,8 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
     ByteBuffer read(long start, long length);
 
     ByteBuffer readSuffix(long suffixLength);
+
+    ByteBuffer readPrefix(long prefixLength);
   }
 
   public static final class Configuration {
@@ -296,6 +311,12 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
       return bufferSlice.slice();
     }
 
+    public ByteBuffer readPrefix(long prefixLength) {
+      ByteBuffer bufferSlice = buffer.slice();
+      bufferSlice.limit((int) (prefixLength));
+      return bufferSlice.slice();
+    }
+
     @Override
     public ByteBuffer read(long start, long length) {
       ByteBuffer bufferSlice = buffer.slice();
@@ -318,6 +339,11 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
     @Override
     public ByteBuffer readSuffix(long suffixLength) {
       return storeHandle.read(-suffixLength);
+    }
+
+    @Override
+    public ByteBuffer readPrefix(long prefixLength) {
+      return storeHandle.read(0, prefixLength);
     }
 
     @Override
