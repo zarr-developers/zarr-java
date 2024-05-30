@@ -10,7 +10,7 @@ if codec_string == "blosc":
 elif codec_string == "gzip":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.gzip_codec()]
 elif codec_string == "zstd":
-    codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.zstd_codec()]
+    codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.zstd_codec(checksum=True)]
 elif codec_string == "bytes":
     codec = [zarrita.codecs.bytes_codec()]
 elif codec_string == "transpose":

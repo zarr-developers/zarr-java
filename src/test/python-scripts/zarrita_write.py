@@ -14,7 +14,7 @@ elif codec_string == "zstd":
 elif codec_string == "bytes":
     codec = [zarrita.codecs.bytes_codec()]
 elif codec_string == "transpose":
-    codec = [zarrita.codecs.transpose_codec([0, 1]), zarrita.codecs.bytes_codec()]
+    codec = [zarrita.codecs.transpose_codec((0, 1)), zarrita.codecs.bytes_codec()]
 elif codec_string == "sharding_start":
     codec = [zarrita.codecs.sharding_codec(chunk_shape=(1, 2), codecs=[zarrita.codecs.bytes_codec()], index_location=zarrita.metadata.ShardingCodecIndexLocation.start)]
 elif codec_string == "sharding_end":
