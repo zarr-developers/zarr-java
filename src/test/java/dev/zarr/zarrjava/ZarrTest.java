@@ -4,14 +4,13 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
-import com.github.luben.zstd.ZstdOutputStream;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
 import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
-import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
@@ -20,12 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import com.github.luben.zstd.Zstd;
 import ucar.ma2.MAMath;
 
-import java.io.FileOutputStream;
-import java.nio.ByteBuffer;
 import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -121,7 +118,7 @@ public class ZarrTest {
         Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
 
         //write compressed to file
-        String compressedDataPath =TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
+        String compressedDataPath = TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
         try (FileOutputStream fos = new FileOutputStream(compressedDataPath)) {
             fos.write(compressed);
         }
@@ -363,8 +360,8 @@ public class ZarrTest {
         Array array = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
 
         ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new int[]{1, 64, 64, 64});
-        assertEquals(outArray.getSize(), 64 * 64 * 64);
-        assertEquals(outArray.getByte(0), -98);
+        Assertions.assertEquals(outArray.getSize(), 64 * 64 * 64);
+        Assertions.assertEquals(outArray.getByte(0), -98);
     }
 
     @Test
@@ -374,8 +371,8 @@ public class ZarrTest {
         ucar.ma2.Array outArray = readArray.access().withOffset(0, 3073, 3073, 513)
                 .withShape(1, 64, 64, 64)
                 .read();
-        assertEquals(outArray.getSize(), 64 * 64 * 64);
-        assertEquals(outArray.getByte(0), -98);
+        Assertions.assertEquals(outArray.getSize(), 64 * 64 * 64);
+        Assertions.assertEquals(outArray.getByte(0), -98);
 
         Array writeArray = Array.create(
                 new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "1"),
@@ -449,9 +446,9 @@ public class ZarrTest {
 
     @Test
     public void testV3FillValue() throws ZarrException {
-        assertEquals((int) ArrayMetadata.parseFillValue(0, DataType.UINT32), 0);
-        assertEquals((int) ArrayMetadata.parseFillValue("0x00010203", DataType.UINT32), 50462976);
-        assertEquals((byte) ArrayMetadata.parseFillValue("0b00000010", DataType.UINT8), 2);
+        Assertions.assertEquals((int) ArrayMetadata.parseFillValue(0, DataType.UINT32), 0);
+        Assertions.assertEquals((int) ArrayMetadata.parseFillValue("0x00010203", DataType.UINT32), 50462976);
+        Assertions.assertEquals((byte) ArrayMetadata.parseFillValue("0b00000010", DataType.UINT8), 2);
         assert Double.isNaN((double) ArrayMetadata.parseFillValue("NaN", DataType.FLOAT64));
         assert Double.isInfinite((double) ArrayMetadata.parseFillValue("-Infinity", DataType.FLOAT64));
     }
@@ -469,9 +466,7 @@ public class ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        assertArrayEquals(
-                ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape(),
-                new int[]{5, 5});
+        Assertions.assertArrayEquals(((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape(), new int[]{5, 5});
     }
 
     @Test
