@@ -5,7 +5,6 @@ import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.ZstdCompressCtx;
-import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
@@ -27,7 +26,6 @@ import ucar.ma2.MAMath;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -42,11 +40,7 @@ public class ZarrTest {
 
     final static Path TESTDATA = Paths.get("testdata");
     final static Path TESTOUTPUT = Paths.get("testoutput");
-    final static Path TEST_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/");
-
-    final static Path ZARRITA_WRITE_PATH = TEST_PATH.resolve("zarrita_write.py");
-    final static Path ZARRITA_READ_PATH = TEST_PATH.resolve("zarrita_read.py");
-    final static Path TEST_ZSTD_LIBRARY_PATH = TEST_PATH.resolve("test_zstd_library.py");
+    final static Path PYTHON_TEST_PATH = Paths.get("src/test/python-scripts/");
 
     public static String pythonPath() {
         if (System.getProperty("os.name").startsWith("Windows")) {
@@ -70,7 +64,7 @@ public class ZarrTest {
     public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
 
         String command = pythonPath();
-        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_WRITE_PATH.toString(), codec, TESTOUTPUT.toString());
+        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_write.py").toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -109,9 +103,9 @@ public class ZarrTest {
         }
     }
 
-    @CsvSource({"0,true", "0,false", "5, true", "5, false"})
+    @CsvSource({"0,true", "0,false", "5, true", "10, false"})
     @ParameterizedTest
-    public void testZstdLibrary2(int clevel, boolean checksumFlag) throws IOException, InterruptedException, ZarrException {
+    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException, ZarrException {
         //compress using ZstdCompressCtx
         int number = 123456;
         byte[] src = ByteBuffer.allocate(4).putInt(number).array();
@@ -135,45 +129,10 @@ public class ZarrTest {
         //decompress in python
         Process process = new ProcessBuilder(
                 pythonPath(),
-                TEST_PATH.resolve("decompress_print.py").toString(),
+                PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
                 compressedDataPath,
                 Integer.toString(number)
         ).start();
-        int exitCode = process.waitFor();
-        assert exitCode == 0;
-    }
-
-
-    @ParameterizedTest
-    @CsvSource({"0,true", "0,false", "5, true", "5, false"})
-    public void testZstdLibrary(int clevel, boolean checksum) throws IOException, InterruptedException {
-        String zstd_file = TESTOUTPUT + "/testZstdLibrary" + clevel + checksum + ".zstd";
-
-        ByteBuffer testBytes = ByteBuffer.allocate(1024);
-        testBytes.putInt(42);
-
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ZstdOutputStream zstdStream = new ZstdOutputStream(outputStream, clevel);
-        zstdStream.setChecksum(checksum);
-        zstdStream.write(Utils.toArray(testBytes));
-        zstdStream.close();
-        ByteBuffer encodedBytes = ByteBuffer.wrap(outputStream.toByteArray());
-        try (FileOutputStream fileOutputStream = new FileOutputStream(zstd_file)) {
-            fileOutputStream.write(encodedBytes.array());
-        }
-        String command = pythonPath();
-        ProcessBuilder pb = new ProcessBuilder(command, TEST_ZSTD_LIBRARY_PATH.toString(), zstd_file);
-        Process process = pb.start();
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
-        }
-        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        while ((line = readerErr.readLine()) != null) {
-            System.err.println(line);
-        }
         int exitCode = process.waitFor();
         assert exitCode == 0;
     }
@@ -226,7 +185,7 @@ public class ZarrTest {
 
         String command = pythonPath();
 
-        ProcessBuilder pb = new ProcessBuilder(command, ZARRITA_READ_PATH.toString(), codec, TESTOUTPUT.toString());
+        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_read.py").toString(), codec, TESTOUTPUT.toString());
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));

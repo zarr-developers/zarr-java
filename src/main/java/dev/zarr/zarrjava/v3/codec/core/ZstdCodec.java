@@ -40,26 +40,14 @@ public class ZstdCodec extends BytesBytesCodec {
 
   @Override
   public ByteBuffer decode(ByteBuffer compressedBytes) throws ZarrException {
-    // Extract the byte array from the ByteBuffer
-    byte[] compressedArray = new byte[compressedBytes.remaining()];
-    compressedBytes.get(compressedArray);
+    byte[] compressedArray = compressedBytes.array();
 
-    // Determine the original size (optional: you might need to store the original size separately)
     long originalSize = Zstd.decompressedSize(compressedArray);
     if (originalSize == 0) {
       throw new ZarrException("Failed to get decompressed size");
     }
 
-    // Create a buffer for the decompressed data
-    byte[] decompressed = new byte[(int) originalSize];
-
-    // Perform decompression
-    long bytesDecompressed = Zstd.decompress(decompressed, compressedArray);
-    if (bytesDecompressed != originalSize) {
-      throw new ZarrException("Decompression failed, incorrect decompressed size");
-    }
-
-    // Wrap the decompressed byte array into a ByteBuffer
+    byte[] decompressed = Zstd.decompress(compressedArray, (int) originalSize);
     return ByteBuffer.wrap(decompressed);
   }
 
