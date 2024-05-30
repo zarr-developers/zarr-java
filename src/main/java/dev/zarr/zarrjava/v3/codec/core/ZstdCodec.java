@@ -2,6 +2,8 @@ package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdCompressCtx;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import dev.zarr.zarrjava.ZarrException;
@@ -37,30 +39,40 @@ public class ZstdCodec extends BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes)
-      throws ZarrException {
-    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdInputStream inputStream = new ZstdInputStream(
-        new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
-      copy(inputStream, outputStream);
-      inputStream.close();
-      return ByteBuffer.wrap(outputStream.toByteArray());
-    } catch (IOException ex) {
-      throw new ZarrException("Error in decoding zstd.", ex);
+  public ByteBuffer decode(ByteBuffer compressedBytes) throws ZarrException {
+    // Extract the byte array from the ByteBuffer
+    byte[] compressedArray = new byte[compressedBytes.remaining()];
+    compressedBytes.get(compressedArray);
+
+    // Determine the original size (optional: you might need to store the original size separately)
+    long originalSize = Zstd.decompressedSize(compressedArray);
+    if (originalSize == 0) {
+      throw new ZarrException("Failed to get decompressed size");
     }
+
+    // Create a buffer for the decompressed data
+    byte[] decompressed = new byte[(int) originalSize];
+
+    // Perform decompression
+    long bytesDecompressed = Zstd.decompress(decompressed, compressedArray);
+    if (bytesDecompressed != originalSize) {
+      throw new ZarrException("Decompression failed, incorrect decompressed size");
+    }
+
+    // Wrap the decompressed byte array into a ByteBuffer
+    return ByteBuffer.wrap(decompressed);
   }
 
   @Override
-  public ByteBuffer encode(ByteBuffer chunkBytes)
-      throws ZarrException {
-    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); ZstdOutputStream zstdStream = new ZstdOutputStream(
-        outputStream, configuration.level).setChecksum(
-        configuration.checksum)) {
-      zstdStream.write(Utils.toArray(chunkBytes));
-      zstdStream.close();
-      return ByteBuffer.wrap(outputStream.toByteArray());
-    } catch (IOException ex) {
-      throw new ZarrException("Error in encoding zstd.", ex);
+  public ByteBuffer encode(ByteBuffer chunkBytes) throws ZarrException {
+    byte[] arr = chunkBytes.array();
+    byte[] compressed;
+    try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
+      ctx.setLevel(configuration.level);
+      ctx.setChecksum(configuration.checksum);
+      compressed = ctx.compress(arr);
     }
+    return ByteBuffer.wrap(compressed);
   }
 
   @Override

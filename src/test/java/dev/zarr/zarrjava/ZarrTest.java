@@ -4,6 +4,8 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.luben.zstd.ZstdCompressCtx;
+import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
@@ -19,7 +21,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import com.github.luben.zstd.Zstd;
+import ucar.ma2.MAMath;
 
+import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -36,9 +42,11 @@ public class ZarrTest {
 
     final static Path TESTDATA = Paths.get("testdata");
     final static Path TESTOUTPUT = Paths.get("testoutput");
-    final static Path ZARRITA_WRITE_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_write.py");
-    final static Path ZARRITA_READ_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/zarrita_read.py");
-    final static Path TEST_ZSTD_LIBRARY_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/test_zstd_library.py");
+    final static Path TEST_PATH = Paths.get("src/test/java/dev/zarr/zarrjava/");
+
+    final static Path ZARRITA_WRITE_PATH = TEST_PATH.resolve("zarrita_write.py");
+    final static Path ZARRITA_READ_PATH = TEST_PATH.resolve("zarrita_read.py");
+    final static Path TEST_ZSTD_LIBRARY_PATH = TEST_PATH.resolve("test_zstd_library.py");
 
     public static String pythonPath() {
         if (System.getProperty("os.name").startsWith("Windows")) {
@@ -92,6 +100,49 @@ public class ZarrTest {
         Arrays.setAll(expectedData, p -> p);
         Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
+
+    private void copy(InputStream inputStream, OutputStream outputStream) throws IOException {
+        byte[] buffer = new byte[4096];
+        int len;
+        while ((len = inputStream.read(buffer)) > 0) {
+            outputStream.write(buffer, 0, len);
+        }
+    }
+
+    @CsvSource({"0,true", "0,false", "5, true", "5, false"})
+    @ParameterizedTest
+    public void testZstdLibrary2(int clevel, boolean checksumFlag) throws IOException, InterruptedException, ZarrException {
+        //compress using ZstdCompressCtx
+        int number = 123456;
+        byte[] src = ByteBuffer.allocate(4).putInt(number).array();
+        byte[] compressed;
+        try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
+            ctx.setLevel(clevel);
+            ctx.setChecksum(checksumFlag);
+            compressed = ctx.compress(src);
+        }
+        //decompress with Zstd.decompress
+        long originalSize = Zstd.decompressedSize(compressed);
+        byte[] decompressed = Zstd.decompress(compressed, (int) originalSize);
+        Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
+
+        //write compressed to file
+        String compressedDataPath =TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
+        try (FileOutputStream fos = new FileOutputStream(compressedDataPath)) {
+            fos.write(compressed);
+        }
+
+        //decompress in python
+        Process process = new ProcessBuilder(
+                pythonPath(),
+                TEST_PATH.resolve("decompress_print.py").toString(),
+                compressedDataPath,
+                Integer.toString(number)
+        ).start();
+        int exitCode = process.waitFor();
+        assert exitCode == 0;
+    }
+
 
     @ParameterizedTest
     @CsvSource({"0,true", "0,false", "5, true", "5, false"})
@@ -295,8 +346,8 @@ public class ZarrTest {
         transposeCodecWrongOrder2.setCoreArrayMetadata(metadata);
         transposeCodecWrongOrder3.setCoreArrayMetadata(metadata);
 
-        assert ucar.ma2.MAMath.equals(testDataTransposed120, transposeCodec.encode(testData));
-        assert ucar.ma2.MAMath.equals(testData, transposeCodec.decode(testDataTransposed120));
+        assert MAMath.equals(testDataTransposed120, transposeCodec.encode(testData));
+        assert MAMath.equals(testData, transposeCodec.decode(testDataTransposed120));
         assertThrows(ZarrException.class, () -> transposeCodecWrongOrder1.encode(testData));
         assertThrows(ZarrException.class, () -> transposeCodecWrongOrder2.encode(testData));
         assertThrows(ZarrException.class, () -> transposeCodecWrongOrder3.encode(testData));
