@@ -139,6 +139,10 @@ public class CodecBuilder {
     return this;
   }
 
+  public CodecBuilder withCrc32c() {
+      codecs.add(new Crc32cCodec());
+      return this;
+  }
   private void autoInsertBytesCodec() {
     if (codecs.stream().noneMatch(c -> c instanceof ArrayBytesCodec)) {
       Codec[] arrayArrayCodecs = codecs.stream().filter(c -> c instanceof ArrayArrayCodec)

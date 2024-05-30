@@ -127,9 +127,8 @@ public class ZarrTest {
         assert exitCode == 0;
     }
 
-    //TODO: add crc32c
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
     public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
@@ -161,7 +160,7 @@ public class ZarrTest {
                 builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
                 break;
             case "crc32c":
-                //missing
+                builder = builder.withCodecs(CodecBuilder::withCrc32c);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid Codec: " + codec);
@@ -195,7 +194,7 @@ public class ZarrTest {
 
 
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end"})
+    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
     public void testCodecsWriteRead(String codec) throws IOException, ZarrException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
@@ -231,7 +230,7 @@ public class ZarrTest {
                 builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
                 break;
             case "crc32c":
-                //missing
+                builder = builder.withCodecs(CodecBuilder::withCrc32c);
                 break;
             default:
                 throw new IllegalArgumentException("Invalid Codec: " + codec);
