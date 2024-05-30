@@ -12,6 +12,7 @@ import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
+import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -92,17 +93,9 @@ public class ZarrTest {
         Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
     }
 
-    private void copy(InputStream inputStream, OutputStream outputStream) throws IOException {
-        byte[] buffer = new byte[4096];
-        int len;
-        while ((len = inputStream.read(buffer)) > 0) {
-            outputStream.write(buffer, 0, len);
-        }
-    }
-
     @CsvSource({"0,true", "0,false", "5, true", "10, false"})
     @ParameterizedTest
-    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException, ZarrException {
+    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException {
         //compress using ZstdCompressCtx
         int number = 123456;
         byte[] src = ByteBuffer.allocate(4).putInt(number).array();
@@ -147,10 +140,10 @@ public class ZarrTest {
 
         switch (codec) {
             case "blosc":
-                builder = builder.withCodecs(c -> c.withBlosc());
+                builder = builder.withCodecs(CodecBuilder::withBlosc);
                 break;
             case "gzip":
-                builder = builder.withCodecs(c -> c.withGzip());
+                builder = builder.withCodecs(CodecBuilder::withGzip);
                 break;
             case "zstd":
                 builder = builder.withCodecs(c -> c.withZstd(0));
@@ -203,7 +196,7 @@ public class ZarrTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end"})
-    public void testCodecsWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
+    public void testCodecsWriteRead(String codec) throws IOException, ZarrException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
 
@@ -217,10 +210,10 @@ public class ZarrTest {
 
         switch (codec) {
             case "blosc":
-                builder = builder.withCodecs(c -> c.withBlosc());
+                builder = builder.withCodecs(CodecBuilder::withBlosc);
                 break;
             case "gzip":
-                builder = builder.withCodecs(c -> c.withGzip());
+                builder = builder.withCodecs(CodecBuilder::withGzip);
                 break;
             case "zstd":
                 builder = builder.withCodecs(c -> c.withZstd(0));
@@ -440,7 +433,7 @@ public class ZarrTest {
                 .withChunkShape(1, 1024, 1024, 1024)
                 .withFillValue(0)
                 .withCodecs(
-                        c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc()))
+                        c -> c.withSharding(new int[]{1, 32, 32, 32}, CodecBuilder::withBlosc))
                 .build();
     }
 
@@ -470,12 +463,11 @@ public class ZarrTest {
     }
 
     @Test
-    public void testV2() throws IOException, ZarrException {
+    public void testV2() throws IOException{
         FilesystemStore fsStore = new FilesystemStore("");
         HttpStore httpStore = new HttpStore("https://static.webknossos.org/data");
 
-        System.out.println(
-                dev.zarr.zarrjava.v2.Array.open(httpStore.resolve("l4_sample", "color", "1")));
+        System.out.println(dev.zarr.zarrjava.v2.Array.open(httpStore.resolve("l4_sample", "color", "1")));
     }
 
 

@@ -9,9 +9,6 @@ import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.v3.codec.BytesBytesCodec;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 public class ZstdCodec extends BytesBytesCodec {
@@ -24,14 +21,6 @@ public class ZstdCodec extends BytesBytesCodec {
     public ZstdCodec(
             @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration) {
         this.configuration = configuration;
-    }
-
-    private void copy(InputStream inputStream, OutputStream outputStream) throws IOException {
-        byte[] buffer = new byte[4096];
-        int len;
-        while ((len = inputStream.read(buffer)) > 0) {
-            outputStream.write(buffer, 0, len);
-        }
     }
 
     @Override
