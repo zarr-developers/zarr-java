@@ -84,7 +84,7 @@ public class BloscCodec extends BytesBytesCodec {
           generator.writeString("bitshuffle");
           break;
         case BYTE_SHUFFLE:
-          generator.writeString("byteshuffle");
+          generator.writeString("shuffle");
           break;
       }
     }
@@ -154,7 +154,7 @@ public class BloscCodec extends BytesBytesCodec {
           return Blosc.Shuffle.NO_SHUFFLE;
         case "bitshuffle":
           return Blosc.Shuffle.BIT_SHUFFLE;
-        case "byteshuffle":
+        case "shuffle":
           return Blosc.Shuffle.BYTE_SHUFFLE;
         default:
           throw new JsonParseException(
