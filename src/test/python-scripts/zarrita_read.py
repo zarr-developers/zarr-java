@@ -14,11 +14,11 @@ elif codec_string == "zstd":
 elif codec_string == "bytes":
     codec = [zarrita.codecs.bytes_codec()]
 elif codec_string == "transpose":
-    codec = [zarrita.codecs.transpose_codec((1, 0)), zarrita.codecs.bytes_codec()]
+    codec = [zarrita.codecs.transpose_codec((1, 0, 2)), zarrita.codecs.bytes_codec()]
 elif codec_string == "sharding_start":
-    codec= zarrita.codecs.sharding_codec(chunk_shape=(4, 4), codecs=[zarrita.codecs.bytes_codec("little")], index_location= zarrita.metadata.ShardingCodecIndexLocation.start),
+    codec= zarrita.codecs.sharding_codec(chunk_shape=(2, 2, 4), codecs=[zarrita.codecs.bytes_codec("little")], index_location= zarrita.metadata.ShardingCodecIndexLocation.start),
 elif codec_string == "sharding_end":
-    codec= zarrita.codecs.sharding_codec(chunk_shape=(4, 4), codecs=[zarrita.codecs.bytes_codec("little")], index_location= zarrita.metadata.ShardingCodecIndexLocation.end),
+    codec= zarrita.codecs.sharding_codec(chunk_shape=(2, 2, 4), codecs=[zarrita.codecs.bytes_codec("little")], index_location= zarrita.metadata.ShardingCodecIndexLocation.end),
 elif codec_string == "crc32c":
     codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.crc32c_codec()]
 else:
@@ -26,20 +26,20 @@ else:
 
 
 store = zarrita.LocalStore(sys.argv[2])
-expected_data = np.arange(16*16, dtype='int32').reshape(16, 16)
+expected_data = np.arange(16*16*16, dtype='int32').reshape(16, 16, 16)
 
 a = zarrita.Array.open(store / 'write_to_zarrita' / codec_string)
 read_data = a[:, :]
 assert np.array_equal(read_data, expected_data), f"got:\n {read_data} \nbut expected:\n {expected_data}"
 
-# might need to check individual properties
 b = zarrita.Array.create(
     store / 'read_from_zarrita_expected' / codec_string,
-    shape=(16, 16),
-    chunk_shape=(8, 8),
+    shape=(16, 16, 16),
+    chunk_shape=(2, 4, 8),
     dtype="uint32",
     fill_value=0,
+    attributes={'test_key': 'test_value'},
     codecs=codec
     )
 
-assert a.metadata == b.metadata,  f"not equal: \n{a.metadata.codecs=}\n{b.metadata.codecs=}"
+assert a.metadata == b.metadata,  f"not equal: \n{a.metadata=}\n{b.metadata=}"

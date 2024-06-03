@@ -129,77 +129,11 @@ public class ZarrTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
-    public void testWriteToZarrita(String codec) throws IOException, ZarrException, InterruptedException {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(16, 16)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(8, 8)
-                .withFillValue(0);
-
-        switch (codec) {
-            case "blosc":
-                builder = builder.withCodecs(CodecBuilder::withBlosc);
-                break;
-            case "gzip":
-                builder = builder.withCodecs(CodecBuilder::withGzip);
-                break;
-            case "zstd":
-                builder = builder.withCodecs(c -> c.withZstd(0));
-                break;
-            case "bytes":
-                builder = builder.withCodecs(c -> c.withBytes("LITTLE"));
-                break;
-            case "transpose":
-                builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0}));
-                break;
-            case "sharding_start":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
-                break;
-            case "sharding_end":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{4, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
-                break;
-            case "crc32c":
-                builder = builder.withCodecs(CodecBuilder::withCrc32c);
-                break;
-            default:
-                throw new IllegalArgumentException("Invalid Codec: " + codec);
-        }
-
-        Array array = Array.create(storeHandle, builder.build());
-
-        int[] data = new int[16 * 16];
-        Arrays.setAll(data, p -> p);
-        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16}, data));
-
-        String command = pythonPath();
-
-        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_read.py").toString(), codec, TESTOUTPUT.toString());
-        Process process = pb.start();
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
-        }
-
-        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        while ((line = readerErr.readLine()) != null) {
-            System.err.println(line);
-        }
-
-        int exitCode = process.waitFor();
-        assert exitCode == 0;
-    }
-
-
-    @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
-    public void testCodecsWriteRead(String codec) throws IOException, ZarrException {
+    public void testWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
 
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testWriteAndRead3d", codec);
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
                 .withShape(16, 16, 16)
                 .withDataType(DataType.UINT32)
@@ -224,10 +158,10 @@ public class ZarrTest {
                 builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0, 2}));
                 break;
             case "sharding_start":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
                 break;
             case "sharding_end":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
                 break;
             case "crc32c":
                 builder = builder.withCodecs(CodecBuilder::withCrc32c);
@@ -239,6 +173,7 @@ public class ZarrTest {
         Array writeArray = Array.create(storeHandle, builder.build());
         writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
 
+        //read in zarr-java
         Array readArray = Array.open(storeHandle);
         ucar.ma2.Array result = readArray.read();
 
@@ -248,6 +183,26 @@ public class ZarrTest {
         Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
 
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+
+        //read in zarrita
+        String command = pythonPath();
+
+        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_read.py").toString(), codec, TESTOUTPUT.toString());
+        Process process = pb.start();
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
+        }
+
+        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+        while ((line = readerErr.readLine()) != null) {
+            System.err.println(line);
+        }
+
+        int exitCode = process.waitFor();
+        assert exitCode == 0;
     }
 
     @ParameterizedTest
