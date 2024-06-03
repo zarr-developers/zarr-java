@@ -14,6 +14,7 @@ import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
+import jdk.jshell.spi.ExecutionControl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertThrows;
 
 public class ZarrTest {
 
@@ -58,11 +59,18 @@ public class ZarrTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
-    public void testReadFromZarrita(String codec) throws IOException, ZarrException, InterruptedException {
-
+    @CsvSource({
+            "blosc,blosclz_noshuffle_0", "blosc,lz4_shuffle_6", "blosc,lz4hc_bitshuffle_3", "blosc,zlib_shuffle_5", "blosc,zstd_bitshuffle_9",
+            "gzip,0", "gzip,5",
+            "zstd,0_true", "zstd,5_true","zstd,0_false", "zstd,5_false",
+            "bytes,BIG", "bytes,LITTLE",
+            "transpose,_",
+            "sharding,start", "sharding,end",
+            "sharding_nested,_",
+            "crc32c,_",
+    })    public void testReadFromZarrita(String codec, String codecParam) throws IOException, ZarrException, InterruptedException {
         String command = pythonPath();
-        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_write.py").toString(), codec, TESTOUTPUT.toString());
+        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_write.py").toString(), codec, codecParam, TESTOUTPUT.toString());
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -79,7 +87,7 @@ public class ZarrTest {
         int exitCode = process.waitFor();
         assert exitCode == 0;
 
-        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("read_from_zarrita", codec));
+        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("read_from_zarrita", codec, codecParam));
         ucar.ma2.Array result = array.read();
 
         //for expected values see zarrita_write.py
@@ -128,12 +136,21 @@ public class ZarrTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"blosc", "gzip", "zstd", "bytes", "transpose", "sharding_start", "sharding_end", "crc32c"})
-    public void testWriteRead(String codec) throws IOException, ZarrException, InterruptedException {
+    @CsvSource({
+            "blosc,blosclz_noshuffle_0", "blosc,lz4_shuffle_6", "blosc,lz4hc_bitshuffle_3", "blosc,zlib_shuffle_5", "blosc,zstd_bitshuffle_9",
+            "gzip,0", "gzip,5",
+            "zstd,0_true", "zstd,5_true","zstd,0_false", "zstd,5_false",
+            "bytes,BIG", "bytes,LITTLE",
+            "transpose,_",
+            "sharding,start", "sharding,end",
+            "sharding_nested,_",
+            "crc32c,_",
+    })
+    public void testWriteReadWithZarrita(String codec, String codecParam) throws Exception {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
 
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec);
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec, codecParam);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
                 .withShape(16, 16, 16)
                 .withDataType(DataType.UINT32)
@@ -143,25 +160,30 @@ public class ZarrTest {
 
         switch (codec) {
             case "blosc":
-                builder = builder.withCodecs(CodecBuilder::withBlosc);
+                String cname = codecParam.split("_")[0];
+                String shuffle = codecParam.split("_")[1];
+                int clevel_blosc = Integer.parseInt(codecParam.split("_")[2]);
+                builder = builder.withCodecs(c -> c.withBlosc(cname, shuffle, clevel_blosc));
                 break;
             case "gzip":
-                builder = builder.withCodecs(CodecBuilder::withGzip);
+                builder = builder.withCodecs(c -> c.withGzip(Integer.parseInt(codecParam)));
                 break;
             case "zstd":
-                builder = builder.withCodecs(c -> c.withZstd(0));
+                int clevel_zstd = Integer.parseInt(codecParam.split("_")[0]);
+                boolean checksum = Boolean.parseBoolean(codecParam.split("_")[1]);
+                builder = builder.withCodecs(c -> c.withZstd(clevel_zstd, checksum));
                 break;
             case "bytes":
-                builder = builder.withCodecs(c -> c.withBytes("LITTLE"));
+                builder = builder.withCodecs(c -> c.withBytes(codecParam));
                 break;
             case "transpose":
                 builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0, 2}));
                 break;
-            case "sharding_start":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "start"));
+            case "sharding":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), codecParam));
                 break;
-            case "sharding_end":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), "end"));
+            case "sharding_nested":
+                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withSharding(new int[]{2, 1, 2}, c2 -> c2.withBytes("LITTLE"))));
                 break;
             case "crc32c":
                 builder = builder.withCodecs(CodecBuilder::withCrc32c);
@@ -187,7 +209,7 @@ public class ZarrTest {
         //read in zarrita
         String command = pythonPath();
 
-        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_read.py").toString(), codec, TESTOUTPUT.toString());
+        ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_read.py").toString(), codec, codecParam, TESTOUTPUT.toString());
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -225,7 +247,6 @@ public class ZarrTest {
         ucar.ma2.Array result = readArray.read();
 
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
-
     }
 
     @Test
@@ -417,7 +438,7 @@ public class ZarrTest {
     }
 
     @Test
-    public void testV2() throws IOException{
+    public void testV2() throws IOException {
         FilesystemStore fsStore = new FilesystemStore("");
         HttpStore httpStore = new HttpStore("https://static.webknossos.org/data");
 
