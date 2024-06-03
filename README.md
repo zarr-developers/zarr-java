@@ -38,3 +38,19 @@ array.write(
     ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1, 1024, 1024, 1024})
 );
 ```
+## Development Start-Guide
+
+### Run Tests Locally
+To be able to run the tests locally, make sure to have `python3.11` installed. 
+Also, you need to set up a venv for zarrita at the root of the project:
+`python3.11 -m venv venv_zarrita`.
+
+Then install zarrita there with `venv_zarrita/Scripts/pip install zarrita` 
+for Windows and `venv_zarrita/bin/pip install zarrita` for Linux.
+
+Furthermore, you will need the `l4_sample` test data:
+
+`curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
+&& cd testdata
+&& unzip l4_sample.zip
+`

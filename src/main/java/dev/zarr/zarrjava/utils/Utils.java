@@ -77,4 +77,24 @@ public class Utils {
     }
     return result;
   }
+
+  public static boolean isPermutation(int[] array) {
+    if (array.length==0){
+      return false;
+    }
+    int[] arange = new int[array.length];
+    Arrays.setAll(arange, i -> i);
+    int[] orderSorted = array.clone();
+    Arrays.sort(orderSorted);
+    return Arrays.equals(orderSorted, arange);
+  }
+
+  public static int[] inversePermutation(int[] origin){
+    assert isPermutation(origin);
+    int[] inverse = new int[origin.length];
+    for (int i = 0; i < origin.length; i++) {
+      inverse[origin[i]] = i;
+    }
+    return inverse;
+  }
 }

@@ -9,17 +9,15 @@ import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class Crc32cCodec implements BytesBytesCodec {
+public class Crc32cCodec extends BytesBytesCodec {
 
   public final String name = "crc32c";
 
   @JsonCreator
-  public Crc32cCodec(
-  ) {
-  }
+  public Crc32cCodec(){}
 
   @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes, CoreArrayMetadata arrayMetadata)
+  public ByteBuffer decode(ByteBuffer chunkBytes)
       throws ZarrException {
     ByteBuffer buffer = chunkBytes.slice();
     buffer.order(ByteOrder.LITTLE_ENDIAN);
@@ -45,7 +43,7 @@ public class Crc32cCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer encode(ByteBuffer chunkBytes, CoreArrayMetadata arrayMetadata) {
+  public ByteBuffer encode(ByteBuffer chunkBytes) {
     return Utils.makeByteBuffer(chunkBytes.capacity() + 4, b -> {
       final CRC32C crc32c = new CRC32C();
       crc32c.update(chunkBytes);

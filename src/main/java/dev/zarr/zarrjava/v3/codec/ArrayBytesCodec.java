@@ -2,23 +2,24 @@ package dev.zarr.zarrjava.v3.codec;
 
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
 import java.nio.ByteBuffer;
 import ucar.ma2.Array;
 
-public interface ArrayBytesCodec extends Codec {
+public abstract class ArrayBytesCodec extends Codec {
 
-  ByteBuffer encode(Array chunkArray, CoreArrayMetadata arrayMetadata)
+  protected abstract ByteBuffer encode(Array chunkArray)
       throws ZarrException;
 
-  Array decode(ByteBuffer chunkBytes, CoreArrayMetadata arrayMetadata)
+  protected abstract Array decode(ByteBuffer chunkBytes)
       throws ZarrException;
 
-  interface WithPartialDecode extends ArrayBytesCodec {
+  public abstract static class WithPartialDecode extends ArrayBytesCodec {
 
-    Array decodePartial(
-        StoreHandle handle, long[] offset, int[] shape,
-        CoreArrayMetadata arrayMetadata
+    public abstract Array decode(ByteBuffer shardBytes) throws ZarrException;
+    public abstract ByteBuffer encode(Array shardArray) throws ZarrException;
+
+    protected abstract Array decodePartial(
+        StoreHandle handle, long[] offset, int[] shape
     ) throws ZarrException;
   }
 }

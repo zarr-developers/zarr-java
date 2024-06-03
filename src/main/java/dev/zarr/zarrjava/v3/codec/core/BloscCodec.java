@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 
-public class BloscCodec implements BytesBytesCodec {
+public class BloscCodec extends BytesBytesCodec {
 
   public final String name = "blosc";
   @Nonnull
@@ -33,7 +33,7 @@ public class BloscCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+  public ByteBuffer decode(ByteBuffer chunkBytes)
       throws ZarrException {
     try {
       return ByteBuffer.wrap(Blosc.decompress(Utils.toArray(chunkBytes)));
@@ -43,7 +43,7 @@ public class BloscCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+  public ByteBuffer encode(ByteBuffer chunkBytes)
       throws ZarrException {
     try {
       return ByteBuffer.wrap(
@@ -84,7 +84,7 @@ public class BloscCodec implements BytesBytesCodec {
           generator.writeString("bitshuffle");
           break;
         case BYTE_SHUFFLE:
-          generator.writeString("byteshuffle");
+          generator.writeString("shuffle");
           break;
       }
     }
@@ -154,7 +154,7 @@ public class BloscCodec implements BytesBytesCodec {
           return Blosc.Shuffle.NO_SHUFFLE;
         case "bitshuffle":
           return Blosc.Shuffle.BIT_SHUFFLE;
-        case "byteshuffle":
+        case "shuffle":
           return Blosc.Shuffle.BYTE_SHUFFLE;
         default:
           throw new JsonParseException(
