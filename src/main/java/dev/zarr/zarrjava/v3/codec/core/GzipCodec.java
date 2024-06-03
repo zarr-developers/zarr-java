@@ -16,7 +16,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 
-public class GzipCodec implements BytesBytesCodec {
+public class GzipCodec extends BytesBytesCodec {
 
   public final String name = "gzip";
   @Nonnull
@@ -37,7 +37,7 @@ public class GzipCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+  public ByteBuffer decode(ByteBuffer chunkBytes)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPInputStream inputStream = new GZIPInputStream(
         new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
@@ -50,7 +50,7 @@ public class GzipCodec implements BytesBytesCodec {
   }
 
   @Override
-  public ByteBuffer encode(ByteBuffer chunkBytes, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+  public ByteBuffer encode(ByteBuffer chunkBytes)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPOutputStream gzipStream = new GZIPOutputStream(
         outputStream)) {

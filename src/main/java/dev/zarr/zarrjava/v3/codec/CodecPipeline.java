@@ -12,8 +12,10 @@ public class CodecPipeline {
 
   @Nonnull
   final Codec[] codecs;
+  public final CoreArrayMetadata arrayMetadata;
 
-  public CodecPipeline(@Nonnull Codec[] codecs) throws ZarrException {
+  public CodecPipeline(@Nonnull Codec[] codecs, CoreArrayMetadata arrayMetadata) throws ZarrException {
+    this.arrayMetadata = arrayMetadata;
     long arrayBytesCodecCount = Arrays.stream(codecs).filter(c -> c instanceof ArrayBytesCodec)
         .count();
     if (arrayBytesCodecCount != 1) {
@@ -21,6 +23,7 @@ public class CodecPipeline {
           "Exactly 1 ArrayBytesCodec is required. Found " + arrayBytesCodecCount + ".");
     }
     Codec prevCodec = null;
+    CoreArrayMetadata codecArrayMetadata = arrayMetadata;
     for (Codec codec : codecs) {
       if (prevCodec != null) {
         if (codec instanceof ArrayBytesCodec && prevCodec instanceof ArrayBytesCodec) {
@@ -44,6 +47,8 @@ public class CodecPipeline {
                   prevCodec.getClass() + "'.");
         }
       }
+      codec.setCoreArrayMetadata(codecArrayMetadata);
+      codecArrayMetadata = codec.resolveArrayMetadata();
       prevCodec = codec;
     }
 
@@ -79,15 +84,14 @@ public class CodecPipeline {
   @Nonnull
   public Array decodePartial(
       @Nonnull StoreHandle storeHandle,
-      long[] offset, int[] shape,
-      @Nonnull CoreArrayMetadata arrayMetadata
+      long[] offset, int[] shape
   ) throws ZarrException {
     if (!supportsPartialDecode()) {
       throw new ZarrException(
           "Partial decode is not supported for these codecs. " + Arrays.toString(codecs));
     }
     Array chunkArray = ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).decodePartial(
-        storeHandle, offset, shape, arrayMetadata);
+        storeHandle, offset, shape);
     if (chunkArray == null) {
       throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
     }
@@ -96,8 +100,7 @@ public class CodecPipeline {
 
   @Nonnull
   public Array decode(
-      @Nonnull ByteBuffer chunkBytes,
-      @Nonnull CoreArrayMetadata arrayMetadata
+      @Nonnull ByteBuffer chunkBytes
   ) throws ZarrException {
     if (chunkBytes == null) {
       throw new ZarrException("chunkBytes is null. Ohh nooo.");
@@ -106,7 +109,7 @@ public class CodecPipeline {
     BytesBytesCodec[] bytesBytesCodecs = getBytesBytesCodecs();
     for (int i = bytesBytesCodecs.length - 1; i >= 0; --i) {
       BytesBytesCodec codec = bytesBytesCodecs[i];
-      chunkBytes = codec.decode(chunkBytes, arrayMetadata);
+      chunkBytes = codec.decode(chunkBytes);
     }
 
     if (chunkBytes == null) {
@@ -114,7 +117,7 @@ public class CodecPipeline {
           "chunkBytes is null. This is likely a bug in one of the codecs. " + Arrays.toString(
               getBytesBytesCodecs()));
     }
-    Array chunkArray = getArrayBytesCodec().decode(chunkBytes, arrayMetadata);
+    Array chunkArray = getArrayBytesCodec().decode(chunkBytes);
     if (chunkArray == null) {
       throw new ZarrException("chunkArray is null. This is likely a bug in one of the codecs.");
     }
@@ -122,7 +125,7 @@ public class CodecPipeline {
     ArrayArrayCodec[] arrayArrayCodecs = getArrayArrayCodecs();
     for (int i = arrayArrayCodecs.length - 1; i >= 0; --i) {
       ArrayArrayCodec codec = arrayArrayCodecs[i];
-      chunkArray = codec.decode(chunkArray, arrayMetadata);
+      chunkArray = codec.decode(chunkArray);
     }
 
     if (chunkArray == null) {
@@ -133,16 +136,16 @@ public class CodecPipeline {
 
   @Nonnull
   public ByteBuffer encode(
-      @Nonnull Array chunkArray, @Nonnull CoreArrayMetadata arrayMetadata
+      @Nonnull Array chunkArray
   ) throws ZarrException {
     for (ArrayArrayCodec codec : getArrayArrayCodecs()) {
-      chunkArray = codec.encode(chunkArray, arrayMetadata);
+      chunkArray = codec.encode(chunkArray);
     }
 
-    ByteBuffer chunkBytes = getArrayBytesCodec().encode(chunkArray, arrayMetadata);
+    ByteBuffer chunkBytes = getArrayBytesCodec().encode(chunkArray);
 
     for (BytesBytesCodec codec : getBytesBytesCodecs()) {
-      chunkBytes = codec.encode(chunkBytes, arrayMetadata);
+      chunkBytes = codec.encode(chunkBytes);
     }
     return chunkBytes;
   }
