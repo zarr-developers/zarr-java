@@ -29,7 +29,6 @@
         <developerConnection>scm:git:git@github.com:zarr-developers/zarr-java.git</developerConnection>
     </scm>
 
-
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
@@ -107,13 +106,13 @@
         </dependency>
     </dependencies>
 
-
     <distributionManagement>
         <repository>
             <id>ossrh</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
     </distributionManagement>
+
     <!-- Repositories are not recommended (see https://maven.apache.org/repository/guide-central-repository-upload.html#faq-and-common-mistakes)-->
     <repositories>
         <repository>
@@ -140,16 +139,80 @@
                 <configuration>
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
+                    <encoding>UTF-8</encoding>
+                    <excludes>
+                        <exclude>.gitignore</exclude>
+                        <exclude>temp/**</exclude>
+                    </excludes>
                 </configuration>
-
-                <groupId>org.sonatype.plugins</groupId>
-                <artifactId>nexus-staging-maven-plugin</artifactId>
-                <version>1.6.6</version>
-                <extensions>true</extensions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>temp.**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
                 <configuration>
-                    <serverId>nexus</serverId>
-                    <nexusUrl>http://localhost:8081/nexus/</nexusUrl>
+                    <excludeResources>true</excludeResources>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadoc</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <source>8</source>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.10</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                        <configuration>
+                            <!-- TODO: Add GPG key name here -->
+                            <keyname>TODO</keyname>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
