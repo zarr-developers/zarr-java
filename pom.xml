@@ -8,6 +8,28 @@
     <artifactId>zarr-java</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
+    <name>Zarr-Java</name>
+    <description>
+        Zarr-Java is a Java library providing an implementation of chunked,
+        compressed, N-dimensional arrays implementing the ZarrV3 format.
+    </description>
+    <url>https://github.com/zarr-developers/zarr-java</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/license/mit/</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <scm>
+        <url>https://github.com/zarr-developers/zarr-java</url>
+        <connection>scm:git:git://github.com/zarr-developers/zarr-java.git</connection>
+        <developerConnection>scm:git:git@github.com:zarr-developers/zarr-java.git</developerConnection>
+    </scm>
+
+
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
@@ -85,6 +107,14 @@
         </dependency>
     </dependencies>
 
+
+    <distributionManagement>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
+    <!-- Repositories are not recommended (see https://maven.apache.org/repository/guide-central-repository-upload.html#faq-and-common-mistakes)-->
     <repositories>
         <repository>
             <id>unidata-all</id>
@@ -101,6 +131,24 @@
                 <version>3.2.5</version>
                 <configuration>
                     <useSystemClassLoader>false</useSystemClassLoader>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                </configuration>
+
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.6</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>nexus</serverId>
+                    <nexusUrl>http://localhost:8081/nexus/</nexusUrl>
                 </configuration>
             </plugin>
         </plugins>
