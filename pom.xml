@@ -113,7 +113,6 @@
         </repository>
     </distributionManagement>
 
-    <!-- Repositories are not recommended (see https://maven.apache.org/repository/guide-central-repository-upload.html#faq-and-common-mistakes)-->
     <repositories>
         <repository>
             <id>unidata-all</id>
@@ -200,6 +199,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <version>1.6</version>
+                <configuration>
+                    <gpgArguments>
+                        <arg>--pinentry-mode</arg>
+                        <arg>loopback</arg>
+                    </gpgArguments>
+                </configuration>
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
