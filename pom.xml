@@ -104,6 +104,12 @@
             <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.scalableminds</groupId>
+            <artifactId>blosc-java</artifactId>
+            <version>0.1-1.21.4</version>
+        </dependency>
+
     </dependencies>
 
     <distributionManagement>
