@@ -30,8 +30,7 @@
     </scm>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jackson.version>2.14.2</jackson.version>
         <aws.version>1.12.477</aws.version>
@@ -136,7 +135,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <release>8</release>
+                    <release>${maven.compiler.release}</release>
                     <encoding>UTF-8</encoding>
                     <excludes>
                         <exclude>.gitignore</exclude>
