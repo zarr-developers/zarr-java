@@ -104,12 +104,6 @@
             <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>com.scalableminds</groupId>
-            <artifactId>blosc-java</artifactId>
-            <version>0.1-1.21.4</version>
-        </dependency>
-
     </dependencies>
 
     <distributionManagement>
@@ -142,8 +136,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
+                    <release>8</release>
                     <encoding>UTF-8</encoding>
                     <excludes>
                         <exclude>.gitignore</exclude>
