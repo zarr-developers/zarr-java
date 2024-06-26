@@ -18,11 +18,6 @@ jobs:
           server-username: ${{secrets.OSSRH_USERNAME}}
           server-password: ${{secrets.OSSRH_TOKEN}}
 
-      - name: Download blosc jar
-        run: |
-          mkdir -p ../blosc-java/target
-          curl https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar -o ../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar
-
       - id: install-secret-key
         name: Install gpg secret key
         run: |
