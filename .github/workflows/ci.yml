@@ -24,7 +24,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
-          java-version: '22'
+          java-version: '11'
           distribution: 'temurin'
           cache: maven
 
@@ -37,11 +37,6 @@ jobs:
         run: |
           python -m venv venv_zarrita
           if [ "${{ runner.os }}" = "Windows" ]; then venv_zarrita/Scripts/pip install zarrita; else venv_zarrita/bin/pip install zarrita; fi
-
-      - name: Download blosc jar
-        run: |
-          mkdir -p ../blosc-java/target
-          curl https://static.webknossos.org/misc/blosc-java-0.1-1.21.4-SNAPSHOT.jar -o ../blosc-java/target/blosc-java-0.1-1.21.4-SNAPSHOT.jar
 
       - name: Download testdata
         run: |

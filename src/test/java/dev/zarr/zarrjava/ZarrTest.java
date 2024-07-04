@@ -14,7 +14,6 @@ import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
-import jdk.jshell.spi.ExecutionControl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -150,13 +150,16 @@ public class ZarrTest {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
 
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("test_key", "test_value");
+
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec, codecParam);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
                 .withShape(16, 16, 16)
                 .withDataType(DataType.UINT32)
                 .withChunkShape(2, 4, 8)
                 .withFillValue(0)
-                .withAttributes(Map.of("test_key", "test_value"));
+                .withAttributes(attributes);
 
         switch (codec) {
             case "blosc":
@@ -425,8 +428,11 @@ public class ZarrTest {
     public void testV3Group() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTOUTPUT);
 
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("hello", "world");
+
         Group group = Group.create(fsStore.resolve("testgroup"));
-        Group group2 = group.createGroup("test2", Map.of("hello", "world"));
+        Group group2 = group.createGroup("test2", attributes);
         Array array = group2.createArray("array", b ->
                 b.withShape(10, 10)
                         .withDataType(DataType.UINT8)
