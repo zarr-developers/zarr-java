@@ -29,8 +29,29 @@ jobs:
           # Verify gpg secret key
           gpg --list-secret-keys --keyid-format LONG
 
+      # Begin copy from ci.yml. Refactor?
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install zarrita
+        run: |
+          python -m venv venv_zarrita
+          if [ "${{ runner.os }}" = "Windows" ]; then venv_zarrita/Scripts/pip install zarrita; else venv_zarrita/bin/pip install zarrita; fi
+
+      - name: Download testdata
+        run: |
+          mkdir testoutput
+          curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
+          cd testdata
+          unzip l4_sample.zip
+
+      # End copy from ci.yml
+
       - name: Publish package
-        run: mvn --batch-mode deploy
+        run: mvn --batch-mode deploy -DargLine="-Xmx6g"
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
