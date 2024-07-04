@@ -41,27 +41,6 @@
         </developer>
     </developers>
 
-    <name>Zarr-Java</name>
-    <description>
-        Zarr-Java is a Java library providing an implementation of chunked,
-        compressed, N-dimensional arrays implementing the ZarrV3 format.
-    </description>
-    <url>https://github.com/zarr-developers/zarr-java</url>
-
-    <licenses>
-        <license>
-            <name>MIT License</name>
-            <url>https://opensource.org/license/mit/</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
-
-    <scm>
-        <url>https://github.com/zarr-developers/zarr-java</url>
-        <connection>scm:git:git://github.com/zarr-developers/zarr-java.git</connection>
-        <developerConnection>scm:git:git@github.com:zarr-developers/zarr-java.git</developerConnection>
-    </scm>
-
     <properties>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
