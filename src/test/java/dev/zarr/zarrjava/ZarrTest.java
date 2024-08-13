@@ -230,23 +230,35 @@ public class ZarrTest {
         assert exitCode == 0;
     }
 
-    @Test
-    public void testCheckShardingBounds() throws Exception {
-        //TODO: test too big, too small, wrong dims
-
+    @ParameterizedTest
+    @ValueSource(strings = {"large", "small", "nested", "wrong dims", "correct"})
+    public void testCheckShardingBounds(String scenario) throws Exception {
         long[] shape = new long[] {4, 4};
-        int[] shardSize = new int[] {1, 1};
+        int[] shardSize = new int[] {2, 2};
         int[] chunkSize = new int[] {2, 2};
 
+        if (scenario.equals("large"))
+            shardSize = new int[] {8, 8};
+        if (scenario.equals("small"))
+            shardSize = new int[] {1, 1};
+        if (scenario.equals("wrong dims"))
+            shardSize = new int[] {1};
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("illegal_shardsize");
         ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(shape)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(shardSize)
-                //TODO: parametrized test with different wrong chunksizes
-                .withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withBytes("LITTLE")));
+            .withShape(shape)
+            .withDataType(DataType.UINT32).withChunkShape(shardSize);
 
-        assertThrows(ZarrException.class, builder::build);
+        if (scenario.equals("nested")) {
+            int[] nestedChunkSize = new int[]{4, 4};
+            builder = builder.withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withSharding(nestedChunkSize, c2 -> c2.withBytes("LITTLE"))));
+        } else {
+            builder = builder.withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withBytes("LITTLE")));
+        }
+        if (scenario.equals("correct")){
+            builder.build();
+        }else{
+            assertThrows(ZarrException.class, builder::build);
+        }
     }
 
     @ParameterizedTest
