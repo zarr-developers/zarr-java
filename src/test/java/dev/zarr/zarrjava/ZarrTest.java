@@ -230,6 +230,25 @@ public class ZarrTest {
         assert exitCode == 0;
     }
 
+    @Test
+    public void testCheckShardingBounds() throws Exception {
+        //TODO: test too big, too small, wrong dims
+
+        long[] shape = new long[] {4, 4};
+        int[] shardSize = new int[] {1, 1};
+        int[] chunkSize = new int[] {2, 2};
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("illegal_shardsize");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(shape)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(shardSize)
+                //TODO: parametrized test with different wrong chunksizes
+                .withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withBytes("LITTLE")));
+
+        assertThrows(ZarrException.class, builder::build);
+    }
+
     @ParameterizedTest
     @CsvSource({"0,true", "0,false", "5, true", "5, false"})
     public void testZstdCodecReadWrite(int clevel, boolean checksum) throws ZarrException, IOException {
