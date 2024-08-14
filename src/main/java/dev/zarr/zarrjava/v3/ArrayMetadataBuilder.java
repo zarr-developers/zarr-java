@@ -126,22 +126,6 @@ public class ArrayMetadataBuilder {
     return this;
   }
 
-  public void verifyShardingBounds(int[] outerChunkShape, Codec[] codecs) throws ZarrException {
-    for (Codec codec : codecs) {
-      if (codec instanceof ShardingIndexedCodec) {
-        ShardingIndexedCodec.Configuration shardingConfig = ((ShardingIndexedCodec) codec).configuration;
-        int[] innerChunkShape = shardingConfig.chunkShape;
-        if (outerChunkShape.length != innerChunkShape.length)
-          throw new ZarrException("Sharding dimensions mismatch of outer chunk shape " + Arrays.toString(outerChunkShape) + " and inner chunk shape" + Arrays.toString(innerChunkShape));
-        for (int i = 0; i < outerChunkShape.length; i++) {
-          if (outerChunkShape[i] < innerChunkShape[i])
-            throw new ZarrException("Sharding outer chunk shape " + Arrays.toString(outerChunkShape) + " can not contain inner chunk shape " + Arrays.toString(innerChunkShape));
-        }
-        verifyShardingBounds(innerChunkShape, shardingConfig.codecs);
-      }
-    }
-  }
-
   public ArrayMetadata build() throws ZarrException {
     if (shape == null) {
       throw new ZarrException("Shape needs to be provided. Please call `.withShape`.");
@@ -152,20 +136,7 @@ public class ArrayMetadataBuilder {
     if (chunkGrid == null) {
       throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
     }
-    if (chunkGrid instanceof RegularChunkGrid) {
-      int[] chunkShape = ((RegularChunkGrid) chunkGrid).configuration.chunkShape;
-      if (shape.length != chunkShape.length) {
-        throw new ZarrException("Shape (ndim=" + shape.length + ") and chunk shape (ndim=" +
-            chunkShape.length + ") need to have the same number of dimensions.");
-      }
-      for (int i = 0; i < shape.length; i++) {
-        if (shape[i] < chunkShape[i]) {
-          throw new ZarrException("Shape " + Arrays.toString(shape) + " can not contain chunk shape "
-              + Arrays.toString(chunkShape));
-        }
-      }
-      verifyShardingBounds(chunkShape, codecs);
-    }
+
 
     return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
         dimensionNames,
