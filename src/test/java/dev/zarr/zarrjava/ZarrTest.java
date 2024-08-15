@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import ucar.ma2.MAMath;
 
@@ -228,6 +229,60 @@ public class ZarrTest {
 
         int exitCode = process.waitFor();
         assert exitCode == 0;
+    }
+
+    static Stream<int[]> invalidchunkSizes() {
+        return Stream.of(
+            new int[] {1} ,
+            new int[] {1, 1, 1},
+            new int[] {5, 1},
+            new int[] {1, 5}
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidchunkSizes")
+    public void testCheckInvalidChunkBounds(int[] chunkSize) throws Exception {
+        long[] shape = new long[] {4, 4};
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_chunksize");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+            .withShape(shape)
+            .withDataType(DataType.UINT32)
+            .withChunkShape(chunkSize);
+
+        assertThrows(ZarrException.class, builder::build);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"large", "small", "nested", "wrong dims", "correct"})
+    public void testCheckShardingBounds(String scenario) throws Exception {
+        long[] shape = new long[] {4, 4};
+        int[] shardSize = new int[] {2, 2};
+        int[] chunkSize = new int[] {2, 2};
+
+        if (scenario.equals("large"))
+            shardSize = new int[] {8, 8};
+        if (scenario.equals("small"))
+            shardSize = new int[] {1, 1};
+        if (scenario.equals("wrong dims"))
+            shardSize = new int[] {1};
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("illegal_shardsize");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+            .withShape(shape)
+            .withDataType(DataType.UINT32).withChunkShape(shardSize);
+
+        if (scenario.equals("nested")) {
+            int[] nestedChunkSize = new int[]{4, 4};
+            builder = builder.withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withSharding(nestedChunkSize, c2 -> c2.withBytes("LITTLE"))));
+        } else {
+            builder = builder.withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withBytes("LITTLE")));
+        }
+        if (scenario.equals("correct")){
+            builder.build();
+        }else{
+            assertThrows(ZarrException.class, builder::build);
+        }
     }
 
     @ParameterizedTest

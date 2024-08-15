@@ -10,9 +10,12 @@ import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
+import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -89,6 +92,35 @@ public final class ArrayMetadata {
     if (!nodeType.equals(this.nodeType)) {
       throw new ZarrException(
           "Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
+    }
+
+    if (chunkGrid instanceof RegularChunkGrid) {
+      int[] chunkShape = ((RegularChunkGrid) chunkGrid).configuration.chunkShape;
+      if (shape.length != chunkShape.length) {
+        throw new ZarrException("Shape (ndim=" + shape.length + ") and chunk shape (ndim=" +
+            chunkShape.length + ") need to have the same number of dimensions.");
+      }
+      for (int i = 0; i < shape.length; i++) {
+        if (shape[i] < chunkShape[i]) {
+          throw new ZarrException("Shape " + Arrays.toString(shape) + " can not contain chunk shape "
+              + Arrays.toString(chunkShape));
+        }
+      }
+
+      Optional<Codec> shardingCodec = getShardingIndexedCodec(codecs);
+      int[] outerChunkShape = chunkShape;
+      while (shardingCodec.isPresent()) {
+        ShardingIndexedCodec.Configuration shardingConfig = ((ShardingIndexedCodec) shardingCodec.get()).configuration;
+        int[] innerChunkShape = shardingConfig.chunkShape;
+        if (outerChunkShape.length != innerChunkShape.length)
+          throw new ZarrException("Sharding dimensions mismatch of outer chunk shape " + Arrays.toString(outerChunkShape) + " and inner chunk shape" + Arrays.toString(innerChunkShape));
+        for (int i = 0; i < outerChunkShape.length; i++) {
+          if (outerChunkShape[i] < innerChunkShape[i])
+            throw new ZarrException("Sharding outer chunk shape " + Arrays.toString(outerChunkShape) + " can not contain inner chunk shape " + Arrays.toString(innerChunkShape));
+        }
+        outerChunkShape = innerChunkShape;
+        shardingCodec = getShardingIndexedCodec(shardingConfig.codecs);
+      }
     }
 
     this.shape = shape;
@@ -225,6 +257,10 @@ public final class ArrayMetadata {
 
   public int ndim() {
     return shape.length;
+  }
+
+  public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
+    return Arrays.stream(codecs).filter(codec -> codec instanceof ShardingIndexedCodec).findFirst();
   }
 
   public int[] chunkShape() {

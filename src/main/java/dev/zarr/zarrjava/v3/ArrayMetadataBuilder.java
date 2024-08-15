@@ -11,6 +11,9 @@ import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Endian;
+import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
+
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -133,12 +136,8 @@ public class ArrayMetadataBuilder {
     if (chunkGrid == null) {
       throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
     }
-    if (chunkGrid instanceof RegularChunkGrid
-        && shape.length != ((RegularChunkGrid) chunkGrid).configuration.chunkShape.length) {
-      throw new ZarrException("Shape (ndim=" + shape.length + ") and chunk shape (ndim=" +
-          ((RegularChunkGrid) chunkGrid).configuration.chunkShape.length +
-          ") need to have the same number of dimensions.");
-    }
+
+
     return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
         dimensionNames,
         attributes
