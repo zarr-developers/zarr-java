@@ -13,6 +13,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
+import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,6 +33,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertThrows;
@@ -231,17 +233,39 @@ public class ZarrTest {
         assert exitCode == 0;
     }
 
-    static Stream<int[]> invalidchunkSizes() {
+    static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder(){
         return Stream.of(
-            new int[] {1} ,
-            new int[] {1, 1, 1},
+            c -> c.withBytes(BytesCodec.Endian.LITTLE).withBytes(BytesCodec.Endian.LITTLE),
+            c -> c.withBlosc().withBytes(BytesCodec.Endian.LITTLE),
+            c -> c.withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1,0}),
+            c -> c.withTranspose(new int[]{1,0}).withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1,0})
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidCodecBuilder")
+    public void testCheckInvalidCodecConfiguration(Function<CodecBuilder, CodecBuilder> codecBuilder) throws Exception {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_codec_config", String.valueOf(codecBuilder.hashCode()));
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+            .withShape(new long[] {4, 4})
+            .withDataType(DataType.UINT32)
+            .withChunkShape(new int[]{2,2})
+            .withCodecs(codecBuilder);
+
+        assertThrows(ZarrException.class, () -> Array.create(storeHandle, builder.build()));
+    }
+
+    static Stream<int[]> invalidChunkSizes() {
+        return Stream.of(
+            new int[]{1},
+            new int[]{1, 1, 1},
             new int[] {5, 1},
             new int[] {1, 5}
         );
     }
 
     @ParameterizedTest
-    @MethodSource("invalidchunkSizes")
+    @MethodSource("invalidChunkSizes")
     public void testCheckInvalidChunkBounds(int[] chunkSize) throws Exception {
         long[] shape = new long[] {4, 4};
 
@@ -310,31 +334,46 @@ public class ZarrTest {
     @Test
     public void testTransposeCodec() throws ZarrException {
         ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
         ucar.ma2.Array testDataTransposed120 = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{3, 3, 2}, new int[]{
-                0, 9, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7, 16, 8, 17});
+            0, 9, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7, 16, 8, 17});
 
-        ArrayMetadata.CoreArrayMetadata metadata = new ArrayMetadata.CoreArrayMetadata(
-                new long[]{2, 3, 3},
-                new int[]{2, 3, 3},
-                DataType.UINT32,
-                null);
         TransposeCodec transposeCodec = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 0}));
-        TransposeCodec transposeCodecWrongOrder1 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 2}));
-        TransposeCodec transposeCodecWrongOrder2 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 3}));
-        TransposeCodec transposeCodecWrongOrder3 = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 3, 0}));
-        transposeCodec.setCoreArrayMetadata(metadata);
-        transposeCodecWrongOrder1.setCoreArrayMetadata(metadata);
-        transposeCodecWrongOrder2.setCoreArrayMetadata(metadata);
-        transposeCodecWrongOrder3.setCoreArrayMetadata(metadata);
+        transposeCodec.setCoreArrayMetadata(new ArrayMetadata.CoreArrayMetadata(
+            new long[]{2, 3, 3},
+            new int[]{2, 3, 3},
+            DataType.UINT32,
+            null));
 
         assert MAMath.equals(testDataTransposed120, transposeCodec.encode(testData));
         assert MAMath.equals(testData, transposeCodec.decode(testDataTransposed120));
-        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder1.encode(testData));
-        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder2.encode(testData));
-        assertThrows(ZarrException.class, () -> transposeCodecWrongOrder3.encode(testData));
     }
 
+    static Stream<int[]> invalidTransposeOrder() {
+        return Stream.of(
+            new int[]{1, 0, 0},
+            new int[]{1, 2, 3},
+            new int[]{1,2,3,0},
+            new int[]{1,2}
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidChunkSizes")
+    public void testCheckInvalidTransposeOrder(int[] transposeOrder) throws Exception {
+        int[] shapeInt = new int[]{2, 3, 3};
+        long[] shapeLong = new long[]{2, 3, 3};
+
+        TransposeCodec transposeCodec = new TransposeCodec(new TransposeCodec.Configuration(transposeOrder));
+        transposeCodec.setCoreArrayMetadata(new ArrayMetadata.CoreArrayMetadata(
+            shapeLong,
+            shapeInt,
+            DataType.UINT32,
+            null));
+
+        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, shapeInt);
+        assertThrows(ZarrException.class, () -> transposeCodec.encode(testData));
+    }
     @Test
     public void testFileSystemStores() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTDATA);
