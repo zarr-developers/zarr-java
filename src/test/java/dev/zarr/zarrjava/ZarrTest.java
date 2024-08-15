@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import ucar.ma2.MAMath;
 
@@ -228,6 +229,29 @@ public class ZarrTest {
 
         int exitCode = process.waitFor();
         assert exitCode == 0;
+    }
+
+    static Stream<int[]> invalidchunkSizes() {
+        return Stream.of(
+            new int[] {1} ,
+            new int[] {1, 1, 1},
+            new int[] {5, 1},
+            new int[] {1, 5}
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidchunkSizes")
+    public void testCheckInvalidChunkBounds(int[] chunkSize) throws Exception {
+        long[] shape = new long[] {4, 4};
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_chunksize");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+            .withShape(shape)
+            .withDataType(DataType.UINT32)
+            .withChunkShape(chunkSize);
+
+        assertThrows(ZarrException.class, builder::build);
     }
 
     @ParameterizedTest
