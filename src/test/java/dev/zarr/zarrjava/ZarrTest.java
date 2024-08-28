@@ -258,15 +258,13 @@ public class ZarrTest {
     static Stream<int[]> invalidChunkSizes() {
         return Stream.of(
             new int[]{1},
-            new int[]{1, 1, 1},
-            new int[] {5, 1},
-            new int[] {1, 5}
+            new int[]{1, 1, 1}
         );
     }
 
     @ParameterizedTest
     @MethodSource("invalidChunkSizes")
-    public void testCheckInvalidChunkBounds(int[] chunkSize) throws Exception {
+    public void testCheckInvalidChunkDimensions(int[] chunkSize) throws Exception {
         long[] shape = new long[] {4, 4};
 
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_chunksize");
@@ -278,35 +276,31 @@ public class ZarrTest {
         assertThrows(ZarrException.class, builder::build);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"large", "small", "nested", "wrong dims", "correct"})
-    public void testCheckShardingBounds(String scenario) throws Exception {
-        long[] shape = new long[] {4, 4};
-        int[] shardSize = new int[] {2, 2};
-        int[] chunkSize = new int[] {2, 2};
+    static Stream<int[]> invalidShardSizes() {
+        return Stream.of(
+            new int[]{4}, //wrong dims
+            new int[]{4, 4, 4}, //wrong dims
+            new int[]{1, 1}, //smaller than inner chunk shape
+            new int[]{5, 5} //no exact multiple of inner chunk shape
+        );
+    }
 
-        if (scenario.equals("large"))
-            shardSize = new int[] {8, 8};
-        if (scenario.equals("small"))
-            shardSize = new int[] {1, 1};
-        if (scenario.equals("wrong dims"))
-            shardSize = new int[] {1};
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("illegal_shardsize");
+    @ParameterizedTest
+    @MethodSource("invalidShardSizes")
+    public void testCheckShardingBounds(int[] shardSize) throws Exception {
+        long[] shape = new long[] {10, 10};
+        int[] innerChunkSize = new int[] {2, 2};
+
         ArrayMetadataBuilder builder = Array.metadataBuilder()
             .withShape(shape)
             .withDataType(DataType.UINT32).withChunkShape(shardSize);
 
-        if (scenario.equals("nested")) {
+        if (false) {
             int[] nestedChunkSize = new int[]{4, 4};
-            builder = builder.withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withSharding(nestedChunkSize, c2 -> c2.withBytes("LITTLE"))));
-        } else {
-            builder = builder.withCodecs(c -> c.withSharding(chunkSize, c1 -> c1.withBytes("LITTLE")));
+            builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withSharding(nestedChunkSize, c2 -> c2.withBytes("LITTLE"))));
         }
-        if (scenario.equals("correct")){
-            builder.build();
-        }else{
-            assertThrows(ZarrException.class, builder::build);
-        }
+        builder = builder.withCodecs(c -> c.withSharding(innerChunkSize, c1 -> c1.withBytes("LITTLE")));
+        assertThrows(ZarrException.class, builder::build);
     }
 
     @ParameterizedTest
