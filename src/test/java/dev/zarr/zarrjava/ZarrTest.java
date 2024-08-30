@@ -255,6 +255,28 @@ public class ZarrTest {
         assertThrows(ZarrException.class, () -> Array.create(storeHandle, builder.build()));
     }
 
+    @Test
+    public void testLargerChunkSizeThanArraySize() throws ZarrException, IOException {
+        int[] testData = new int[16 * 16 * 16];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("larger_chunk_size_than_array");
+        ArrayMetadata metadata = Array.metadataBuilder()
+            .withShape(16, 16, 16)
+            .withDataType(DataType.UINT32)
+            .withChunkShape(32, 32, 32)
+            .withFillValue(0)
+            .build();
+        Array writeArray = Array.create(storeHandle, metadata);
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
+
+        //read in zarr-java
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
     static Stream<int[]> invalidChunkSizes() {
         return Stream.of(
             new int[]{1},
@@ -264,7 +286,7 @@ public class ZarrTest {
 
     @ParameterizedTest
     @MethodSource("invalidChunkSizes")
-    public void testCheckInvalidChunkDimensions(int[] chunkSize) throws Exception {
+    public void testCheckInvalidChunkDimensions(int[] chunkSize) {
         long[] shape = new long[] {4, 4};
 
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_chunksize");
@@ -278,10 +300,12 @@ public class ZarrTest {
 
     static Stream<int[]> invalidShardSizes() {
         return Stream.of(
-            new int[]{4}, //wrong dims
-            new int[]{4, 4, 4}, //wrong dims
-            new int[]{1, 1}, //smaller than inner chunk shape
-            new int[]{5, 5} //no exact multiple of inner chunk shape
+            new int[]{4},           //wrong dims
+            new int[]{4, 4, 4},     //wrong dims
+            new int[]{1, 1},        //smaller than inner chunk shape
+            new int[]{5, 5},        //no exact multiple of inner chunk shape
+            new int[]{2, 1},        //smaller than inner chunk shape in 2nd dimension
+            new int[]{2, 5}         //no exact multiple of inner chunk shape in 2nd dimension
         );
     }
 
