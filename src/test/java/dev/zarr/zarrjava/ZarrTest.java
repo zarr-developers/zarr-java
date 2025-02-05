@@ -235,10 +235,10 @@ public class ZarrTest {
 
     static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder() {
         return Stream.of(
-                c -> c.withBytes(BytesCodec.Endian.LITTLE).withBytes(BytesCodec.Endian.LITTLE),
-                c -> c.withBlosc().withBytes(BytesCodec.Endian.LITTLE),
-                c -> c.withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0}),
-                c -> c.withTranspose(new int[]{1, 0}).withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0})
+            c -> c.withBytes(BytesCodec.Endian.LITTLE).withBytes(BytesCodec.Endian.LITTLE),
+            c -> c.withBlosc().withBytes(BytesCodec.Endian.LITTLE),
+            c -> c.withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0}),
+            c -> c.withTranspose(new int[]{1, 0}).withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0})
         );
     }
 
