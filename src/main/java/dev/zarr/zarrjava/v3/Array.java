@@ -142,6 +142,11 @@ public class Array extends Node {
     if (shape.length != metadata.ndim()) {
       throw new IllegalArgumentException("'shape' needs to have rank '" + metadata.ndim() + "'.");
     }
+    for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
+      if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape[dimIdx]) {
+        throw new ZarrException("Requested data is outside of the array's domain.");
+      }
+    }
 
     final int[] chunkShape = metadata.chunkShape();
     if (IndexingUtils.isSingleFullChunk(offset, shape, chunkShape)) {
