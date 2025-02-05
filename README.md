@@ -17,7 +17,8 @@ Group hierarchy = Group.open(
     new HttpStore("https://static.webknossos.org/data/zarr_v3")
         .resolve("l4_sample")
 );
-Array array = hierarchy.get("color").get("1");
+Group color = (Group) hierarchy.get("color");
+Array array = (Array) color.get("1");
 ucar.ma2.Array outArray = array.read(
     new long[]{0, 3073, 3073, 513}, // offset
     new int[]{1, 64, 64, 64} // shape
@@ -31,11 +32,12 @@ Array array = Array.create(
         .withChunkShape(1, 1024, 1024, 1024)
         .withFillValue(0)
         .withCodecs(c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc()))
-        .build();
+        .build()
 );
+ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1, 1024, 1024, 1024});
 array.write(
     new long[]{0, 0, 0, 0}, // offset
-    ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1, 1024, 1024, 1024})
+    data
 );
 ```
 ## Development Start-Guide
