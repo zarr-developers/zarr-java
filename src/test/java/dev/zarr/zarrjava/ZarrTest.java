@@ -565,6 +565,42 @@ public class ZarrTest {
     }
 
 
+    @Test
+    public void testReadme1() throws IOException, ZarrException {
+        Group hierarchy = Group.open(
+                new HttpStore("https://static.webknossos.org/data/zarr_v3")
+                        .resolve("l4_sample")
+        );
+        Group color = (Group) hierarchy.get("color");
+        Array array = (Array) color.get("1");
+        ucar.ma2.Array outArray = array.read(
+                new long[]{0, 3073, 3073, 513}, // offset
+                new int[]{1, 64, 64, 64} // shape
+        );
+    }
+
+    @Test
+    public void testReadme2() throws IOException, ZarrException {
+        Array array = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("testoutput", "color", "1"),
+                Array.metadataBuilder()
+                        .withShape(1, 4096, 4096, 1536)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(1, 1024, 1024, 1024)
+                        .withFillValue(0)
+                        .withCodecs(c -> c.withSharding(new int[]{1, 32, 32, 32}, c1 -> c1.withBlosc()))
+                        .build()
+        );
+        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1, 1, 2, 2}, new int[]{1, 2, 3, 4});
+        array.write(
+                new long[]{0, 0, 0, 0}, // offset
+                data
+        );
+        ucar.ma2.Array output = array.read(new long[]{0, 0, 0, 0}, new int[]{1, 1, 2, 2});
+        assert MultiArrayUtils.allValuesEqual(data, output);
+
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"1", "2-2-1", "4-4-1", "16-16-4"})
     public void testReadL4Sample(String mag) throws IOException, ZarrException {
