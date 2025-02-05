@@ -173,7 +173,9 @@ public class Array extends Node {
 
                 final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
                 final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-
+                if (!chunkHandle.exists()) {
+                  return;
+                }
                 if (codecPipeline.supportsPartialDecode()) {
                   final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
                       Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
