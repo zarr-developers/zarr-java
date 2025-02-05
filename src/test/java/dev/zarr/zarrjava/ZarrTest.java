@@ -6,12 +6,10 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
-import dev.zarr.zarrjava.store.FilesystemStore;
-import dev.zarr.zarrjava.store.HttpStore;
-import dev.zarr.zarrjava.store.S3Store;
-import dev.zarr.zarrjava.store.StoreHandle;
+import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
@@ -65,13 +63,15 @@ public class ZarrTest {
     @CsvSource({
             "blosc,blosclz_noshuffle_0", "blosc,lz4_shuffle_6", "blosc,lz4hc_bitshuffle_3", "blosc,zlib_shuffle_5", "blosc,zstd_bitshuffle_9",
             "gzip,0", "gzip,5",
-            "zstd,0_true", "zstd,5_true","zstd,0_false", "zstd,5_false",
+            "zstd,0_true", "zstd,5_true", "zstd,0_false", "zstd,5_false",
             "bytes,BIG", "bytes,LITTLE",
             "transpose,_",
             "sharding,start", "sharding,end",
             "sharding_nested,_",
             "crc32c,_",
-    })    public void testReadFromZarrita(String codec, String codecParam) throws IOException, ZarrException, InterruptedException {
+    })
+
+    public void testReadFromZarrita(String codec, String codecParam) throws IOException, ZarrException, InterruptedException {
         String command = pythonPath();
         ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_write.py").toString(), codec, codecParam, TESTOUTPUT.toString());
         Process process = pb.start();
@@ -142,7 +142,7 @@ public class ZarrTest {
     @CsvSource({
             "blosc,blosclz_noshuffle_0", "blosc,lz4_shuffle_6", "blosc,lz4hc_bitshuffle_3", "blosc,zlib_shuffle_5", "blosc,zstd_bitshuffle_9",
             "gzip,0", "gzip,5",
-            "zstd,0_true", "zstd,5_true","zstd,0_false", "zstd,5_false",
+            "zstd,0_true", "zstd,5_true", "zstd,0_false", "zstd,5_false",
             "bytes,BIG", "bytes,LITTLE",
             "transpose,_",
             "sharding,start", "sharding,end",
@@ -233,12 +233,12 @@ public class ZarrTest {
         assert exitCode == 0;
     }
 
-    static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder(){
+    static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder() {
         return Stream.of(
-            c -> c.withBytes(BytesCodec.Endian.LITTLE).withBytes(BytesCodec.Endian.LITTLE),
-            c -> c.withBlosc().withBytes(BytesCodec.Endian.LITTLE),
-            c -> c.withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1,0}),
-            c -> c.withTranspose(new int[]{1,0}).withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1,0})
+                c -> c.withBytes(BytesCodec.Endian.LITTLE).withBytes(BytesCodec.Endian.LITTLE),
+                c -> c.withBlosc().withBytes(BytesCodec.Endian.LITTLE),
+                c -> c.withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0}),
+                c -> c.withTranspose(new int[]{1, 0}).withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0})
         );
     }
 
@@ -247,9 +247,9 @@ public class ZarrTest {
     public void testCheckInvalidCodecConfiguration(Function<CodecBuilder, CodecBuilder> codecBuilder) throws Exception {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_codec_config", String.valueOf(codecBuilder.hashCode()));
         ArrayMetadataBuilder builder = Array.metadataBuilder()
-            .withShape(new long[] {4, 4})
+            .withShape(new long[]{4, 4})
             .withDataType(DataType.UINT32)
-            .withChunkShape(new int[]{2,2})
+            .withChunkShape(new int[]{2, 2})
             .withCodecs(codecBuilder);
 
         assertThrows(ZarrException.class, () -> Array.create(storeHandle, builder.build()));
@@ -287,7 +287,7 @@ public class ZarrTest {
     @ParameterizedTest
     @MethodSource("invalidChunkSizes")
     public void testCheckInvalidChunkDimensions(int[] chunkSize) {
-        long[] shape = new long[] {4, 4};
+        long[] shape = new long[]{4, 4};
 
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_chunksize");
         ArrayMetadataBuilder builder = Array.metadataBuilder()
@@ -312,8 +312,8 @@ public class ZarrTest {
     @ParameterizedTest
     @MethodSource("invalidShardSizes")
     public void testCheckShardingBounds(int[] shardSize) throws Exception {
-        long[] shape = new long[] {10, 10};
-        int[] innerChunkSize = new int[] {2, 2};
+        long[] shape = new long[]{10, 10};
+        int[] innerChunkSize = new int[]{2, 2};
 
         ArrayMetadataBuilder builder = Array.metadataBuilder()
             .withShape(shape)
@@ -371,8 +371,8 @@ public class ZarrTest {
         return Stream.of(
             new int[]{1, 0, 0},
             new int[]{1, 2, 3},
-            new int[]{1,2,3,0},
-            new int[]{1,2}
+            new int[]{1, 2, 3, 0},
+            new int[]{1, 2}
         );
     }
 
@@ -392,6 +392,7 @@ public class ZarrTest {
         ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, shapeInt);
         assertThrows(ZarrException.class, () -> transposeCodec.encode(testData));
     }
+
     @Test
     public void testFileSystemStores() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTDATA);
@@ -564,4 +565,34 @@ public class ZarrTest {
     }
 
 
+    @ParameterizedTest
+    @ValueSource(strings = {"1", "2-2-1", "4-4-1", "16-16-4"})
+    public void testReadL4Sample(String mag) throws IOException, ZarrException {
+        StoreHandle httpStoreHandle = new HttpStore("https://static.webknossos.org/data/zarr_v3/").resolve("l4_sample", "color", mag);
+        StoreHandle localStoreHandle = new FilesystemStore(TESTDATA).resolve("l4_sample", "color", mag);
+
+        Array httpArray = Array.open(httpStoreHandle);
+        Array localArray = Array.open(localStoreHandle);
+        System.out.println(httpArray);
+        System.out.println(localArray);
+
+        ucar.ma2.Array httpData1 = httpArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array localData1 = localArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
+
+        assert MultiArrayUtils.allValuesEqual(httpData1, localData1);
+
+        //offset to where l4_sample contains non-zero values
+        long[] offset = new long[4];
+        long[] originalOffset = new long[]{0, 3073, 3073, 513};
+        long[] originalShape = new long[]{1, 4096, 4096, 2048};
+        long[] arrayShape = httpArray.metadata.shape;
+        for (int i = 0; i < 4; i++) {
+            offset[i] = originalOffset[i] / (originalShape[i] / arrayShape[i]);
+        }
+
+        ucar.ma2.Array httpData2 = httpArray.read(offset, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array localData2 = localArray.read(offset, new int[]{1, 64, 64, 64});
+
+        assert MultiArrayUtils.allValuesEqual(httpData2, localData2);
+    }
 }
