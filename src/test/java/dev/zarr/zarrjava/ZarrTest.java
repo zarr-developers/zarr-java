@@ -71,7 +71,8 @@ public class ZarrTest {
             "sharding,start", "sharding,end",
             "sharding_nested,_",
             "crc32c,_",
-    })    public void testReadFromZarrita(String codec, String codecParam) throws IOException, ZarrException, InterruptedException {
+    })
+    public void testReadFromZarrita(String codec, String codecParam) throws IOException, ZarrException, InterruptedException {
         String command = pythonPath();
         ProcessBuilder pb = new ProcessBuilder(command, PYTHON_TEST_PATH.resolve("zarrita_write.py").toString(), codec, codecParam, TESTOUTPUT.toString());
         Process process = pb.start();
@@ -563,5 +564,26 @@ public class ZarrTest {
         System.out.println(dev.zarr.zarrjava.v2.Array.open(httpStore.resolve("l4_sample", "color", "1")));
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false,true})
+    public void testParallel(boolean useParallel) throws IOException, ZarrException {
+        int[] testData = new int[512 * 512 * 512];
+        Arrays.setAll(testData, p -> p);
 
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testParallelRead");
+        ArrayMetadata metadata = Array.metadataBuilder()
+            .withShape(512, 512, 512)
+            .withDataType(DataType.UINT32)
+            .withChunkShape(100, 100, 100)
+            .withFillValue(0)
+            .build();
+        Array writeArray = Array.create(storeHandle, metadata);
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{512, 512, 512}, testData), useParallel);
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read(useParallel);
+
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+            clearTestoutputFolder();
+    }
 }
