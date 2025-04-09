@@ -210,7 +210,7 @@ public class ZarrTest {
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
         Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
 
         //read in zarrita
         String command = pythonPath();
@@ -274,7 +274,7 @@ public class ZarrTest {
         Array readArray = Array.open(storeHandle);
         ucar.ma2.Array result = readArray.read();
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
     }
 
     static Stream<int[]> invalidChunkSizes() {
@@ -346,7 +346,7 @@ public class ZarrTest {
         Array readArray = Array.open(storeHandle);
         ucar.ma2.Array result = readArray.read();
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
     }
 
     @Test
@@ -651,7 +651,7 @@ public class ZarrTest {
         Array readArray = Array.open(storeHandle);
         ucar.ma2.Array result = readArray.read(useParallel);
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
             clearTestoutputFolder();
     }
 }
