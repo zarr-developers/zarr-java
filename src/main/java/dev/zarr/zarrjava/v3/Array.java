@@ -169,6 +169,11 @@ public class Array extends Node {
     if (shape.length != metadata.ndim()) {
       throw new IllegalArgumentException("'shape' needs to have rank '" + metadata.ndim() + "'.");
     }
+    for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
+      if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape[dimIdx]) {
+        throw new ZarrException("Requested data is outside of the array's domain.");
+      }
+    }
 
     final int[] chunkShape = metadata.chunkShape();
     if (IndexingUtils.isSingleFullChunk(offset, shape, chunkShape)) {
@@ -198,7 +203,9 @@ public class Array extends Node {
 
         final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-
+        if (!chunkHandle.exists()) {
+          return;
+        }
         if (codecPipeline.supportsPartialDecode()) {
           final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
               Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);

@@ -79,7 +79,7 @@ public class HttpStore implements Store {
       throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
     }
     Request request = new Request.Builder().url(resolveKeys(keys)).header(
-        "Range", String.format("Bytes=%d-%d", start, end + 1)).build();
+        "Range", String.format("Bytes=%d-%d", start, end - 1)).build();
     return get(request);
   }
 
