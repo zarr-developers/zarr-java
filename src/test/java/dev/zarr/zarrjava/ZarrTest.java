@@ -210,7 +210,7 @@ public class ZarrTest {
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
         Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
 
         //read in zarrita
         String command = pythonPath();
@@ -274,7 +274,7 @@ public class ZarrTest {
         Array readArray = Array.open(storeHandle);
         ucar.ma2.Array result = readArray.read();
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
     }
 
     static Stream<int[]> invalidChunkSizes() {
@@ -346,7 +346,7 @@ public class ZarrTest {
         Array readArray = Array.open(storeHandle);
         ucar.ma2.Array result = readArray.read();
 
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
     }
 
     @Test
@@ -631,4 +631,28 @@ public class ZarrTest {
 
         assert MultiArrayUtils.allValuesEqual(httpData2, localData2);
     }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false,true})
+    public void testParallel(boolean useParallel) throws IOException, ZarrException {
+        int[] testData = new int[512 * 512 * 512];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testParallelRead");
+        ArrayMetadata metadata = Array.metadataBuilder()
+            .withShape(512, 512, 512)
+            .withDataType(DataType.UINT32)
+            .withChunkShape(100, 100, 100)
+            .withFillValue(0)
+            .build();
+        Array writeArray = Array.create(storeHandle, metadata);
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{512, 512, 512}, testData), useParallel);
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read(useParallel);
+
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+            clearTestoutputFolder();
+    }
 }
+
