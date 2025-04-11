@@ -631,4 +631,9 @@ public class ZarrTest {
 
         assert MultiArrayUtils.allValuesEqual(httpData2, localData2);
     }
+    @Test
+    public void testMetadataAcceptsStorageTransformer() throws ZarrException, IOException {
+        StoreHandle localStoreHandle = new FilesystemStore(TESTDATA).resolve("storage_transformer");
+        Array localArray = Array.open(localStoreHandle);
+    }
 }
