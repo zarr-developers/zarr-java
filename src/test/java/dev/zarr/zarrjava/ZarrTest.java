@@ -6,6 +6,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
+import com.google.common.collect.Maps;
 import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
@@ -631,9 +632,31 @@ public class ZarrTest {
 
         assert MultiArrayUtils.allValuesEqual(httpData2, localData2);
     }
+
     @Test
     public void testMetadataAcceptsStorageTransformer() throws ZarrException, IOException {
         StoreHandle localStoreHandle = new FilesystemStore(TESTDATA).resolve("storage_transformer");
-        Array localArray = Array.open(localStoreHandle);
+        Map<String, Object>[] storageTransformers1 = Array.open(localStoreHandle).metadata.storageTransformers;
+
+        Array array2 = Array.create(
+            new FilesystemStore(TESTOUTPUT).resolve("storage_transformer"),
+            Array.metadataBuilder()
+                .withShape(1)
+                .withChunkShape(1)
+                .withDataType(DataType.UINT8)
+                .withStorageTransformers(new HashMap[]{new HashMap<String, Object>(){
+                    {
+                        put("name", "chunk-manifest-json");
+                        put("configuration", new HashMap<String, Object>(){
+                            {
+                                put("manifest", "./manifest.json");
+                            }
+                        });
+                    }
+                }})
+                .build()
+        );
+        Map<String, Object>[] storageTransformers2 = array2.metadata.storageTransformers;
+        assert Maps.difference(storageTransformers1[0], storageTransformers2[0]).areEqual();
     }
 }
