@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import ucar.ma2.InvalidRangeException;
@@ -119,6 +120,7 @@ public class Array extends Node {
 
   /**
    * Reads the entire Zarr array into an ucar.ma2.Array.
+   * Utilizes no parallelism.
    *
    * @throws ZarrException
    */
@@ -129,6 +131,7 @@ public class Array extends Node {
 
   /**
    * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
+   * Utilizes no parallelism.
    *
    * @param offset
    * @param shape
@@ -136,6 +139,30 @@ public class Array extends Node {
    */
   @Nonnull
   public ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
+    return read(offset, shape, false);
+  }
+
+  /**
+   * Reads the entire Zarr array into an ucar.ma2.Array.
+   *
+   * @param parallel
+   * @throws ZarrException
+   */
+  @Nonnull
+  public ucar.ma2.Array read(final boolean parallel) throws ZarrException {
+    return read(new long[metadata.ndim()], Utils.toIntArray(metadata.shape), parallel);
+  }
+
+  /**
+   * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
+   *
+   * @param offset
+   * @param shape
+   * @param parallel
+   * @throws ZarrException
+   */
+  @Nonnull
+  public ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {
     if (offset.length != metadata.ndim()) {
       throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
     }
@@ -155,43 +182,46 @@ public class Array extends Node {
 
     final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType.getMA2DataType(),
         shape);
-    Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape))
-        .forEach(
-            chunkCoords -> {
-              try {
-                final IndexingUtils.ChunkProjection chunkProjection =
-                    IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                        shape
-                    );
+    Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
+    if (parallel) {
+      chunkStream = chunkStream.parallel();
+    }
+    chunkStream.forEach(
+    chunkCoords -> {
+      try {
+        final IndexingUtils.ChunkProjection chunkProjection =
+            IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
+                shape
+            );
 
-                if (chunkIsInArray(chunkCoords)) {
-                  MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
-                      chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
-                      chunkProjection.shape
-                  );
-                }
+        if (chunkIsInArray(chunkCoords)) {
+          MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
+              chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
+              chunkProjection.shape
+          );
+        }
 
-                final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
-                final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-                if (!chunkHandle.exists()) {
-                  return;
-                }
-                if (codecPipeline.supportsPartialDecode()) {
-                  final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
-                      Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
-                  MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
-                      chunkProjection.outOffset, chunkProjection.shape
-                  );
-                } else {
-                  MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
-                      outputArray, chunkProjection.outOffset, chunkProjection.shape
-                  );
-                }
+        final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
+        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+        if (!chunkHandle.exists()) {
+          return;
+        }
+        if (codecPipeline.supportsPartialDecode()) {
+          final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
+              Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
+          MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
+              chunkProjection.outOffset, chunkProjection.shape
+          );
+        } else {
+          MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
+              outputArray, chunkProjection.outOffset, chunkProjection.shape
+          );
+        }
 
-              } catch (ZarrException e) {
-                throw new RuntimeException(e);
-              }
-            });
+      } catch (ZarrException e) {
+        throw new RuntimeException(e);
+      }
+    });
     return outputArray;
   }
 
@@ -235,6 +265,7 @@ public class Array extends Node {
   /**
    * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
    * the Zarr array needs be large enough for the write.
+   * Utilizes no parallelism.
    *
    * @param array
    */
@@ -245,11 +276,37 @@ public class Array extends Node {
   /**
    * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
    * needs be large enough for the write.
+   * Utilizes no parallelism.
    *
    * @param offset
    * @param array
    */
   public void write(long[] offset, ucar.ma2.Array array) {
+    write(offset, array, false);
+  }
+
+  /**
+   * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
+   * the Zarr array needs be large enough for the write.
+   *
+   * @param array
+   * @param parallel
+   */
+  public void write(ucar.ma2.Array array, boolean parallel) {
+    write(new long[metadata.ndim()], array, parallel);
+  }
+
+
+
+  /**
+   * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
+   * needs be large enough for the write.
+   *
+   * @param offset
+   * @param array
+   * @param parallel
+   */
+  public void write(long[] offset, ucar.ma2.Array array, boolean parallel) {
     if (offset.length != metadata.ndim()) {
       throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
     }
@@ -260,34 +317,37 @@ public class Array extends Node {
     int[] shape = array.getShape();
 
     final int[] chunkShape = metadata.chunkShape();
-    Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape))
-        .forEach(
-            chunkCoords -> {
-              try {
-                final IndexingUtils.ChunkProjection chunkProjection =
-                    IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                        shape
-                    );
+    Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
+    if(parallel) {
+      chunkStream = chunkStream.parallel();
+    }
+    chunkStream.forEach(
+    chunkCoords -> {
+      try {
+        final IndexingUtils.ChunkProjection chunkProjection =
+            IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
+                shape
+            );
 
-                ucar.ma2.Array chunkArray;
-                if (IndexingUtils.isFullChunk(chunkProjection.chunkOffset, chunkProjection.shape,
-                    chunkShape
-                )) {
-                  chunkArray = array.sectionNoReduce(chunkProjection.outOffset,
-                      chunkProjection.shape,
-                      null
-                  );
-                } else {
-                  chunkArray = readChunk(chunkCoords);
-                  MultiArrayUtils.copyRegion(array, chunkProjection.outOffset, chunkArray,
-                      chunkProjection.chunkOffset, chunkProjection.shape
-                  );
-                }
-                writeChunk(chunkCoords, chunkArray);
-              } catch (ZarrException | InvalidRangeException e) {
-                throw new RuntimeException(e);
-              }
-            });
+        ucar.ma2.Array chunkArray;
+        if (IndexingUtils.isFullChunk(chunkProjection.chunkOffset, chunkProjection.shape,
+            chunkShape
+        )) {
+          chunkArray = array.sectionNoReduce(chunkProjection.outOffset,
+              chunkProjection.shape,
+              null
+          );
+        } else {
+          chunkArray = readChunk(chunkCoords);
+          MultiArrayUtils.copyRegion(array, chunkProjection.outOffset, chunkArray,
+              chunkProjection.chunkOffset, chunkProjection.shape
+          );
+        }
+        writeChunk(chunkCoords, chunkArray);
+      } catch (ZarrException | InvalidRangeException e) {
+        throw new RuntimeException(e);
+      }
+    });
   }
 
   /**
@@ -434,6 +494,5 @@ public class Array extends Node {
       }
       array.write(offset, content);
     }
-
   }
 }
