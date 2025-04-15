@@ -3,6 +3,7 @@ package dev.zarr.zarrjava;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
@@ -657,30 +658,30 @@ public class ZarrTest {
     }
 
     @Test
-    public void testMetadataAcceptsStorageTransformer() throws ZarrException, IOException {
-        StoreHandle localStoreHandle = new FilesystemStore(TESTDATA).resolve("storage_transformer");
-        Map<String, Object>[] storageTransformers1 = Array.open(localStoreHandle).metadata.storageTransformers;
+    public void testMetadataAcceptsEmptyStorageTransformer() throws ZarrException, IOException {
+        // non-empty storage transformers are currently not supported
 
-        Array array2 = Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("storage_transformer"),
-            Array.metadataBuilder()
-                .withShape(1)
-                .withChunkShape(1)
-                .withDataType(DataType.UINT8)
-                .withStorageTransformers(new HashMap[]{new HashMap<String, Object>(){
-                    {
-                        put("name", "chunk-manifest-json");
-                        put("configuration", new HashMap<String, Object>(){
-                            {
-                                put("manifest", "./manifest.json");
-                            }
-                        });
-                    }
-                }})
-                .build()
+        Map<String, Object>[] storageTransformersEmpty = Array.open(
+            new FilesystemStore(TESTDATA).resolve("storage_transformer", "empty")
+        ).metadata.storageTransformers;
+        assert storageTransformersEmpty.length == 0;
+
+        assertThrows(JsonMappingException.class, () -> Array.open(
+            new FilesystemStore(TESTDATA).resolve("storage_transformer", "exists"))
         );
-        Map<String, Object>[] storageTransformers2 = array2.metadata.storageTransformers;
-        assert Maps.difference(storageTransformers1[0], storageTransformers2[0]).areEqual();
+
+        ArrayMetadataBuilder builderWithStorageTransformer = Array.metadataBuilder()
+                    .withShape(1)
+                    .withChunkShape(1)
+                    .withDataType(DataType.UINT8)
+                    .withStorageTransformers(new HashMap[]{new HashMap<String, Object>(){{
+                        put("some", "value");
+                    }}});
+
+        assertThrows(ZarrException.class, () -> Array.create(
+            new FilesystemStore(TESTOUTPUT).resolve("storage_transformer"),
+            builderWithStorageTransformer.build()
+        ));
     }
 }
 

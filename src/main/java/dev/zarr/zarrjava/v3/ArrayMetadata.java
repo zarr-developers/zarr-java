@@ -98,7 +98,10 @@ public final class ArrayMetadata {
       throw new ZarrException(
           "Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
     }
-
+    if (storageTransformers != null && storageTransformers.length > 0) {
+      throw new ZarrException(
+          "Storage transformers are not supported in this version of Zarr Java.");
+    }
     if (chunkGrid instanceof RegularChunkGrid) {
       int[] chunkShape = ((RegularChunkGrid) chunkGrid).configuration.chunkShape;
       if (shape.length != chunkShape.length) {
