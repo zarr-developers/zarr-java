@@ -29,6 +29,7 @@ public class ArrayMetadataBuilder {
   Object fillValue = 0;
   Codec[] codecs = new Codec[]{new BytesCodec(Endian.LITTLE)};
   Map<String, Object> attributes = new HashMap<>();
+  Map<String, Object>[] storageTransformers = new HashMap[]{};
   String[] dimensionNames = null;
 
   protected ArrayMetadataBuilder() {
@@ -44,6 +45,7 @@ public class ArrayMetadataBuilder {
     builder.codecs = arrayMetadata.codecs;
     builder.attributes = arrayMetadata.attributes;
     builder.dimensionNames = arrayMetadata.dimensionNames;
+    builder.storageTransformers = arrayMetadata.storageTransformers;
     return builder;
   }
 
@@ -125,6 +127,10 @@ public class ArrayMetadataBuilder {
     this.attributes = attributes;
     return this;
   }
+  public ArrayMetadataBuilder withStorageTransformers(Map<String, Object>[] storageTransformers) {
+    this.storageTransformers = storageTransformers;
+    return this;
+  }
 
   public ArrayMetadata build() throws ZarrException {
     if (shape == null) {
@@ -140,7 +146,8 @@ public class ArrayMetadataBuilder {
 
     return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
         dimensionNames,
-        attributes
+        attributes,
+        storageTransformers
     );
   }
 }

@@ -55,6 +55,9 @@ public final class ArrayMetadata {
   @Nullable
   @JsonProperty("dimension_names")
   public String[] dimensionNames;
+  @Nullable
+  @JsonProperty("storage_transformers")
+  public Map<String, Object>[] storageTransformers;
 
   @JsonIgnore
   public CoreArrayMetadata coreArrayMetadata;
@@ -64,11 +67,12 @@ public final class ArrayMetadata {
       Object fillValue,
       @Nonnull Codec[] codecs,
       @Nullable String[] dimensionNames,
-      @Nullable Map<String, Object> attributes
+      @Nullable Map<String, Object> attributes,
+      @Nullable Map<String, Object>[] storageTransformers
   ) throws ZarrException {
     this(ZARR_FORMAT, NODE_TYPE, shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
         dimensionNames,
-        attributes
+        attributes, storageTransformers
     );
   }
 
@@ -83,7 +87,8 @@ public final class ArrayMetadata {
       @JsonProperty(value = "fill_value", required = true) Object fillValue,
       @Nonnull @JsonProperty(value = "codecs") Codec[] codecs,
       @Nullable @JsonProperty(value = "dimension_names") String[] dimensionNames,
-      @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes
+      @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes,
+      @Nullable @JsonProperty(value = "storage_transformers") Map<String, Object>[] storageTransformers
   ) throws ZarrException {
     if (zarrFormat != this.zarrFormat) {
       throw new ZarrException(
@@ -93,7 +98,10 @@ public final class ArrayMetadata {
       throw new ZarrException(
           "Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
     }
-
+    if (storageTransformers != null && storageTransformers.length > 0) {
+      throw new ZarrException(
+          "Storage transformers are not supported in this version of Zarr Java.");
+    }
     if (chunkGrid instanceof RegularChunkGrid) {
       int[] chunkShape = ((RegularChunkGrid) chunkGrid).configuration.chunkShape;
       if (shape.length != chunkShape.length) {
@@ -126,6 +134,7 @@ public final class ArrayMetadata {
     this.codecs = codecs;
     this.dimensionNames = dimensionNames;
     this.attributes = attributes;
+    this.storageTransformers = storageTransformers;
     this.coreArrayMetadata =
         new CoreArrayMetadata(shape, ((RegularChunkGrid) chunkGrid).configuration.chunkShape,
             dataType,

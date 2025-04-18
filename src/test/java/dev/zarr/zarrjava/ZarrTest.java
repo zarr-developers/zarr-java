@@ -3,9 +3,11 @@ package dev.zarr.zarrjava;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
+import com.google.common.collect.Maps;
 import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
@@ -653,6 +655,33 @@ public class ZarrTest {
 
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
             clearTestoutputFolder();
+    }
+
+    @Test
+    public void testMetadataAcceptsEmptyStorageTransformer() throws ZarrException, IOException {
+        // non-empty storage transformers are currently not supported
+
+        Map<String, Object>[] storageTransformersEmpty = Array.open(
+            new FilesystemStore(TESTDATA).resolve("storage_transformer", "empty")
+        ).metadata.storageTransformers;
+        assert storageTransformersEmpty.length == 0;
+
+        assertThrows(JsonMappingException.class, () -> Array.open(
+            new FilesystemStore(TESTDATA).resolve("storage_transformer", "exists"))
+        );
+
+        ArrayMetadataBuilder builderWithStorageTransformer = Array.metadataBuilder()
+                    .withShape(1)
+                    .withChunkShape(1)
+                    .withDataType(DataType.UINT8)
+                    .withStorageTransformers(new HashMap[]{new HashMap<String, Object>(){{
+                        put("some", "value");
+                    }}});
+
+        assertThrows(ZarrException.class, () -> Array.create(
+            new FilesystemStore(TESTOUTPUT).resolve("storage_transformer"),
+            builderWithStorageTransformer.build()
+        ));
     }
 }
 
