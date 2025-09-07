@@ -286,7 +286,7 @@ public final class ArrayMetadata {
     public final Object parsedFillValue;
 
     public CoreArrayMetadata(long[] shape, int[] chunkShape, DataType dataType,
-        Object parsedFillValue) {
+                             Object parsedFillValue) {
       this.shape = shape;
       this.chunkShape = chunkShape;
       this.dataType = dataType;

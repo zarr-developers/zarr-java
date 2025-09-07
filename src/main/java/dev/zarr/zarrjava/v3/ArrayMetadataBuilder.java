@@ -127,6 +127,7 @@ public class ArrayMetadataBuilder {
     this.attributes = attributes;
     return this;
   }
+
   public ArrayMetadataBuilder withStorageTransformers(Map<String, Object>[] storageTransformers) {
     this.storageTransformers = storageTransformers;
     return this;
@@ -142,8 +143,6 @@ public class ArrayMetadataBuilder {
     if (chunkGrid == null) {
       throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
     }
-
-
     return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
         dimensionNames,
         attributes,

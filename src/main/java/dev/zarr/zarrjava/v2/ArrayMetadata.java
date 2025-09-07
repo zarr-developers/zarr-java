@@ -1,20 +1,35 @@
 package dev.zarr.zarrjava.v2;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
-import java.util.Optional;
+import dev.zarr.zarrjava.v3.codec.Codec;
+
+import javax.annotation.Nullable;
+
+import static dev.zarr.zarrjava.v3.ArrayMetadata.parseFillValue;
+
 
 public class ArrayMetadata {
+  static final int ZARR_FORMAT = 2;
 
   @JsonProperty("zarr_format")
-  public final int zarrFormat = 2;
+  public final int zarrFormat = ZARR_FORMAT;
 
   public long[] shape;
-  public long[] chunks;
+  public int[] chunks;
 
   @JsonProperty("dtype")
-  public DataType dataType;
+  public DataTypeV2 dataTypeV2;
+  @JsonIgnore
+  public final DataType dataType;
+  @JsonIgnore
+  public final Endianness endianness;
 
+  @JsonProperty("order")
   public Order order;
 
   @JsonProperty("dimension_separator")
@@ -22,7 +37,51 @@ public class ArrayMetadata {
 
   @JsonProperty("fill_value")
   public Object fillValue;
+  @JsonIgnore
+  public final Object parsedFillValue;
 
-  public Optional<Object[]> filters;
-  public Optional<Object> compressor;
+  public Codec[] filters;
+  @Nullable
+  public Codec compressor;
+
+  @JsonIgnore
+  public dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata coreArrayMetadata;
+
+
+  @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+  public ArrayMetadata(
+      @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
+      @JsonProperty(value = "shape", required = true) long[] shape,
+      @JsonProperty(value = "chunks", required = true) int[] chunks,
+      @JsonProperty(value = "dtype", required = true) DataTypeV2 dataTypeV2,
+      @JsonProperty(value = "fill_value", required = true) Object fillValue, //todo can be "null"
+      @JsonProperty(value = "order", required = true) Order order,
+      @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator,
+      @Nullable @JsonProperty(value = "filters") Codec[] filters, //todo can be "null"
+      @Nullable @JsonProperty(value = "compressor") Codec compressor //todo can be "null"
+  ) throws ZarrException {
+    if (zarrFormat != this.zarrFormat) {
+      throw new ZarrException(
+          "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
+    }
+
+    this.shape = shape;
+    this.chunks = chunks;
+    this.dataTypeV2 = dataTypeV2;
+    this.endianness = dataTypeV2.getEndianness();
+    this.dataType = dataTypeV2.toV3();
+    this.fillValue = fillValue;
+    this.parsedFillValue = parseFillValue(fillValue, this.dataType);
+    this.order = order;
+    this.dimensionSeparator = dimensionSeparator;
+    this.filters = filters;
+    this.compressor = compressor;
+    this.coreArrayMetadata =
+        new dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata(shape, chunks,
+            this.dataType,
+            parsedFillValue
+        );
+  }
+
+
 }
