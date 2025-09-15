@@ -12,6 +12,7 @@ import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
+import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
@@ -695,6 +696,27 @@ public class ZarrTest {
         new FilesystemStore(TESTOUTPUT).resolve("storage_transformer"),
         builderWithStorageTransformer.build()
     ));
+  }
+
+  // TODO test withBloscCompressor
+  @ParameterizedTest
+  @CsvSource({"blosclz,noshuffle,0", "lz4,shuffle,6", "lz4hc,bitshuffle,3", "zlib,shuffle,5", "zstd,bitshuffle,9"})
+  public void testV2create(String cname, String shuffle, int clevel) throws IOException, ZarrException {
+    dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+        new FilesystemStore(TESTOUTPUT).resolve("v2_create", cname + "_" + shuffle + "_" + clevel),
+        dev.zarr.zarrjava.v2.Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .withFillValue(1)
+            .withBloscCompressor(cname, shuffle, clevel)
+            .build()
+    );
+    array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
+
+    ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
+    Assertions.assertEquals(outArray.getSize(), 8 * 8);
+    Assertions.assertEquals(outArray.getByte(0), 0);
   }
 }
 

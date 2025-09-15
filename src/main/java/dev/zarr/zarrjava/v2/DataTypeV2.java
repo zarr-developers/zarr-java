@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.DataType;
 
-public enum DataTypeV2 {
+public enum DataTypeV2 implements dev.zarr.zarrjava.interfaces.DataType{
   BOOL("b1", Endianness.UNSPECIFIED),
   INT8("i1", Endianness.UNSPECIFIED),
   INT16("i2", Endianness.LITTLE),
@@ -88,4 +88,35 @@ public enum DataTypeV2 {
   public String getValue() {
     return String.format("%s%s", endianness.getValue(), dtype);
   }
+
+  @Override
+    public ucar.ma2.DataType getMA2DataType() {
+    switch (this) {
+      case BOOL:
+        return ucar.ma2.DataType.BOOLEAN;
+      case INT8:
+        return ucar.ma2.DataType.BYTE;
+      case INT16:
+        return ucar.ma2.DataType.SHORT;
+      case INT32:
+        return ucar.ma2.DataType.INT;
+      case INT64:
+        return ucar.ma2.DataType.LONG;
+      case UINT8:
+        return ucar.ma2.DataType.UBYTE;
+      case UINT16:
+        return ucar.ma2.DataType.USHORT;
+      case UINT32:
+        return ucar.ma2.DataType.UINT;
+      case UINT64:
+        return ucar.ma2.DataType.ULONG;
+      case FLOAT32:
+        return ucar.ma2.DataType.FLOAT;
+      case FLOAT64:
+        return ucar.ma2.DataType.DOUBLE;
+      default:
+        throw new RuntimeException("Unreachable");
+    }
+  }
+
 }

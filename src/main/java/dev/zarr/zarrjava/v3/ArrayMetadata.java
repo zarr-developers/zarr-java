@@ -20,7 +20,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 
-public final class ArrayMetadata {
+public final class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata {
 
   static final String NODE_TYPE = "array";
   static final int ZARR_FORMAT = 3;
@@ -258,6 +258,16 @@ public final class ArrayMetadata {
     return coreArrayMetadata.allocateFillValueChunk();
   }
 
+  @Override
+  public ChunkKeyEncoding chunkKeyEncoding() {
+    return chunkKeyEncoding;
+  }
+
+  @Override
+  public Object parsedFillValue() {
+    return parsedFillValue;
+  }
+
   public int ndim() {
     return shape.length;
   }
@@ -268,6 +278,16 @@ public final class ArrayMetadata {
 
   public int[] chunkShape() {
     return ((RegularChunkGrid) this.chunkGrid).configuration.chunkShape;
+  }
+
+  @Override
+  public long[] shape() {
+    return shape;
+  }
+
+  @Override
+  public DataType dataType() {
+    return dataType;
   }
 
   public int chunkSize() {

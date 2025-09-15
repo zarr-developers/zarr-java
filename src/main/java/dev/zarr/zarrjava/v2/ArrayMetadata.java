@@ -5,15 +5,17 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.DataType;
+import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v3.codec.Codec;
+import ucar.ma2.Array;
 
 import javax.annotation.Nullable;
 
 import static dev.zarr.zarrjava.v3.ArrayMetadata.parseFillValue;
 
 
-public class ArrayMetadata {
+public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata {
   static final int ZARR_FORMAT = 2;
 
   @JsonProperty("zarr_format")
@@ -60,6 +62,7 @@ public class ArrayMetadata {
       @Nullable @JsonProperty(value = "filters") Codec[] filters, //todo can be "null"
       @Nullable @JsonProperty(value = "compressor") Codec compressor //todo can be "null"
   ) throws ZarrException {
+    super();
     if (zarrFormat != this.zarrFormat) {
       throw new ZarrException(
           "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
@@ -84,4 +87,39 @@ public class ArrayMetadata {
   }
 
 
+  public int ndim() {
+    return shape.length;
+  }
+
+  @Override
+  public int[] chunkShape() {
+    return chunks;
+  }
+
+  @Override
+  public long[] shape() {
+    return shape;
+  }
+
+  @Override
+  public DataType dataType() {
+    return dataType;
+  }
+
+  @Override
+  public Array allocateFillValueChunk() {
+    //TODO
+    return null;
+  }
+
+  @Override
+  public ChunkKeyEncoding chunkKeyEncoding() {
+    //TODO
+    return null;
+  }
+
+  @Override
+  public Object parsedFillValue() {
+    return parsedFillValue;
+  }
 }

@@ -24,4 +24,8 @@ public class Node {
     return objectMapper;
   }
 
+  public StoreHandle storeHandle() {
+    return storeHandle;
+  }
+
 }

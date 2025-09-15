@@ -3,20 +3,25 @@ package dev.zarr.zarrjava.v2;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
+import dev.zarr.zarrjava.utils.IndexingUtils;
+import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.codec.CodecPipeline;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
+import ucar.ma2.InvalidRangeException;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
-public class Array {
+public class Array implements dev.zarr.zarrjava.interfaces.Array {
 
   static final String ZARRAY = ".zarray";
   public ArrayMetadata metadata;
@@ -70,6 +75,17 @@ public class Array {
         arrayMetadataBuilderMapper.apply(new ArrayMetadataBuilder()).build(), existsOk);
   }
 
+  @Nonnull
+  public static ArrayMetadataBuilder metadataBuilder() {
+    return new ArrayMetadataBuilder();
+  }
+
+  @Nonnull
+  public static ArrayMetadataBuilder metadataBuilder(ArrayMetadata existingMetadata) {
+    return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
+  }
+
+
 
   @Override
   public String toString() {
@@ -80,4 +96,20 @@ public class Array {
         metadata.dataType
     );
   }
+
+  @Override
+  public ArrayMetadata metadata() {
+    return metadata;
+  }
+
+  @Override
+  public StoreHandle storeHandle() {
+    return storeHandle;
+  }
+
+  @Override
+  public CodecPipeline codecPipeline() {
+    return codecPipeline;
+  }
+
 }

@@ -160,8 +160,13 @@ public class CodecBuilder {
   }
 
   public Codec[] build() {
-    autoInsertBytesCodec();
+    return build(true);
+  }
 
+  public Codec[] build(boolean includeBytesCodec) {
+    if (includeBytesCodec) {
+      autoInsertBytesCodec();
+    }
     return codecs.toArray(new Codec[0]);
   }
 }

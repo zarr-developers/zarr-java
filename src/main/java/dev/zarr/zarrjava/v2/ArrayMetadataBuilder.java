@@ -81,12 +81,23 @@ public class ArrayMetadataBuilder {
     }
     CodecBuilder nestedCodecBuilder = new CodecBuilder(dataTypeV2.toV3());
     this.filters = codecBuilder.apply(nestedCodecBuilder)
-        .build();
+        .build(false);
     return this;
   }
 
   public ArrayMetadataBuilder withCompressor(Codec compressor) {
     this.compressor = compressor;
+    return this;
+  }
+
+  public ArrayMetadataBuilder withBloscCompressor(String cname,  String shuffle, int clevel) {
+    try {
+      this.compressor = new CodecBuilder(dataTypeV2.toV3())
+          .withBlosc(cname, shuffle, clevel)
+          .build(false)[0];
+    } catch (ZarrException e) {
+      throw new RuntimeException(e);
+    }
     return this;
   }
 
