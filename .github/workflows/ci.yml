@@ -28,15 +28,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install zarrita
+      - name: Set up uv and zarrita
         run: |
-          python -m venv venv_zarrita
-          if [ "${{ runner.os }}" = "Windows" ]; then venv_zarrita/Scripts/pip install zarrita; else venv_zarrita/bin/pip install zarrita; fi
+          curl -Ls https://github.com/astral-sh/uv/releases/latest/download/uv-installer.sh | bash
+          uv venv && uv init
+          uv add zarrita
 
       - name: Download testdata
         run: |
