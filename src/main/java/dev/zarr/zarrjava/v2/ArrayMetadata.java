@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import ucar.ma2.Array;
 
@@ -108,14 +110,15 @@ public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata
 
   @Override
   public Array allocateFillValueChunk() {
-    //TODO
-    return null;
+      ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunks);
+      MultiArrayUtils.fill(outputArray, parsedFillValue);
+      return outputArray;
   }
 
   @Override
   public ChunkKeyEncoding chunkKeyEncoding() {
-    //TODO
-    return null;
+    Separator separator = dimensionSeparator == null ? Separator.DOT : dimensionSeparator;
+    return new V2ChunkKeyEncoding(new V2ChunkKeyEncoding.Configuration(separator));
   }
 
   @Override

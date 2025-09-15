@@ -697,7 +697,6 @@ public class ZarrTest {
     ));
   }
 
-  // TODO test withBloscCompressor
   @ParameterizedTest
   @CsvSource({"blosclz,noshuffle,0", "lz4,shuffle,6", "lz4hc,bitshuffle,3", "zlib,shuffle,5", "zstd,bitshuffle,9"})
   public void testV2create(String cname, String shuffle, int clevel) throws IOException, ZarrException {
