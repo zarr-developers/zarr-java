@@ -3,13 +3,10 @@ package dev.zarr.zarrjava.v2;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.utils.IndexingUtils;
-import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.codec.CodecPipeline;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
-import ucar.ma2.InvalidRangeException;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
@@ -17,7 +14,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
@@ -38,6 +34,13 @@ public class Array implements dev.zarr.zarrjava.interfaces.Array {
     ), metadata.coreArrayMetadata);
   }
 
+  /**
+   * Opens an existing Zarr array at a specified storage location.
+   *
+   * @param storeHandle the storage location of the Zarr array
+   * @throws IOException throws IOException if the metadata cannot be read
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+   */
   public static Array open(StoreHandle storeHandle) throws IOException, ZarrException {
     return new Array(
         storeHandle,
@@ -49,11 +52,32 @@ public class Array implements dev.zarr.zarrjava.interfaces.Array {
     );
   }
 
+  /**
+   * Creates a new Zarr array with the provided metadata at a specified storage location. This
+   * method will raise an exception if a Zarr array already exists at the specified storage
+   * location.
+   *
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
+   */
   public static Array create(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
       throws IOException, ZarrException {
     return Array.create(storeHandle, arrayMetadata, false);
   }
 
+  /**
+   * Creates a new Zarr array with the provided metadata at a specified storage location. If
+   * `existsOk` is false, this method will raise an exception if a Zarr array already exists at the
+   * specified storage location.
+   *
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @param existsOk if true, no exception is raised if the Zarr array already exists
+   * @throws IOException throws IOException if the metadata cannot be serialized
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be created
+   */
   public static Array create(StoreHandle storeHandle, ArrayMetadata arrayMetadata, boolean existsOk)
       throws IOException, ZarrException {
     StoreHandle metadataHandle = storeHandle.resolve(ZARRAY);
@@ -84,8 +108,6 @@ public class Array implements dev.zarr.zarrjava.interfaces.Array {
   public static ArrayMetadataBuilder metadataBuilder(ArrayMetadata existingMetadata) {
     return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
   }
-
-
 
   @Override
   public String toString() {

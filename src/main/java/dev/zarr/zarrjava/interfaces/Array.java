@@ -22,9 +22,9 @@ public interface Array {
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
      * needs be large enough for the write.
      *
-     * @param offset
-     * @param array
-     * @param parallel
+     * @param offset the offset where to write the data
+     * @param array the data to write
+     * @param parallel utilizes parallelism if true
      */
     default void write(long[] offset, ucar.ma2.Array array, boolean parallel) {
         ArrayMetadata metadata = metadata();
@@ -74,11 +74,12 @@ public interface Array {
 
     /**
      * Writes one chunk into the Zarr array as specified by the chunk coordinates. The shape of the
-     * Zarr array needs be large enough for the write.
+     * Zarr array needs to be large enough to write.
      *
-     * @param chunkCoords
-     * @param chunkArray
-     * @throws ZarrException
+     * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
+     *                    by the chunk shape.
+     * @param chunkArray The data to write into the chunk
+     * @throws ZarrException throws ZarrException if the write fails
      */
     default void writeChunk(long[] chunkCoords, ucar.ma2.Array chunkArray) throws ZarrException {
         ArrayMetadata metadata = metadata();
@@ -99,7 +100,7 @@ public interface Array {
      *
      * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
      *                    by the chunk shape.
-     * @throws ZarrException
+     * @throws ZarrException throws ZarrException if the requested chunk is outside the array's domain or if the read fails
      */
     @Nonnull
     default ucar.ma2.Array readChunk(long[] chunkCoords)
@@ -126,7 +127,7 @@ public interface Array {
      * the Zarr array needs be large enough for the write.
      * Utilizes no parallelism.
      *
-     * @param array
+     * @param array the data to write
      */
     default void write(ucar.ma2.Array array) {
         write(new long[metadata().ndim()], array);
@@ -137,8 +138,8 @@ public interface Array {
      * needs be large enough for the write.
      * Utilizes no parallelism.
      *
-     * @param offset
-     * @param array
+     * @param offset the offset where to write the data
+     * @param array the data to write
      */
     default void write(long[] offset, ucar.ma2.Array array) {
         write(offset, array, false);
@@ -148,8 +149,8 @@ public interface Array {
      * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
      * the Zarr array needs be large enough for the write.
      *
-     * @param array
-     * @param parallel
+     * @param array the data to write
+     * @param parallel utilizes parallelism if true
      */
     default void write(ucar.ma2.Array array, boolean parallel) {
         write(new long[metadata().ndim()], array, parallel);
@@ -159,7 +160,7 @@ public interface Array {
      * Reads the entire Zarr array into an ucar.ma2.Array.
      * Utilizes no parallelism.
      *
-     * @throws ZarrException
+     * @throws ZarrException throws ZarrException if the read fails
      */
     @Nonnull
     default ucar.ma2.Array read() throws ZarrException {
@@ -170,9 +171,9 @@ public interface Array {
      * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
      * Utilizes no parallelism.
      *
-     * @param offset
-     * @param shape
-     * @throws ZarrException
+     * @param offset the offset where to start reading
+     * @param shape the shape of the data to read
+     * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
     default ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
@@ -182,8 +183,8 @@ public interface Array {
     /**
      * Reads the entire Zarr array into an ucar.ma2.Array.
      *
-     * @param parallel
-     * @throws ZarrException
+     * @param parallel utilizes parallelism if true
+     * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
     default ucar.ma2.Array read(final boolean parallel) throws ZarrException {
@@ -209,10 +210,10 @@ public interface Array {
     /**
      * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
      *
-     * @param offset
-     * @param shape
-     * @param parallel
-     * @throws ZarrException
+     * @param offset the offset where to start reading
+     * @param shape the shape of the data to read
+     * @param parallel utilizes parallelism if true
+     * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
     default ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {

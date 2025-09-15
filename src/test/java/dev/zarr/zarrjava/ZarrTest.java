@@ -12,7 +12,6 @@ import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
-import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;

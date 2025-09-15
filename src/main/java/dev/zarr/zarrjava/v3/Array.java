@@ -3,7 +3,6 @@ package dev.zarr.zarrjava.v3;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.codec.CodecPipeline;
 import java.io.IOException;
@@ -21,7 +20,7 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
   CodecPipeline codecPipeline;
 
   protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
-      throws IOException, ZarrException {
+      throws ZarrException {
     super(storeHandle);
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(arrayMetadata.codecs, arrayMetadata.coreArrayMetadata);
@@ -30,9 +29,9 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
   /**
    * Opens an existing Zarr array at a specified storage location.
    *
-   * @param storeHandle
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @throws IOException throws IOException if the metadata cannot be read
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
    */
   public static Array open(StoreHandle storeHandle) throws IOException, ZarrException {
     return new Array(
@@ -50,10 +49,10 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * method will raise an exception if a Zarr array already exists at the specified storage
    * location.
    *
-   * @param storeHandle
-   * @param arrayMetadata
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
    */
   public static Array create(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
       throws IOException, ZarrException {
@@ -65,11 +64,11 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * `existsOk` is false, this method will raise an exception if a Zarr array already exists at the
    * specified storage location.
    *
-   * @param storeHandle
-   * @param arrayMetadata
-   * @param existsOk
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @param existsOk if true, no exception is raised if the Zarr array already exists
+   * @throws IOException throws IOException if the metadata cannot be serialized
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be created
    */
   public static Array create(StoreHandle storeHandle, ArrayMetadata arrayMetadata, boolean existsOk)
       throws IOException, ZarrException {
@@ -91,11 +90,12 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * be used to construct the metadata of the Zarr array. If `existsOk` is false, this method will
    * raise an exception if a Zarr array already exists at the specified storage location.
    *
-   * @param storeHandle
-   * @param arrayMetadataBuilderMapper
-   * @param existsOk
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadataBuilderMapper a callback of ArrayMetadataBuilder -> ArrayMetadataBuilder that is
+   *                                   used to construct the metadata of the Zarr array
+   * @param existsOk if true, no exception is raised if the Zarr array already exists
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
    */
   public static Array create(StoreHandle storeHandle,
       Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper,
@@ -142,9 +142,9 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * deleted. This method returns a new instance of the Zarr array class and the old instance
    * becomes invalid.
    *
-   * @param newShape
-   * @throws ZarrException
-   * @throws IOException
+   * @param newShape the new shape of the Zarr array
+   * @throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array resize(long[] newShape) throws ZarrException, IOException {
     if (newShape.length != metadata.ndim()) {
@@ -162,9 +162,9 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * Sets the attributes of the Zarr array. It overwrites and removes any existing attributes. This
    * method returns a new instance of the Zarr array class and the old instance becomes invalid.
    *
-   * @param newAttributes
-   * @throws ZarrException
-   * @throws IOException
+   * @param newAttributes the new attributes of the Zarr array
+   * @throws ZarrException throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
     ArrayMetadata newArrayMetadata =
@@ -180,9 +180,10 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * callback may be mutated. This method overwrites and removes any existing attributes. This
    * method returns a new instance of the Zarr array class and the old instance becomes invalid.
    *
-   * @param attributeMapper
-   * @throws ZarrException
-   * @throws IOException
+   * @param attributeMapper a callback of Map<String, Object> -> Map<String, Object> that is used to construct the new
+   *                        attributes
+   * @throws ZarrException throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper)
       throws ZarrException, IOException {
