@@ -91,8 +91,7 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * raise an exception if a Zarr array already exists at the specified storage location.
    *
    * @param storeHandle the storage location of the Zarr array
-   * @param arrayMetadataBuilderMapper a callback of ArrayMetadataBuilder -> ArrayMetadataBuilder that is
-   *                                   used to construct the metadata of the Zarr array
+   * @param arrayMetadataBuilderMapper a callback that is used to construct the metadata of the Zarr array
    * @param existsOk if true, no exception is raised if the Zarr array already exists
    * @throws IOException if the metadata cannot be serialized
    * @throws ZarrException if the Zarr array cannot be created
@@ -180,8 +179,7 @@ public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
    * callback may be mutated. This method overwrites and removes any existing attributes. This
    * method returns a new instance of the Zarr array class and the old instance becomes invalid.
    *
-   * @param attributeMapper a callback of Map<String, Object> -> Map<String, Object> that is used to construct the new
-   *                        attributes
+   * @param attributeMapper the callback that is used to construct the new attributes
    * @throws ZarrException throws ZarrException if the new metadata is invalid
    * @throws IOException throws IOException if the new metadata cannot be serialized
    */

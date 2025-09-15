@@ -28,9 +28,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up uv and zarrita
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up zarrita
         run: |
-          curl -Ls https://github.com/astral-sh/uv/releases/latest/download/uv-installer.sh | bash
           uv venv && uv init
           uv add zarrita
 
