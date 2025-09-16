@@ -9,8 +9,6 @@ import dev.zarr.zarrjava.v3.codec.BytesBytesCodec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -28,13 +26,7 @@ public class GzipCodec extends BytesBytesCodec {
     this.configuration = configuration;
   }
 
-  private void copy(InputStream inputStream, OutputStream outputStream) throws IOException {
-    byte[] buffer = new byte[4096];
-    int len;
-    while ((len = inputStream.read(buffer)) > 0) {
-      outputStream.write(buffer, 0, len);
-    }
-  }
+
 
   @Override
   public ByteBuffer decode(ByteBuffer chunkBytes)

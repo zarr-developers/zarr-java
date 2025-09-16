@@ -3,15 +3,10 @@ package dev.zarr.zarrjava.v3.codec;
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.DataType;
-import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
+import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Endian;
-import dev.zarr.zarrjava.v3.codec.core.Crc32cCodec;
-import dev.zarr.zarrjava.v3.codec.core.GzipCodec;
-import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
-import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
-import dev.zarr.zarrjava.v3.codec.core.ZstdCodec;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -63,6 +58,19 @@ public class CodecBuilder {
 
   public CodecBuilder withBlosc() {
     return withBlosc("zstd");
+  }
+
+  public CodecBuilder withZlib(int level) {
+    try {
+      codecs.add(new ZlibCodec(new ZlibCodec.Configuration(level)));
+    } catch (ZarrException e) {
+      throw new RuntimeException(e);
+    }
+    return this;
+  }
+
+  public CodecBuilder withZlib() {
+      return withZlib(5);
   }
 
   public CodecBuilder withTranspose(int[] order) {

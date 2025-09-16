@@ -662,7 +662,7 @@ public class ZarrTest {
 
     @ParameterizedTest
     @CsvSource({"blosclz,noshuffle,0", "lz4,shuffle,6", "lz4hc,bitshuffle,3", "zlib,shuffle,5", "zstd,bitshuffle,9"})
-    public void testV2create(String cname, String shuffle, int clevel) throws IOException, ZarrException {
+    public void testV2createBlosc(String cname, String shuffle, int clevel) throws IOException, ZarrException {
         dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
             new FilesystemStore(TESTOUTPUT).resolve("v2_create", cname + "_" + shuffle + "_" + clevel),
             dev.zarr.zarrjava.v2.Array.metadataBuilder()
@@ -677,6 +677,68 @@ public class ZarrTest {
 
         ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
         Assertions.assertEquals(outArray.getSize(), 8 * 8);
+        Assertions.assertEquals(outArray.getByte(0), 0);
+    }
+
+    @Test
+    public void testV2create() throws IOException, ZarrException {
+        DataType dataType = DataType.UINT32;
+
+        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+            new FilesystemStore(TESTOUTPUT).resolve("v2_create"),
+            dev.zarr.zarrjava.v2.Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(dataType)
+                .withChunks(5, 5)
+                .withFillValue(2)
+                .build()
+        );
+        array.write(new long[]{2, 2}, ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{8, 8}));
+
+        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
+        Assertions.assertEquals(outArray.getSize(), 8 * 8);
+        Assertions.assertEquals(outArray.getByte(0), 0);
+    }
+
+    @Test
+    public void testV2Filters() throws IOException, ZarrException {
+        DataType dataType = DataType.UINT32;
+
+        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+            new FilesystemStore(TESTOUTPUT).resolve("v2_create"),
+            dev.zarr.zarrjava.v2.Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(dataType)
+                .withChunks(5, 5)
+                .withFillValue(2)
+                .withFilters(f -> f.withTranspose(new int[]{1, 0}))
+                .build()
+        );
+        array.write(new long[]{2, 2}, ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{8, 8}));
+
+        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
+        Assertions.assertEquals(outArray.getSize(), 8 * 8);
+        Assertions.assertEquals(outArray.getByte(0), 0);
+    }
+
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 5, 9})
+    public void testV2createZlib(int level) throws IOException, ZarrException {
+        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+            new FilesystemStore(TESTOUTPUT).resolve("v2_create_zlib", String.valueOf(level)),
+            dev.zarr.zarrjava.v2.Array.metadataBuilder()
+                .withShape(15, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(4, 5)
+                .withFillValue(5)
+                .withZlibCompressor(level)
+                .build()
+        );
+        array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{7, 6}));
+
+        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{7, 6});
+        Assertions.assertEquals(outArray.getSize(), 7 * 6);
         Assertions.assertEquals(outArray.getByte(0), 0);
     }
 }

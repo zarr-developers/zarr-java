@@ -101,6 +101,17 @@ public class ArrayMetadataBuilder {
     return this;
   }
 
+  public ArrayMetadataBuilder withZlibCompressor(int level) {
+    try {
+      this.compressor = new CodecBuilder(dataTypeV2.toV3())
+          .withZlib(level)
+          .build(false)[0];
+    } catch (ZarrException e) {
+      throw new RuntimeException(e);
+    }
+    return this;
+  }
+
   public ArrayMetadata build() throws ZarrException {
     if (shape == null) {
       throw new IllegalStateException("Please call `withShape` first.");
