@@ -664,7 +664,7 @@ public class ZarrTest {
     @CsvSource({"blosclz,noshuffle,0", "lz4,shuffle,6", "lz4hc,bitshuffle,3", "zlib,shuffle,5", "zstd,bitshuffle,9"})
     public void testV2createBlosc(String cname, String shuffle, int clevel) throws IOException, ZarrException {
         dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("v2_create", cname + "_" + shuffle + "_" + clevel),
+            new FilesystemStore(TESTOUTPUT).resolve("v2_create_blosc", cname + "_" + shuffle + "_" + clevel),
             dev.zarr.zarrjava.v2.Array.metadataBuilder()
                 .withShape(10, 10)
                 .withDataType(DataType.UINT8)
@@ -705,7 +705,7 @@ public class ZarrTest {
         DataType dataType = DataType.UINT32;
 
         dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("v2_create"),
+            new FilesystemStore(TESTOUTPUT).resolve("v2_create_filters"),
             dev.zarr.zarrjava.v2.Array.metadataBuilder()
                 .withShape(10, 10)
                 .withDataType(dataType)
