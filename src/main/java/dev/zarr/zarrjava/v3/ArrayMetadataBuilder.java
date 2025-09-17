@@ -5,7 +5,7 @@ import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.DefaultChunkKeyEncoding;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;

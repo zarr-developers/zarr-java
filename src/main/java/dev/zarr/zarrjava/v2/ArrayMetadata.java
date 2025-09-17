@@ -4,10 +4,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.v2.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import ucar.ma2.Array;
 
@@ -26,9 +26,8 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   public int[] chunks;
 
   @JsonProperty("dtype")
-  public DataType dataTypeV2;
-  @JsonIgnore
-  public final dev.zarr.zarrjava.v3.DataType dataType;
+  public DataType dataType;
+
   @JsonIgnore
   public final Endianness endianness;
 
@@ -56,7 +55,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
       @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
       @JsonProperty(value = "shape", required = true) long[] shape,
       @JsonProperty(value = "chunks", required = true) int[] chunks,
-      @JsonProperty(value = "dtype", required = true) DataType dataTypeV2,
+      @JsonProperty(value = "dtype", required = true) DataType dataType,
       @Nullable @JsonProperty(value = "fill_value", required = true) Object fillValue, //todo test when null
       @JsonProperty(value = "order", required = true) Order order,
       @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator,
@@ -70,9 +69,8 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
     }
     this.shape = shape;
     this.chunks = chunks;
-    this.dataTypeV2 = dataTypeV2;
-    this.endianness = dataTypeV2.getEndianness();
-    this.dataType = dataTypeV2.toV3();
+    this.dataType = dataType;
+    this.endianness = dataType.getEndianness();
     this.fillValue = fillValue;
     this.parsedFillValue = parseFillValue(fillValue, this.dataType);
     this.order = order;
@@ -102,7 +100,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   }
 
   @Override
-  public dev.zarr.zarrjava.v3.DataType dataType() {
+  public DataType dataType() {
     return dataType;
   }
 
@@ -116,7 +114,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   @Override
   public ChunkKeyEncoding chunkKeyEncoding() {
     Separator separator = dimensionSeparator == null ? Separator.DOT : dimensionSeparator;
-    return new V2ChunkKeyEncoding(new V2ChunkKeyEncoding.Configuration(separator));
+    return new V2ChunkKeyEncoding(separator);
   }
 
   @Override

@@ -1,6 +1,6 @@
 package dev.zarr.zarrjava.core.codec;
 
-import dev.zarr.zarrjava.v3.DataType;
+import dev.zarr.zarrjava.core.DataType;
 
 public abstract class CodecBuilder {
 

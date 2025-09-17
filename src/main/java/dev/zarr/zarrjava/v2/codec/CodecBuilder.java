@@ -3,7 +3,7 @@ package dev.zarr.zarrjava.v2.codec;
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v2.codec.core.ZlibCodec;
-import dev.zarr.zarrjava.v3.DataType;
+import dev.zarr.zarrjava.v2.DataType;
 import dev.zarr.zarrjava.v2.codec.core.*;
 
 import java.util.ArrayList;

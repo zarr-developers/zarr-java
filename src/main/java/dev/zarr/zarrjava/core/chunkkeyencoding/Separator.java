@@ -1,4 +1,4 @@
-package dev.zarr.zarrjava.v3.chunkkeyencoding;
+package dev.zarr.zarrjava.core.chunkkeyencoding;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 

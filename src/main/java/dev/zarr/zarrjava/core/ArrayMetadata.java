@@ -3,7 +3,7 @@ package dev.zarr.zarrjava.core;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
+import dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding;
 import ucar.ma2.Array;
 
 import javax.annotation.Nonnull;
@@ -132,10 +132,10 @@ public interface ArrayMetadata {
 
     public final long[] shape;
     public final int[] chunkShape;
-    public final dev.zarr.zarrjava.v3.DataType dataType;
+    public final DataType dataType;
     public final Object parsedFillValue;
 
-    public CoreArrayMetadata(long[] shape, int[] chunkShape, dev.zarr.zarrjava.v3.DataType dataType,
+    public CoreArrayMetadata(long[] shape, int[] chunkShape, DataType dataType,
                              Object parsedFillValue) {
       this.shape = shape;
       this.chunkShape = chunkShape;

@@ -183,7 +183,7 @@ public class ZarrPythonTests {
 
         //for expected values see zarr_python_write.py
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(DataType.INT32, array.metadata.dataType);
+        Assertions.assertEquals(dev.zarr.zarrjava.v2.DataType.INT32, array.metadata.dataType);
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata.chunkShape());
 //        Assertions.assertEquals(42, array.metadata.attributes.get("answer"));
 
@@ -208,7 +208,7 @@ public class ZarrPythonTests {
 
         dev.zarr.zarrjava.v2.ArrayMetadataBuilder builder = dev.zarr.zarrjava.v2.Array.metadataBuilder()
             .withShape(16, 16, 16)
-            .withDataType(DataType.UINT32)
+            .withDataType(dev.zarr.zarrjava.v2.DataType.UINT32)
             .withChunks(2, 4, 8)
 //            .withAttributes(attributes)
             .withFillValue(0);
@@ -235,7 +235,7 @@ public class ZarrPythonTests {
         ucar.ma2.Array result = readArray.read();
 
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(DataType.UINT32, readArray.metadata.dataType);
+        Assertions.assertEquals(dev.zarr.zarrjava.v2.DataType.UINT32, readArray.metadata.dataType);
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
 //        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
 

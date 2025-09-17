@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(value = DefaultChunkKeyEncoding.class, name = "default"),
     @JsonSubTypes.Type(value = V2ChunkKeyEncoding.class, name = "v2")
 })
-public abstract class ChunkKeyEncoding {
+public abstract class ChunkKeyEncoding implements dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding {
 
 
   public abstract String[] encodeChunkKey(long[] chunkCoords);

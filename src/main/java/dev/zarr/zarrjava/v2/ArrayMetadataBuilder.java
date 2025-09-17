@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava.v2;
 
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.CodecBuilder;
 
@@ -10,7 +10,7 @@ import java.util.function.Function;
 public class ArrayMetadataBuilder {
   long[] shape = null;
   int[] chunks = null;
-  DataType dataTypeV2 = null;
+  DataType dataType = null;
   Order order = Order.C;
   Separator dimensionSeparator = Separator.DOT;
   Object fillValue = 0;
@@ -25,7 +25,7 @@ public class ArrayMetadataBuilder {
     ArrayMetadataBuilder builder = new ArrayMetadataBuilder();
     builder.shape = arrayMetadata.shape;
     builder.chunks = arrayMetadata.chunks;
-    builder.dataTypeV2 = arrayMetadata.dataTypeV2;
+    builder.dataType = arrayMetadata.dataType;
     builder.order = arrayMetadata.order;
     builder.dimensionSeparator = arrayMetadata.dimensionSeparator;
     builder.fillValue = arrayMetadata.parsedFillValue;
@@ -45,13 +45,7 @@ public class ArrayMetadataBuilder {
   }
 
   public ArrayMetadataBuilder withDataType(DataType dataTypeV2) {
-    this.dataTypeV2 = dataTypeV2;
-    return this;
-  }
-
-  //TODO remove v3?
-  public ArrayMetadataBuilder withDataType(dev.zarr.zarrjava.v3.DataType dataType) {
-    this.dataTypeV2 = DataType.fromDataType(dataType);
+    this.dataType = dataTypeV2;
     return this;
   }
 
@@ -76,10 +70,10 @@ public class ArrayMetadataBuilder {
   }
 
   public ArrayMetadataBuilder withFilters(Function<CodecBuilder, CodecBuilder> codecBuilder) throws ZarrException {
-    if (dataTypeV2 == null) {
+    if (dataType == null) {
       throw new IllegalStateException("Please call `withDataType` first.");
     }
-    CodecBuilder nestedCodecBuilder = new CodecBuilder(dataTypeV2.toV3());
+    CodecBuilder nestedCodecBuilder = new CodecBuilder(dataType);
     this.filters = codecBuilder.apply(nestedCodecBuilder)
         .build();
     return this;
@@ -91,25 +85,17 @@ public class ArrayMetadataBuilder {
   }
 
   public ArrayMetadataBuilder withBloscCompressor(String cname,  String shuffle, int clevel) {
-    try {
-      this.compressor = new CodecBuilder(dataTypeV2.toV3())
+      this.compressor = new CodecBuilder(dataType)
           .withBlosc(cname, shuffle, clevel)
           .build()[0];
-    } catch (ZarrException e) {
-      throw new RuntimeException(e);
-    }
-    return this;
+      return this;
   }
 
   public ArrayMetadataBuilder withZlibCompressor(int level) {
-    try {
-      this.compressor = new CodecBuilder(dataTypeV2.toV3())
+      this.compressor = new CodecBuilder(dataType)
           .withZlib(level)
           .build()[0];
-    } catch (ZarrException e) {
-      throw new RuntimeException(e);
-    }
-    return this;
+      return this;
   }
 
   public ArrayMetadata build() throws ZarrException {
@@ -119,14 +105,14 @@ public class ArrayMetadataBuilder {
     if (chunks == null) {
       throw new IllegalStateException("Please call `withChunks` first.");
     }
-    if (dataTypeV2 == null) {
+    if (dataType == null) {
       throw new IllegalStateException("Please call `withDataType` first.");
     }
     return new ArrayMetadata(
         2,
         shape,
         chunks,
-        dataTypeV2,
+        dataType,
         fillValue,
         order,
         dimensionSeparator,

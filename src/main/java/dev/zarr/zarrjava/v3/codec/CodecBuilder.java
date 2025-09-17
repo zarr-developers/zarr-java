@@ -125,7 +125,7 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
 
   public CodecBuilder withSharding(int[] chunkShape,
                                    Function<CodecBuilder, CodecBuilder> codecBuilder, String indexLocation) {
-    CodecBuilder nestedBuilder = new CodecBuilder(dataType);
+    CodecBuilder nestedBuilder = new CodecBuilder((DataType) dataType);
     try {
       codecs.add(new ShardingIndexedCodec(
               new ShardingIndexedCodec.Configuration(chunkShape,
