@@ -35,6 +35,7 @@ jobs:
         run: |
           uv venv && uv init
           uv add zarr
+          uv add zarrita
 
       - name: Download testdata
         run: |
