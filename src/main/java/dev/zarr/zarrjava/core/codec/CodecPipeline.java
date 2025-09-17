@@ -1,8 +1,8 @@
-package dev.zarr.zarrjava.codec;
+package dev.zarr.zarrjava.core.codec;
 
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
+import dev.zarr.zarrjava.core.ArrayMetadata.CoreArrayMetadata;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import javax.annotation.Nonnull;

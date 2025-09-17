@@ -1,11 +1,11 @@
-package dev.zarr.zarrjava.interfaces;
+package dev.zarr.zarrjava.core;
 
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.codec.CodecPipeline;
+import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import ucar.ma2.InvalidRangeException;
 
 import javax.annotation.Nonnull;

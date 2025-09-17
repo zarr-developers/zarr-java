@@ -6,7 +6,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

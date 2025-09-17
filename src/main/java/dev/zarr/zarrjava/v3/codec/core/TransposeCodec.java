@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.codec.ArrayArrayCodec;
+import dev.zarr.zarrjava.core.codec.ArrayArrayCodec;
 import ucar.ma2.Array;
 
 import javax.annotation.Nonnull;

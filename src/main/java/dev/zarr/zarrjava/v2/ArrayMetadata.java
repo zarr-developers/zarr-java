@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
-import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
@@ -14,10 +13,10 @@ import ucar.ma2.Array;
 
 import javax.annotation.Nullable;
 
-import static dev.zarr.zarrjava.v3.ArrayMetadata.parseFillValue;
+import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 
 
-public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata {
+public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   static final int ZARR_FORMAT = 2;
 
   @JsonProperty("zarr_format")
@@ -27,9 +26,9 @@ public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata
   public int[] chunks;
 
   @JsonProperty("dtype")
-  public DataTypeV2 dataTypeV2;
+  public DataType dataTypeV2;
   @JsonIgnore
-  public final DataType dataType;
+  public final dev.zarr.zarrjava.v3.DataType dataType;
   @JsonIgnore
   public final Endianness endianness;
 
@@ -57,7 +56,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata
       @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
       @JsonProperty(value = "shape", required = true) long[] shape,
       @JsonProperty(value = "chunks", required = true) int[] chunks,
-      @JsonProperty(value = "dtype", required = true) DataTypeV2 dataTypeV2,
+      @JsonProperty(value = "dtype", required = true) DataType dataTypeV2,
       @Nullable @JsonProperty(value = "fill_value", required = true) Object fillValue, //todo test when null
       @JsonProperty(value = "order", required = true) Order order,
       @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator,
@@ -103,7 +102,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata
   }
 
   @Override
-  public DataType dataType() {
+  public dev.zarr.zarrjava.v3.DataType dataType() {
     return dataType;
   }
 

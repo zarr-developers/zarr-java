@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.core.codec.ArrayBytesCodec;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import javax.annotation.Nonnull;

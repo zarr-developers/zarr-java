@@ -16,12 +16,12 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.codec.BytesBytesCodec;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 
-public class BloscCodec extends Codec implements BytesBytesCodec {
+public class BloscCodec extends Codec implements dev.zarr.zarrjava.core.codec.core.BloscCodec {
 
   public final String name = "blosc";
   @Nonnull
@@ -31,16 +31,6 @@ public class BloscCodec extends Codec implements BytesBytesCodec {
   public BloscCodec(
       @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration) {
     this.configuration = configuration;
-  }
-
-  @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes)
-      throws ZarrException {
-    try {
-      return ByteBuffer.wrap(Blosc.decompress(Utils.toArray(chunkBytes)));
-    } catch (Exception ex) {
-      throw new ZarrException("Error in decoding blosc.", ex);
-    }
   }
 
   @Override
@@ -88,50 +78,6 @@ public class BloscCodec extends Codec implements BytesBytesCodec {
           generator.writeString("shuffle");
           break;
       }
-    }
-  }
-
-  public static final class CustomCompressorDeserializer extends StdDeserializer<Blosc.Compressor> {
-
-    public CustomCompressorDeserializer() {
-      this(null);
-    }
-
-    public CustomCompressorDeserializer(Class<?> vc) {
-      super(vc);
-    }
-
-    @Override
-    public Blosc.Compressor deserialize(JsonParser jsonParser, DeserializationContext ctxt)
-        throws IOException {
-      String cname = jsonParser.getCodec()
-          .readValue(jsonParser, String.class);
-      Blosc.Compressor compressor = Blosc.Compressor.fromString(cname);
-      if (compressor == null) {
-        throw new JsonParseException(
-            jsonParser,
-            String.format("Could not parse the Blosc.Compressor. Got '%s'", cname)
-        );
-      }
-      return compressor;
-    }
-  }
-
-  public static final class CustomCompressorSerializer extends StdSerializer<Blosc.Compressor> {
-
-    public CustomCompressorSerializer() {
-      super(Blosc.Compressor.class);
-    }
-
-    public CustomCompressorSerializer(Class t) {
-      super(t);
-    }
-
-    @Override
-    public void serialize(Blosc.Compressor compressor, JsonGenerator generator,
-        SerializerProvider provider)
-        throws IOException {
-      generator.writeString(compressor.getValue());
     }
   }
 

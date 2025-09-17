@@ -9,7 +9,7 @@ import dev.zarr.zarrjava.v2.codec.core.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class CodecBuilder extends dev.zarr.zarrjava.codec.CodecBuilder {
+public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
 
   protected List<Codec> codecs;
 

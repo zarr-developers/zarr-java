@@ -5,8 +5,8 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.CRC32C;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.codec.BytesBytesCodec;
-import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
+import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.core.ArrayMetadata.CoreArrayMetadata;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 

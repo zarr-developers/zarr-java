@@ -1,7 +1,6 @@
 package dev.zarr.zarrjava.v2;
 
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.CodecBuilder;
@@ -11,7 +10,7 @@ import java.util.function.Function;
 public class ArrayMetadataBuilder {
   long[] shape = null;
   int[] chunks = null;
-  DataTypeV2 dataTypeV2 = null;
+  DataType dataTypeV2 = null;
   Order order = Order.C;
   Separator dimensionSeparator = Separator.DOT;
   Object fillValue = 0;
@@ -45,13 +44,14 @@ public class ArrayMetadataBuilder {
     return this;
   }
 
-  public ArrayMetadataBuilder withDataType(DataTypeV2 dataTypeV2) {
+  public ArrayMetadataBuilder withDataType(DataType dataTypeV2) {
     this.dataTypeV2 = dataTypeV2;
     return this;
   }
 
-  public ArrayMetadataBuilder withDataType(DataType dataType) {
-    this.dataTypeV2 = DataTypeV2.fromDataType(dataType);
+  //TODO remove v3?
+  public ArrayMetadataBuilder withDataType(dev.zarr.zarrjava.v3.DataType dataType) {
+    this.dataTypeV2 = DataType.fromDataType(dataType);
     return this;
   }
 

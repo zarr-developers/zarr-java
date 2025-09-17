@@ -12,17 +12,15 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.codec.core.BloscCodec.CustomCompressorDeserializer;
-import dev.zarr.zarrjava.v3.codec.core.BloscCodec.CustomCompressorSerializer;
+
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class BloscCodec extends Codec implements BytesBytesCodec {
+public class BloscCodec extends Codec implements dev.zarr.zarrjava.core.codec.core.BloscCodec {
 
   public final String id = "blosc";
 
@@ -61,15 +59,6 @@ public class BloscCodec extends Codec implements BytesBytesCodec {
     this.blocksize = blocksize;
   }
 
-  @Override
-  public ByteBuffer decode(ByteBuffer chunkBytes)
-      throws ZarrException {
-    try {
-      return ByteBuffer.wrap(Blosc.decompress(Utils.toArray(chunkBytes)));
-    } catch (Exception ex) {
-      throw new ZarrException("Error in decoding blosc.", ex);
-    }
-  }
 
   @Override
   public ByteBuffer encode(ByteBuffer chunkBytes)

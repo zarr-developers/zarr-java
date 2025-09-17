@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.codec.CodecPipeline;
+import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -14,7 +14,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-public class Array extends Node implements dev.zarr.zarrjava.interfaces.Array {
+public class Array extends Node implements dev.zarr.zarrjava.core.Array {
 
   public ArrayMetadata metadata;
   CodecPipeline codecPipeline;

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.codec.CodecPipeline;
+import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.CodecRegistry;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class Array implements dev.zarr.zarrjava.interfaces.Array {
+public class Array implements dev.zarr.zarrjava.core.Array {
 
   static final String ZARRAY = ".zarray";
   public ArrayMetadata metadata;
@@ -28,9 +28,9 @@ public class Array implements dev.zarr.zarrjava.interfaces.Array {
     this.storeHandle = storeHandle;
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(Utils.concatArrays(
-        new dev.zarr.zarrjava.codec.Codec[]{},
+        new dev.zarr.zarrjava.core.codec.Codec[]{},
         metadata.filters == null ? new Codec[]{} : metadata.filters,
-        new dev.zarr.zarrjava.codec.Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
+        new dev.zarr.zarrjava.core.codec.Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
         metadata.compressor == null ? new Codec[]{} : new Codec[]{metadata.compressor}
     ), metadata.coreArrayMetadata);
   }

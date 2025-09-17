@@ -1,4 +1,4 @@
-package dev.zarr.zarrjava.codec;
+package dev.zarr.zarrjava.core.codec;
 
 import dev.zarr.zarrjava.ZarrException;
 

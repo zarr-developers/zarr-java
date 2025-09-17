@@ -2,9 +2,9 @@ package dev.zarr.zarrjava.v3.codec;
 
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.codec.ArrayArrayCodec;
-import dev.zarr.zarrjava.codec.ArrayBytesCodec;
-import dev.zarr.zarrjava.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.core.codec.ArrayArrayCodec;
+import dev.zarr.zarrjava.core.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
@@ -15,7 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-public class CodecBuilder extends dev.zarr.zarrjava.codec.CodecBuilder {
+public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
 
   protected List<Codec> codecs;
   public CodecBuilder(DataType dataType) {

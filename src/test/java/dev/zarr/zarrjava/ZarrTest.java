@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrTest {
@@ -377,11 +378,11 @@ public class ZarrTest {
 
     @Test
     public void testV3FillValue() throws ZarrException {
-        Assertions.assertEquals((int) ArrayMetadata.parseFillValue(0, DataType.UINT32), 0);
-        Assertions.assertEquals((int) ArrayMetadata.parseFillValue("0x00010203", DataType.UINT32), 50462976);
-        Assertions.assertEquals((byte) ArrayMetadata.parseFillValue("0b00000010", DataType.UINT8), 2);
-        assert Double.isNaN((double) ArrayMetadata.parseFillValue("NaN", DataType.FLOAT64));
-        assert Double.isInfinite((double) ArrayMetadata.parseFillValue("-Infinity", DataType.FLOAT64));
+        Assertions.assertEquals((int) parseFillValue(0, DataType.UINT32), 0);
+        Assertions.assertEquals((int) parseFillValue("0x00010203", DataType.UINT32), 50462976);
+        Assertions.assertEquals((byte) parseFillValue("0b00000010", DataType.UINT8), 2);
+        assert Double.isNaN((double) parseFillValue("NaN", DataType.FLOAT64));
+        assert Double.isInfinite((double) parseFillValue("-Infinity", DataType.FLOAT64));
     }
 
     @Test

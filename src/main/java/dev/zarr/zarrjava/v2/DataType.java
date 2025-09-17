@@ -2,9 +2,8 @@ package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.DataType;
 
-public enum DataTypeV2 implements dev.zarr.zarrjava.interfaces.DataType{
+public enum DataType implements dev.zarr.zarrjava.core.DataType {
   BOOL("b1", Endianness.UNSPECIFIED),
   INT8("i1", Endianness.UNSPECIFIED),
   INT16("i2", Endianness.LITTLE),
@@ -20,12 +19,13 @@ public enum DataTypeV2 implements dev.zarr.zarrjava.interfaces.DataType{
   private final String dtype;
   private final Endianness endianness;
 
-  DataTypeV2(String dtype, Endianness endianness) {
+
+  DataType(String dtype, Endianness endianness) {
     this.dtype = dtype;
     this.endianness = endianness;
   }
 
-  public static DataTypeV2 fromDataType(DataType dataType) {
+  public static DataType fromDataType(dev.zarr.zarrjava.v3.DataType dataType) {
     switch (dataType) {
       case BOOL:
         return BOOL;
@@ -58,29 +58,29 @@ public enum DataTypeV2 implements dev.zarr.zarrjava.interfaces.DataType{
     return endianness;
   }
 
-  public DataType toV3() throws ZarrException {
+  public dev.zarr.zarrjava.v3.DataType toV3() throws ZarrException {
     if (this.dtype.equals(BOOL.dtype))
-      return DataType.BOOL;
+      return dev.zarr.zarrjava.v3.DataType.BOOL;
     if (this.dtype.equals(INT8.dtype))
-      return DataType.INT8;
+      return dev.zarr.zarrjava.v3.DataType.INT8;
     if (this.dtype.equals(INT16.dtype))
-      return DataType.INT16;
+      return dev.zarr.zarrjava.v3.DataType.INT16;
     if (this.dtype.equals(INT32.dtype))
-      return DataType.INT32;
+      return dev.zarr.zarrjava.v3.DataType.INT32;
     if (this.dtype.equals(INT64.dtype))
-      return DataType.INT64;
+      return dev.zarr.zarrjava.v3.DataType.INT64;
     if (this.dtype.equals(UINT8.dtype))
-      return DataType.UINT8;
+      return dev.zarr.zarrjava.v3.DataType.UINT8;
     if (this.dtype.equals(UINT16.dtype))
-      return DataType.UINT16;
+      return dev.zarr.zarrjava.v3.DataType.UINT16;
     if (this.dtype.equals(UINT32.dtype))
-      return DataType.UINT32;
+      return dev.zarr.zarrjava.v3.DataType.UINT32;
     if (this.dtype.equals(UINT64.dtype))
-      return DataType.UINT64;
+      return dev.zarr.zarrjava.v3.DataType.UINT64;
     if (this.dtype.equals(FLOAT32.dtype))
-      return DataType.FLOAT32;
+      return dev.zarr.zarrjava.v3.DataType.FLOAT32;
     if (this.dtype.equals(FLOAT64.dtype))
-      return DataType.FLOAT64;
+      return dev.zarr.zarrjava.v3.DataType.FLOAT64;
     throw new ZarrException("Unknown DataTypeV2: " + this.dtype);
   }
 
@@ -117,6 +117,11 @@ public enum DataTypeV2 implements dev.zarr.zarrjava.interfaces.DataType{
       default:
         throw new RuntimeException("Unreachable");
     }
+  }
+
+  @Override
+  public int getByteCount() {
+    return Integer.parseInt(dtype.substring(1));
   }
 
 }

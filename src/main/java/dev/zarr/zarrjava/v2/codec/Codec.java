@@ -5,7 +5,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "id")
-public abstract class Codec implements dev.zarr.zarrjava.codec.Codec {
+public abstract class Codec implements dev.zarr.zarrjava.core.codec.Codec {
 
     protected ArrayMetadata.CoreArrayMetadata arrayMetadata;
 
