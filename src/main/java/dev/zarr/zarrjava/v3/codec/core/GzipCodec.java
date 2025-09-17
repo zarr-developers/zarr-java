@@ -3,9 +3,10 @@ package dev.zarr.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.codec.BytesBytesCodec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,7 +15,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 
-public class GzipCodec extends BytesBytesCodec {
+public class GzipCodec extends Codec implements BytesBytesCodec {
 
   public final String name = "gzip";
   @Nonnull

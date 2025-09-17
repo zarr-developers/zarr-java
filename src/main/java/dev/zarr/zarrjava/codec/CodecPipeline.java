@@ -1,4 +1,4 @@
-package dev.zarr.zarrjava.v3.codec;
+package dev.zarr.zarrjava.codec;
 
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;

@@ -9,7 +9,7 @@ import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
-import dev.zarr.zarrjava.v3.codec.Codec;
+import dev.zarr.zarrjava.v2.codec.Codec;
 import ucar.ma2.Array;
 
 import javax.annotation.Nullable;
@@ -58,18 +58,17 @@ public class ArrayMetadata implements dev.zarr.zarrjava.interfaces.ArrayMetadata
       @JsonProperty(value = "shape", required = true) long[] shape,
       @JsonProperty(value = "chunks", required = true) int[] chunks,
       @JsonProperty(value = "dtype", required = true) DataTypeV2 dataTypeV2,
-      @JsonProperty(value = "fill_value", required = true) Object fillValue, //todo can be "null"
+      @Nullable @JsonProperty(value = "fill_value", required = true) Object fillValue, //todo test when null
       @JsonProperty(value = "order", required = true) Order order,
       @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator,
-      @Nullable @JsonProperty(value = "filters") Codec[] filters, //todo can be "null"
-      @Nullable @JsonProperty(value = "compressor") Codec compressor //todo can be "null"
+      @Nullable @JsonProperty(value = "filters") Codec[] filters,
+      @Nullable @JsonProperty(value = "compressor") Codec compressor
   ) throws ZarrException {
     super();
     if (zarrFormat != this.zarrFormat) {
       throw new ZarrException(
           "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
     }
-
     this.shape = shape;
     this.chunks = chunks;
     this.dataTypeV2 = dataTypeV2;

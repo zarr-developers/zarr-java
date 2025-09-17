@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.v3.codec.CodecPipeline;
+import dev.zarr.zarrjava.codec.CodecPipeline;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;

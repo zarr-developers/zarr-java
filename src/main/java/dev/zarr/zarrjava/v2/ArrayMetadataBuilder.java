@@ -3,8 +3,8 @@ package dev.zarr.zarrjava.v2;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
-import dev.zarr.zarrjava.v3.codec.Codec;
-import dev.zarr.zarrjava.v3.codec.CodecBuilder;
+import dev.zarr.zarrjava.v2.codec.Codec;
+import dev.zarr.zarrjava.v2.codec.CodecBuilder;
 
 import java.util.function.Function;
 
@@ -15,7 +15,7 @@ public class ArrayMetadataBuilder {
   Order order = Order.C;
   Separator dimensionSeparator = Separator.DOT;
   Object fillValue = 0;
-  Codec[] filters = new Codec[]{};
+  Codec[] filters = null;
   Codec compressor = null;
 
 
@@ -81,7 +81,7 @@ public class ArrayMetadataBuilder {
     }
     CodecBuilder nestedCodecBuilder = new CodecBuilder(dataTypeV2.toV3());
     this.filters = codecBuilder.apply(nestedCodecBuilder)
-        .build(false);
+        .build();
     return this;
   }
 
@@ -94,7 +94,7 @@ public class ArrayMetadataBuilder {
     try {
       this.compressor = new CodecBuilder(dataTypeV2.toV3())
           .withBlosc(cname, shuffle, clevel)
-          .build(false)[0];
+          .build()[0];
     } catch (ZarrException e) {
       throw new RuntimeException(e);
     }
@@ -105,7 +105,7 @@ public class ArrayMetadataBuilder {
     try {
       this.compressor = new CodecBuilder(dataTypeV2.toV3())
           .withZlib(level)
-          .build(false)[0];
+          .build()[0];
     } catch (ZarrException e) {
       throw new RuntimeException(e);
     }

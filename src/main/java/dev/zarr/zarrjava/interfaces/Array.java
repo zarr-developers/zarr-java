@@ -5,7 +5,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.v3.codec.CodecPipeline;
+import dev.zarr.zarrjava.codec.CodecPipeline;
 import ucar.ma2.InvalidRangeException;
 
 import javax.annotation.Nonnull;

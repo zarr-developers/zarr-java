@@ -2,6 +2,9 @@ package dev.zarr.zarrjava.v3.codec;
 
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.codec.ArrayArrayCodec;
+import dev.zarr.zarrjava.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
@@ -12,13 +15,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-public class CodecBuilder {
+public class CodecBuilder extends dev.zarr.zarrjava.codec.CodecBuilder {
 
-  final private DataType dataType;
-  private List<Codec> codecs;
-
+  protected List<Codec> codecs;
   public CodecBuilder(DataType dataType) {
-    this.dataType = dataType;
+    super(dataType);
     this.codecs = new ArrayList<>();
   }
 
@@ -58,19 +59,6 @@ public class CodecBuilder {
 
   public CodecBuilder withBlosc() {
     return withBlosc("zstd");
-  }
-
-  public CodecBuilder withZlib(int level) {
-    try {
-      codecs.add(new ZlibCodec(new ZlibCodec.Configuration(level)));
-    } catch (ZarrException e) {
-      throw new RuntimeException(e);
-    }
-    return this;
-  }
-
-  public CodecBuilder withZlib() {
-      return withZlib(5);
   }
 
   public CodecBuilder withTranspose(int[] order) {
@@ -168,13 +156,7 @@ public class CodecBuilder {
   }
 
   public Codec[] build() {
-    return build(true);
-  }
-
-  public Codec[] build(boolean includeBytesCodec) {
-    if (includeBytesCodec) {
-      autoInsertBytesCodec();
-    }
+    autoInsertBytesCodec();
     return codecs.toArray(new Codec[0]);
   }
 }

@@ -10,9 +10,9 @@ import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata;
 import dev.zarr.zarrjava.v3.DataType;
-import dev.zarr.zarrjava.v3.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.codec.ArrayBytesCodec;
 import dev.zarr.zarrjava.v3.codec.Codec;
-import dev.zarr.zarrjava.v3.codec.CodecPipeline;
+import dev.zarr.zarrjava.codec.CodecPipeline;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,7 +22,7 @@ import ucar.ma2.Array;
 import ucar.ma2.InvalidRangeException;
 
 
-public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode {
+public class ShardingIndexedCodec extends Codec implements ArrayBytesCodec.WithPartialDecode {
 
   public final String name = "sharding_indexed";
   @Nonnull

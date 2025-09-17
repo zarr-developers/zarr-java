@@ -13,14 +13,15 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.codec.BytesBytesCodec;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 
-public class BloscCodec extends BytesBytesCodec {
+public class BloscCodec extends Codec implements BytesBytesCodec {
 
   public final String name = "blosc";
   @Nonnull
@@ -192,7 +193,7 @@ public class BloscCodec extends BytesBytesCodec {
         @JsonProperty(value = "blocksize", defaultValue = "0")
         int blocksize
     ) throws ZarrException {
-      if (typesize < 1) {
+      if (typesize < 1 && shuffle != Blosc.Shuffle.NO_SHUFFLE) {
         throw new ZarrException("'typesize' needs to be larger than 0.");
       }
       if (clevel < 0 || clevel > 9) {

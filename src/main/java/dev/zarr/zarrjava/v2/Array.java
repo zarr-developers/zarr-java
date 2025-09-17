@@ -1,11 +1,13 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.v3.codec.CodecPipeline;
-import dev.zarr.zarrjava.v3.codec.Codec;
+import dev.zarr.zarrjava.codec.CodecPipeline;
+import dev.zarr.zarrjava.v2.codec.Codec;
+import dev.zarr.zarrjava.v2.codec.CodecRegistry;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 
 import javax.annotation.Nonnull;
@@ -14,8 +16,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 public class Array implements dev.zarr.zarrjava.interfaces.Array {
 
@@ -28,8 +28,9 @@ public class Array implements dev.zarr.zarrjava.interfaces.Array {
     this.storeHandle = storeHandle;
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(Utils.concatArrays(
-        metadata.filters,
-        new Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
+        new dev.zarr.zarrjava.codec.Codec[]{},
+        metadata.filters == null ? new Codec[]{} : metadata.filters,
+        new dev.zarr.zarrjava.codec.Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
         metadata.compressor == null ? new Codec[]{} : new Codec[]{metadata.compressor}
     ), metadata.coreArrayMetadata);
   }
@@ -51,6 +52,14 @@ public class Array implements dev.zarr.zarrjava.interfaces.Array {
             )
     );
   }
+
+  public static ObjectMapper makeObjectMapper() {
+    ObjectMapper objectMapper = new ObjectMapper();
+    objectMapper.registerModule(new Jdk8Module());
+    objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
+    return objectMapper;
+  }
+
 
   /**
    * Creates a new Zarr array with the provided metadata at a specified storage location. This

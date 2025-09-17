@@ -3,8 +3,9 @@ package dev.zarr.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.codec.ArrayArrayCodec;
+import dev.zarr.zarrjava.codec.ArrayArrayCodec;
 import ucar.ma2.Array;
 
 import javax.annotation.Nonnull;
@@ -13,7 +14,7 @@ import java.util.Arrays;
 import static dev.zarr.zarrjava.utils.Utils.inversePermutation;
 import static dev.zarr.zarrjava.utils.Utils.isPermutation;
 
-public class TransposeCodec extends ArrayArrayCodec {
+public class TransposeCodec extends Codec implements ArrayArrayCodec {
 
     @Nonnull
     public final String name = "transpose";
@@ -70,7 +71,7 @@ public class TransposeCodec extends ArrayArrayCodec {
     }
 
     @Override
-    protected ArrayMetadata.CoreArrayMetadata resolveArrayMetadata() throws ZarrException {
+    public ArrayMetadata.CoreArrayMetadata resolveArrayMetadata() throws ZarrException {
         super.resolveArrayMetadata();
         assert arrayMetadata.ndim() == configuration.order.length;
 

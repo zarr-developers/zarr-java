@@ -1,10 +1,10 @@
-package dev.zarr.zarrjava.v3.codec;
+package dev.zarr.zarrjava.v2.codec;
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "name")
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "id")
 public abstract class Codec implements dev.zarr.zarrjava.codec.Codec {
 
     protected ArrayMetadata.CoreArrayMetadata arrayMetadata;
@@ -15,6 +15,9 @@ public abstract class Codec implements dev.zarr.zarrjava.codec.Codec {
         }
         return this.arrayMetadata;
     }
+
+    public abstract long computeEncodedSize(long inputByteLength, ArrayMetadata.CoreArrayMetadata arrayMetadata)
+            throws ZarrException;
 
     public void setCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException{
         this.arrayMetadata = arrayMetadata;

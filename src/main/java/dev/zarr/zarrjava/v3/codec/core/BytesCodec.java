@@ -4,14 +4,15 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.codec.ArrayBytesCodec;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import javax.annotation.Nonnull;
 import ucar.ma2.Array;
 
-public class BytesCodec extends ArrayBytesCodec {
+public class BytesCodec extends Codec implements ArrayBytesCodec {
 
   public final String name = "bytes";
   @Nonnull
