@@ -1,29 +1,33 @@
 import sys
+from pathlib import Path
 
 import numpy as np
-import zarrita
-from zarrita.metadata import ShardingCodecIndexLocation
-from parse_codecs import parse_codecs_zarrita
+
+import zarr
+from zarr.storage import LocalStore
+from parse_codecs import parse_codecs_zarr_python
 
 codec_string = sys.argv[1]
 param_string = sys.argv[2]
-codec = parse_codecs_zarrita(codec_string, param_string)
+compressor, serializer, filters = parse_codecs_zarr_python(codec_string, param_string)
+store_path = Path(sys.argv[3])
 
-store = zarrita.LocalStore(sys.argv[3])
 expected_data = np.arange(16 * 16 * 16, dtype='int32').reshape(16, 16, 16)
 
-a = zarrita.Array.open(store / 'write_to_zarrita' / codec_string / param_string)
+a = zarr.open_array(store=LocalStore(store_path))
 read_data = a[:, :]
 assert np.array_equal(read_data, expected_data), f"got:\n {read_data} \nbut expected:\n {expected_data}"
 
-b = zarrita.Array.create(
-    store / 'read_from_zarrita_expected' / codec_string / param_string,
+b = zarr.create_array(
+    LocalStore(store_path / "expected"),
     shape=(16, 16, 16),
-    chunk_shape=(2, 4, 8),
+    chunks=(2, 4, 8),
     dtype="uint32",
     fill_value=0,
+    filters=filters,
+    serializer=serializer,
+    compressors=compressor,
     attributes={'test_key': 'test_value'},
-    codecs=codec
 )
 
 assert a.metadata == b.metadata, f"not equal: \n{a.metadata=}\n{b.metadata=}"

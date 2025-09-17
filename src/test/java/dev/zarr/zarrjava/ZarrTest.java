@@ -10,10 +10,8 @@ import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
-import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
-import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,51 +52,6 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    @ParameterizedTest
-    @CsvSource({
-        "blosc,blosclz_noshuffle_0", "blosc,lz4_shuffle_6", "blosc,lz4hc_bitshuffle_3", "blosc,zlib_shuffle_5", "blosc,zstd_bitshuffle_9",
-        "gzip,0", "gzip,5",
-        "zstd,0_true", "zstd,5_true", "zstd,0_false", "zstd,5_false",
-        "bytes,BIG", "bytes,LITTLE",
-        "transpose,_",
-        "sharding,start", "sharding,end",
-        "sharding_nested,_",
-        "crc32c,_",
-    })
-
-    public void testReadFromZarrita(String codec, String codecParam) throws IOException, ZarrException, InterruptedException {
-        ProcessBuilder pb = new ProcessBuilder("uv", "run", PYTHON_TEST_PATH.resolve("zarrita_write.py")
-            .toString(), codec, codecParam, TESTOUTPUT.toString());
-        Process process = pb.start();
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
-        }
-
-        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        while ((line = readerErr.readLine()) != null) {
-            System.err.println(line);
-        }
-
-        int exitCode = process.waitFor();
-        assert exitCode == 0;
-
-        Array array = Array.open(new FilesystemStore(TESTOUTPUT).resolve("read_from_zarrita", codec, codecParam));
-        ucar.ma2.Array result = array.read();
-
-        //for expected values see zarrita_write.py
-        Assertions.assertArrayEquals(new int[]{16, 16}, result.getShape());
-        Assertions.assertEquals(DataType.INT32, array.metadata.dataType);
-        Assertions.assertArrayEquals(new int[]{2, 8}, array.metadata.chunkShape());
-        Assertions.assertEquals(42, array.metadata.attributes.get("answer"));
-
-        int[] expectedData = new int[16 * 16];
-        Arrays.setAll(expectedData, p -> p);
-        Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
-    }
-
     @CsvSource({"0,true", "0,false", "5, true", "10, false"})
     @ParameterizedTest
     public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException {
@@ -134,99 +87,6 @@ public class ZarrTest {
         assert exitCode == 0;
     }
 
-    @ParameterizedTest
-    @CsvSource({
-        "blosc,blosclz_noshuffle_0", "blosc,lz4_shuffle_6", "blosc,lz4hc_bitshuffle_3", "blosc,zlib_shuffle_5", "blosc,zstd_bitshuffle_9",
-        "gzip,0", "gzip,5",
-        "zstd,0_true", "zstd,5_true", "zstd,0_false", "zstd,5_false",
-        "bytes,BIG", "bytes,LITTLE",
-        "transpose,_",
-        "sharding,start", "sharding,end",
-        "sharding_nested,_",
-        "crc32c,_",
-    })
-    public void testWriteReadWithZarrita(String codec, String codecParam) throws Exception {
-        int[] testData = new int[16 * 16 * 16];
-        Arrays.setAll(testData, p -> p);
-
-        Map<String, Object> attributes = new HashMap<>();
-        attributes.put("test_key", "test_value");
-
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("write_to_zarrita", codec, codecParam);
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-            .withShape(16, 16, 16)
-            .withDataType(DataType.UINT32)
-            .withChunkShape(2, 4, 8)
-            .withFillValue(0)
-            .withAttributes(attributes);
-
-        switch (codec) {
-            case "blosc":
-                String cname = codecParam.split("_")[0];
-                String shuffle = codecParam.split("_")[1];
-                int clevel_blosc = Integer.parseInt(codecParam.split("_")[2]);
-                builder = builder.withCodecs(c -> c.withBlosc(cname, shuffle, clevel_blosc));
-                break;
-            case "gzip":
-                builder = builder.withCodecs(c -> c.withGzip(Integer.parseInt(codecParam)));
-                break;
-            case "zstd":
-                int clevel_zstd = Integer.parseInt(codecParam.split("_")[0]);
-                boolean checksum = Boolean.parseBoolean(codecParam.split("_")[1]);
-                builder = builder.withCodecs(c -> c.withZstd(clevel_zstd, checksum));
-                break;
-            case "bytes":
-                builder = builder.withCodecs(c -> c.withBytes(codecParam));
-                break;
-            case "transpose":
-                builder = builder.withCodecs(c -> c.withTranspose(new int[]{1, 0, 2}));
-                break;
-            case "sharding":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withBytes("LITTLE"), codecParam));
-                break;
-            case "sharding_nested":
-                builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2, 4}, c1 -> c1.withSharding(new int[]{2, 1, 2}, c2 -> c2.withBytes("LITTLE"))));
-                break;
-            case "crc32c":
-                builder = builder.withCodecs(CodecBuilder::withCrc32c);
-                break;
-            default:
-                throw new IllegalArgumentException("Invalid Codec: " + codec);
-        }
-
-        Array writeArray = Array.create(storeHandle, builder.build());
-        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
-
-        //read in zarr-java
-        Array readArray = Array.open(storeHandle);
-        ucar.ma2.Array result = readArray.read();
-
-        Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(DataType.UINT32, readArray.metadata.dataType);
-        Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
-        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
-
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
-
-        //read in zarrita
-        ProcessBuilder pb = new ProcessBuilder("uv", "run", PYTHON_TEST_PATH.resolve("zarrita_read.py")
-            .toString(), codec, codecParam, TESTOUTPUT.toString());
-        Process process = pb.start();
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
-        }
-
-        BufferedReader readerErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-        while ((line = readerErr.readLine()) != null) {
-            System.err.println(line);
-        }
-
-        int exitCode = process.waitFor();
-        assert exitCode == 0;
-    }
 
     static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder() {
         return Stream.of(
@@ -699,28 +559,6 @@ public class ZarrTest {
         Assertions.assertEquals(outArray.getSize(), 8 * 8);
         Assertions.assertEquals(outArray.getByte(0), 0);
     }
-
-    @Test
-    public void testV2Filters() throws IOException, ZarrException {
-        DataType dataType = DataType.UINT32;
-
-        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("v2_create_filters"),
-            dev.zarr.zarrjava.v2.Array.metadataBuilder()
-                .withShape(10, 10)
-                .withDataType(dataType)
-                .withChunks(5, 5)
-                .withFillValue(2)
-                .withFilters(f -> f.withTranspose(new int[]{1, 0}))
-                .build()
-        );
-        array.write(new long[]{2, 2}, ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{8, 8}));
-
-        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
-        Assertions.assertEquals(outArray.getSize(), 8 * 8);
-        Assertions.assertEquals(outArray.getByte(0), 0);
-    }
-
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 5, 9})
