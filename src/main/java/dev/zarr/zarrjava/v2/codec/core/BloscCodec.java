@@ -14,7 +14,7 @@ import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.v3.ArrayMetadata;
+import dev.zarr.zarrjava.v2.ArrayMetadata;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;

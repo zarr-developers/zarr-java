@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
+import dev.zarr.zarrjava.v2.codec.core.BytesCodec;
 
 public enum Endianness {
   LITTLE("<"),

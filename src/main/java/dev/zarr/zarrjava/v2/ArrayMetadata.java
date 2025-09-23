@@ -47,7 +47,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   public Codec compressor;
 
   @JsonIgnore
-  public dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata coreArrayMetadata;
+  public CoreArrayMetadata coreArrayMetadata;
 
 
   @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -78,7 +78,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
     this.filters = filters;
     this.compressor = compressor;
     this.coreArrayMetadata =
-        new dev.zarr.zarrjava.v3.ArrayMetadata.CoreArrayMetadata(shape, chunks,
+        new ArrayMetadata.CoreArrayMetadata(shape, chunks,
             this.dataType,
             parsedFillValue
         );

@@ -25,6 +25,7 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     this.endianness = endianness;
   }
 
+  //todo remove?
   public static DataType fromDataType(dev.zarr.zarrjava.v3.DataType dataType) {
     switch (dataType) {
       case BOOL:
@@ -58,6 +59,7 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     return endianness;
   }
 
+  //todo remove?
   public dev.zarr.zarrjava.v3.DataType toV3() throws ZarrException {
     if (this.dtype.equals(BOOL.dtype))
       return dev.zarr.zarrjava.v3.DataType.BOOL;

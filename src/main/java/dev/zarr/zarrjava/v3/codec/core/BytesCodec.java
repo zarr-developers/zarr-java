@@ -12,7 +12,7 @@ import java.nio.ByteOrder;
 import javax.annotation.Nonnull;
 import ucar.ma2.Array;
 
-public class BytesCodec extends Codec implements ArrayBytesCodec {
+public class BytesCodec extends Codec implements dev.zarr.zarrjava.core.codec.core.BytesCodec {
 
   public final String name = "bytes";
   @Nonnull

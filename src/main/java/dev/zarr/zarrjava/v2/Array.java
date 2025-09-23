@@ -8,7 +8,7 @@ import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.CodecRegistry;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
+import dev.zarr.zarrjava.v2.codec.core.BytesCodec;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
