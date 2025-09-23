@@ -10,7 +10,7 @@ import dev.zarr.zarrjava.core.ArrayMetadata.CoreArrayMetadata;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class Crc32cCodec extends Codec implements BytesBytesCodec {
+public class Crc32cCodec extends  BytesBytesCodec implements Codec {
 
   public final String name = "crc32c";
 

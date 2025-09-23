@@ -14,13 +14,12 @@ import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.v2.ArrayMetadata;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class BloscCodec extends Codec implements dev.zarr.zarrjava.core.codec.core.BloscCodec {
+public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec implements Codec {
 
   public final String id = "blosc";
 
@@ -72,12 +71,6 @@ public class BloscCodec extends Codec implements dev.zarr.zarrjava.core.codec.co
     } catch (Exception ex) {
       throw new ZarrException("Error in encoding blosc.", ex);
     }
-  }
-
-  @Override
-  public long computeEncodedSize(long inputByteLength,
-      ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
-    throw new ZarrException("Not implemented for Blosc codec.");
   }
 
   public static final class CustomShuffleSerializer extends StdSerializer<Blosc.Shuffle> {

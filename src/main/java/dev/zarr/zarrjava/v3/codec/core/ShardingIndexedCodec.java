@@ -22,7 +22,7 @@ import ucar.ma2.Array;
 import ucar.ma2.InvalidRangeException;
 
 
-public class ShardingIndexedCodec extends Codec implements ArrayBytesCodec.WithPartialDecode {
+public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode implements Codec {
 
   public final String name = "sharding_indexed";
   @Nonnull

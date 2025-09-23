@@ -12,7 +12,8 @@ import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class BytesCodec extends Codec implements dev.zarr.zarrjava.core.codec.core.BytesCodec {
+// TODO might move some of this to core
+public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec implements Codec {
     @Nonnull
     public final Endian endian;
 
@@ -24,8 +25,6 @@ public class BytesCodec extends Codec implements dev.zarr.zarrjava.core.codec.co
         this.endian = endian;
     }
 
-
-    @Override
     public Array decode(ByteBuffer chunkBytes) {
         chunkBytes.order(endian.getByteOrder());
         return Array.factory(arrayMetadata.dataType.getMA2DataType(), arrayMetadata.chunkShape,
@@ -35,12 +34,6 @@ public class BytesCodec extends Codec implements dev.zarr.zarrjava.core.codec.co
     @Override
     public ByteBuffer encode(Array chunkArray) {
         return chunkArray.getDataAsByteBuffer(endian.getByteOrder());
-    }
-
-    @Override
-    public long computeEncodedSize(long inputByteLength,
-                                   ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
-        return inputByteLength;
     }
 
     public enum Endian {

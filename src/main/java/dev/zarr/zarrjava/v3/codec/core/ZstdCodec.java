@@ -12,7 +12,7 @@ import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 
-public class ZstdCodec extends Codec implements BytesBytesCodec {
+public class ZstdCodec extends BytesBytesCodec implements Codec {
 
     public final String name = "zstd";
     @Nonnull

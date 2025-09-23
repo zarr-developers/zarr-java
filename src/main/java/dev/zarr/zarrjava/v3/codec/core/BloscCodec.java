@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 
-public class BloscCodec extends Codec implements dev.zarr.zarrjava.core.codec.core.BloscCodec {
+public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec implements Codec{
 
   public final String name = "blosc";
   @Nonnull

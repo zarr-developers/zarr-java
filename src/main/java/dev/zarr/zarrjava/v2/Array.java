@@ -28,9 +28,9 @@ public class Array implements dev.zarr.zarrjava.core.Array {
     this.storeHandle = storeHandle;
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(Utils.concatArrays(
-        new dev.zarr.zarrjava.core.codec.Codec[]{},
+        new Codec[]{},
         metadata.filters == null ? new Codec[]{} : metadata.filters,
-        new dev.zarr.zarrjava.core.codec.Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
+        new Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
         metadata.compressor == null ? new Codec[]{} : new Codec[]{metadata.compressor}
     ), metadata.coreArrayMetadata);
   }

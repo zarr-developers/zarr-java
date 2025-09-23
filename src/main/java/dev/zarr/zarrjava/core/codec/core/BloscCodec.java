@@ -15,10 +15,10 @@ import dev.zarr.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public interface BloscCodec extends BytesBytesCodec {
+public abstract class BloscCodec extends BytesBytesCodec {
 
   @Override
-  default ByteBuffer decode(ByteBuffer chunkBytes)
+  public ByteBuffer decode(ByteBuffer chunkBytes)
       throws ZarrException {
     try {
       return ByteBuffer.wrap(Blosc.decompress(Utils.toArray(chunkBytes)));
@@ -27,7 +27,7 @@ public interface BloscCodec extends BytesBytesCodec {
     }
   }
 
-  final class CustomCompressorDeserializer extends StdDeserializer<Blosc.Compressor> {
+  public static final class CustomCompressorDeserializer extends StdDeserializer<Blosc.Compressor> {
 
     public CustomCompressorDeserializer() {
       this(null);
@@ -53,7 +53,7 @@ public interface BloscCodec extends BytesBytesCodec {
     }
   }
 
-  final class CustomCompressorSerializer extends StdSerializer<Blosc.Compressor> {
+  public static final class CustomCompressorSerializer extends StdSerializer<Blosc.Compressor> {
 
     public CustomCompressorSerializer() {
       super(Blosc.Compressor.class);

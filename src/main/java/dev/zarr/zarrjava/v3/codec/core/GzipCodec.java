@@ -15,7 +15,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 
-public class GzipCodec extends Codec implements BytesBytesCodec {
+public class GzipCodec extends BytesBytesCodec implements Codec {
 
   public final String name = "gzip";
   @Nonnull

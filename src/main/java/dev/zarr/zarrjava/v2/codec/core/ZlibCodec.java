@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.zip.*;
 
-public class ZlibCodec extends Codec implements BytesBytesCodec {
+public class ZlibCodec extends BytesBytesCodec implements Codec {
 
     public final String id = "zlib";
     public final int level;
@@ -52,11 +52,5 @@ public class ZlibCodec extends Codec implements BytesBytesCodec {
         } catch (IOException ex) {
             throw new ZarrException("Error in encoding zlib.", ex);
         }
-    }
-
-    @Override
-    public long computeEncodedSize(long inputByteLength,
-                                   ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
-        throw new ZarrException("Not implemented for Zlib codec.");
     }
 }

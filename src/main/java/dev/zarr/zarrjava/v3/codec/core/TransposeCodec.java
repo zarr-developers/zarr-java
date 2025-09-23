@@ -14,7 +14,7 @@ import java.util.Arrays;
 import static dev.zarr.zarrjava.utils.Utils.inversePermutation;
 import static dev.zarr.zarrjava.utils.Utils.isPermutation;
 
-public class TransposeCodec extends Codec implements ArrayArrayCodec {
+public class TransposeCodec extends ArrayArrayCodec implements Codec{
 
     @Nonnull
     public final String name = "transpose";

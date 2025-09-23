@@ -2,7 +2,6 @@ package dev.zarr.zarrjava.v3.codec;
 
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import dev.zarr.zarrjava.v3.codec.core.*;
-import dev.zarr.zarrjava.core.codec.Codec;
 
 import java.util.HashMap;
 import java.util.Map;
