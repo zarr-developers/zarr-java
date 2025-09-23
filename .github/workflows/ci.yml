@@ -34,7 +34,7 @@ jobs:
       - name: Set up zarr-python
         run: |
           uv venv && uv init
-          uv add zarr
+          uv add "zarr>=3.1.2"
           uv add zarrita
           uv add numcodecs
       - name: Debug Python env
