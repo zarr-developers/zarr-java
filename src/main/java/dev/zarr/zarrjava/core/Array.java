@@ -85,8 +85,9 @@ public interface Array {
         ArrayMetadata metadata = metadata();
         String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
         StoreHandle chunkHandle = storeHandle().resolve(chunkKeys);
+        Object parsedFillValue = metadata.parsedFillValue();
 
-        if (MultiArrayUtils.allValuesEqual(chunkArray, metadata.parsedFillValue())) {
+        if (parsedFillValue != null && MultiArrayUtils.allValuesEqual(chunkArray, parsedFillValue)) {
             chunkHandle.delete();
         } else {
             ByteBuffer chunkBytes = codecPipeline().encode(chunkArray);

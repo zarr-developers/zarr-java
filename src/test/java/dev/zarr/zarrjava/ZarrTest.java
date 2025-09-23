@@ -580,4 +580,32 @@ public class ZarrTest {
         Assertions.assertEquals(7 * 6, outArray.getSize());
         Assertions.assertEquals(0, outArray.getByte(0));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BOOL", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64"})
+    public void testV2noFillValue(dev.zarr.zarrjava.v2.DataType dataType) throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_no_fillvalue", dataType.name());
+
+        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+            storeHandle,
+            dev.zarr.zarrjava.v2.Array.metadataBuilder()
+                .withShape(15, 10)
+                .withDataType(dataType)
+                .withChunks(4, 5)
+                .build()
+        );
+        Assertions.assertNull(array.metadata().fillValue);
+
+        ucar.ma2.Array outArray = array.read(new long[]{0, 0}, new int[]{1, 1});
+        if (dataType == dev.zarr.zarrjava.v2.DataType.BOOL) {
+            Assertions.assertFalse(outArray.getBoolean(0));
+        } else {
+            Assertions.assertEquals(0, outArray.getByte(0));
+        }
+
+        dev.zarr.zarrjava.v2.Array array2 = dev.zarr.zarrjava.v2.Array.open(
+            storeHandle
+        );
+        Assertions.assertNull(array2.metadata().fillValue);
+    }
 }

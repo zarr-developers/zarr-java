@@ -13,7 +13,7 @@ public class ArrayMetadataBuilder {
   DataType dataType = null;
   Order order = Order.C;
   Separator dimensionSeparator = Separator.DOT;
-  Object fillValue = 0;
+  Object fillValue = null;
   Codec[] filters = null;
   Codec compressor = null;
 
@@ -115,9 +115,9 @@ public class ArrayMetadataBuilder {
         dataType,
         fillValue,
         order,
-        dimensionSeparator,
         filters,
-        compressor
+        compressor,
+        dimensionSeparator
     );
   }
 }

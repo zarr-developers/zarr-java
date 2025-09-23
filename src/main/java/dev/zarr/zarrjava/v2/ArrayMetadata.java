@@ -42,6 +42,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   @JsonIgnore
   public final Object parsedFillValue;
 
+  @Nullable
   public Codec[] filters;
   @Nullable
   public Codec compressor;
@@ -56,11 +57,11 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
       @JsonProperty(value = "shape", required = true) long[] shape,
       @JsonProperty(value = "chunks", required = true) int[] chunks,
       @JsonProperty(value = "dtype", required = true) DataType dataType,
-      @Nullable @JsonProperty(value = "fill_value", required = true) Object fillValue, //todo test when null
+      @Nullable @JsonProperty(value = "fill_value", required = true) Object fillValue,
       @JsonProperty(value = "order", required = true) Order order,
-      @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator,
-      @Nullable @JsonProperty(value = "filters") Codec[] filters,
-      @Nullable @JsonProperty(value = "compressor") Codec compressor
+      @Nullable @JsonProperty(value = "filters", required = true) Codec[] filters,
+      @Nullable @JsonProperty(value = "compressor", required = true) Codec compressor,
+      @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator
   ) throws ZarrException {
     super();
     if (zarrFormat != this.zarrFormat) {
@@ -72,7 +73,11 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
     this.dataType = dataType;
     this.endianness = dataType.getEndianness();
     this.fillValue = fillValue;
-    this.parsedFillValue = parseFillValue(fillValue, this.dataType);
+    if (fillValue == null) {
+      this.parsedFillValue = null;
+    } else {
+      this.parsedFillValue = parseFillValue(fillValue, this.dataType);
+    }
     this.order = order;
     this.dimensionSeparator = dimensionSeparator;
     this.filters = filters;
@@ -107,7 +112,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
   @Override
   public Array allocateFillValueChunk() {
       ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunks);
-      MultiArrayUtils.fill(outputArray, parsedFillValue);
+      if (parsedFillValue != null) MultiArrayUtils.fill(outputArray, parsedFillValue);
       return outputArray;
   }
 
