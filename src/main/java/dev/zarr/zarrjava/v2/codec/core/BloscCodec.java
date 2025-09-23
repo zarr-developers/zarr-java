@@ -42,11 +42,10 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
       @JsonDeserialize(using = CustomShuffleDeserializer.class) Blosc.Shuffle shuffle,
       @JsonProperty(value = "clevel", defaultValue = "5") int clevel,
       @JsonProperty(value = "typesize", defaultValue = "0") int typesize,
-      @JsonProperty(value = "blocksize", defaultValue = "0")
-      int blocksize
+      @JsonProperty(value = "blocksize", defaultValue = "0") int blocksize
   ) throws ZarrException {
     if (typesize < 1 && shuffle != Blosc.Shuffle.NO_SHUFFLE) {
-      typesize = 4; // in v2 typesize is not required. todo: deflault to correct value based on dtype
+      typesize = 4; //todo: in v2 typesize is not a required parameter. default to correct value based on dtype
     }
     if (clevel < 0 || clevel > 9) {
       throw new ZarrException("'clevel' needs to be between 0 and 9.");
