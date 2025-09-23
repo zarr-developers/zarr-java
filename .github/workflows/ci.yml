@@ -36,7 +36,17 @@ jobs:
           uv venv && uv init
           uv add zarr
           uv add zarrita
-
+          uv add numcodecs
+      - name: Debug Python env
+        continue-on-error: true
+        run: |
+          uv run python -c "import zarr; print(zarr.__version__)"
+          uv run python -c "from zarr.codecs.blosc import BloscCodec; print('BloscCodec OK')"
+      - name: Debug zarr-python
+        continue-on-error: true
+        run: |
+          uv add "zarr[blosc]"
+          uv run python -c "from zarr.codecs.blosc import BloscCodec; print('BloscCodec OK')"
       - name: Download testdata
         run: |
           mkdir testoutput
