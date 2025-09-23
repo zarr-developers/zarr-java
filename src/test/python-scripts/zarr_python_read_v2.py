@@ -5,6 +5,7 @@ import numpy as np
 
 import zarr
 
+from zarr.storage import LocalStore
 from parse_codecs import parse_codecs_zarr_python
 
 codec_string = sys.argv[1]
@@ -14,12 +15,12 @@ store_path = Path(sys.argv[3])
 
 expected_data = np.arange(16 * 16 * 16, dtype='int32').reshape(16, 16, 16)
 
-a = zarr.open_array(store=zarr.storage._local.LocalStore(store_path))
+a = zarr.open_array(store=LocalStore(store_path))
 read_data = a[:, :]
 assert np.array_equal(read_data, expected_data), f"got:\n {read_data} \nbut expected:\n {expected_data}"
 
 b = zarr.create_array(
-    zarr.storage._local.LocalStore(store_path / "expected"),
+    LocalStore(store_path / "expected"),
     zarr_format=2,
     shape=(16, 16, 16),
     chunks=(2, 4, 8),

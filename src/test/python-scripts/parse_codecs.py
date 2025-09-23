@@ -1,5 +1,4 @@
 import zarr
-print("Using zarr version:", zarr.__version__)
 from zarr.codecs.blosc import BloscCodec
 from zarr.codecs.bytes import BytesCodec
 from zarr.codecs.crc32c_ import Crc32cCodec

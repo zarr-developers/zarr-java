@@ -28,8 +28,8 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@@v5
         with:
           python-version: '3.11'
 
@@ -39,19 +39,8 @@ jobs:
       - name: Set up zarr-python
         run: |
           uv venv && uv init
-          uv add "zarr>=3.1.2"
+          uv add zarr
           uv add zarrita
-          uv add numcodecs
-      - name: Debug Python env
-        continue-on-error: true
-        run: |
-          uv run python -c "import zarr; print(zarr.__version__)"
-          uv run python -c "from zarr.codecs.blosc import BloscCodec; print('BloscCodec OK')"
-      - name: Debug zarr-python
-        continue-on-error: true
-        run: |
-          uv add "zarr[blosc]"
-          uv run python -c "from zarr.codecs.blosc import BloscCodec; print('BloscCodec OK')"
       - name: Download testdata
         run: |
           mkdir testoutput
