@@ -8,7 +8,7 @@ import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Endian;
+import dev.zarr.zarrjava.core.codec.core.BytesCodec.Endian;
 
 import java.util.ArrayList;
 import java.util.Collections;

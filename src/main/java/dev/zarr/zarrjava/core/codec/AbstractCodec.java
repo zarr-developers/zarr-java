@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava.core.codec;
 
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.ArrayMetadata; //TODO remove v3 dependency
+import dev.zarr.zarrjava.core.ArrayMetadata;
 
 public abstract class AbstractCodec implements Codec{
     protected ArrayMetadata.CoreArrayMetadata arrayMetadata;

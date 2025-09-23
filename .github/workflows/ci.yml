@@ -29,7 +29,7 @@ jobs:
           cache: maven
 
       - name: Set up Python
-        uses: actions/setup-python@@v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -41,6 +41,7 @@ jobs:
           uv venv && uv init
           uv add zarr
           uv add zarrita
+
       - name: Download testdata
         run: |
           mkdir testoutput

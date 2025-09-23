@@ -1,7 +1,6 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import dev.zarr.zarrjava.ZarrException;
 
 public enum DataType implements dev.zarr.zarrjava.core.DataType {
   BOOL("b1", Endianness.UNSPECIFIED),
@@ -25,65 +24,8 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     this.endianness = endianness;
   }
 
-  //todo remove?
-  public static DataType fromDataType(dev.zarr.zarrjava.v3.DataType dataType) {
-    switch (dataType) {
-      case BOOL:
-        return BOOL;
-      case INT8:
-        return INT8;
-      case INT16:
-        return INT16;
-      case INT32:
-        return INT32;
-      case INT64:
-        return INT64;
-      case UINT8:
-        return UINT8;
-      case UINT16:
-        return UINT16;
-      case UINT32:
-        return UINT32;
-      case UINT64:
-        return UINT64;
-      case FLOAT32:
-        return FLOAT32;
-      case FLOAT64:
-        return FLOAT64;
-      default:
-        throw new IllegalArgumentException("Unsupported DataType: " + dataType);
-    }
-  }
-
   public Endianness getEndianness() {
     return endianness;
-  }
-
-  //todo remove?
-  public dev.zarr.zarrjava.v3.DataType toV3() throws ZarrException {
-    if (this.dtype.equals(BOOL.dtype))
-      return dev.zarr.zarrjava.v3.DataType.BOOL;
-    if (this.dtype.equals(INT8.dtype))
-      return dev.zarr.zarrjava.v3.DataType.INT8;
-    if (this.dtype.equals(INT16.dtype))
-      return dev.zarr.zarrjava.v3.DataType.INT16;
-    if (this.dtype.equals(INT32.dtype))
-      return dev.zarr.zarrjava.v3.DataType.INT32;
-    if (this.dtype.equals(INT64.dtype))
-      return dev.zarr.zarrjava.v3.DataType.INT64;
-    if (this.dtype.equals(UINT8.dtype))
-      return dev.zarr.zarrjava.v3.DataType.UINT8;
-    if (this.dtype.equals(UINT16.dtype))
-      return dev.zarr.zarrjava.v3.DataType.UINT16;
-    if (this.dtype.equals(UINT32.dtype))
-      return dev.zarr.zarrjava.v3.DataType.UINT32;
-    if (this.dtype.equals(UINT64.dtype))
-      return dev.zarr.zarrjava.v3.DataType.UINT64;
-    if (this.dtype.equals(FLOAT32.dtype))
-      return dev.zarr.zarrjava.v3.DataType.FLOAT32;
-    if (this.dtype.equals(FLOAT64.dtype))
-      return dev.zarr.zarrjava.v3.DataType.FLOAT64;
-    throw new ZarrException("Unknown DataTypeV2: " + this.dtype);
   }
 
   @JsonValue

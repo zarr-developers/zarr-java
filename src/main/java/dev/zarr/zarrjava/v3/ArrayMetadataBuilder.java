@@ -10,7 +10,7 @@ import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Endian;
+import dev.zarr.zarrjava.core.codec.core.BytesCodec.Endian;
 
 import java.util.HashMap;
 import java.util.Map;
