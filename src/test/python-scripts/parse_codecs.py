@@ -6,7 +6,6 @@ from zarr.codecs.gzip import GzipCodec
 from zarr.codecs.sharding import ShardingCodec, ShardingCodecIndexLocation
 from zarr.codecs.transpose import TransposeCodec
 from zarr.codecs.zstd import ZstdCodec
-import zarrita
 import numcodecs
 
 def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version: int = 3):
@@ -52,32 +51,3 @@ def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version:
         raise ValueError(f"Invalid codec: {codec_string}, zarr_version: {zarr_version}")
 
     return compressor, serializer, filters
-
-def parse_codecs_zarrita(codec_string: str, param_string: str):
-    codec = []
-    if codec_string == "blosc":
-        cname, shuffle, clevel = param_string.split("_")
-        codec = [zarrita.codecs.bytes_codec(),
-                 zarrita.codecs.blosc_codec(typesize=4, cname=cname, shuffle=shuffle, clevel=int(clevel))]
-    elif codec_string == "gzip":
-        codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.gzip_codec(level=int(param_string))]
-    elif codec_string == "zstd":
-        level, checksum = param_string.split("_")
-        codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.zstd_codec(checksum=checksum == 'true', level=int(level))]
-    elif codec_string == "bytes":
-        codec = [zarrita.codecs.bytes_codec(endian=param_string.lower())]
-    elif codec_string == "transpose":
-        codec = [zarrita.codecs.transpose_codec((1, 0, 2)), zarrita.codecs.bytes_codec()]
-    elif codec_string == "sharding":
-        codec = zarrita.codecs.sharding_codec(chunk_shape=(2, 2, 4), codecs=[zarrita.codecs.bytes_codec("little")],
-                                              index_location=zarrita.metadata.ShardingCodecIndexLocation.start if param_string == "start"
-                                              else zarrita.metadata.ShardingCodecIndexLocation.end),
-    elif codec_string == "sharding_nested":
-        codec = zarrita.codecs.sharding_codec(chunk_shape=(2, 2, 4),
-                                              codecs=[zarrita.codecs.sharding_codec(chunk_shape=(2, 1, 2), codecs=[
-                                                  zarrita.codecs.bytes_codec("little")])]),
-    elif codec_string == "crc32c":
-        codec = [zarrita.codecs.bytes_codec(), zarrita.codecs.crc32c_codec()]
-    else:
-        raise ValueError(f"Invalid codec: {codec_string}")
-    return codec
