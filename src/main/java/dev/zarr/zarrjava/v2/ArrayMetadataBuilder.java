@@ -1,11 +1,11 @@
 package dev.zarr.zarrjava.v2;
 
+import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.v2.codec.CodecBuilder;
-
-import java.util.function.Function;
+import dev.zarr.zarrjava.v2.codec.core.BloscCodec;
+import dev.zarr.zarrjava.v2.codec.core.ZlibCodec;
 
 public class ArrayMetadataBuilder {
   long[] shape = null;
@@ -64,38 +64,59 @@ public class ArrayMetadataBuilder {
     return this;
   }
 
-  public ArrayMetadataBuilder withFilters(Codec... filters) {
-    this.filters = filters;
-    return this;
-  }
-
-  public ArrayMetadataBuilder withFilters(Function<CodecBuilder, CodecBuilder> codecBuilder) throws ZarrException {
-    if (dataType == null) {
-      throw new IllegalStateException("Please call `withDataType` first.");
-    }
-    CodecBuilder nestedCodecBuilder = new CodecBuilder(dataType);
-    this.filters = codecBuilder.apply(nestedCodecBuilder)
-        .build();
-    return this;
-  }
-
   public ArrayMetadataBuilder withCompressor(Codec compressor) {
     this.compressor = compressor;
     return this;
   }
 
-  public ArrayMetadataBuilder withBloscCompressor(String cname,  String shuffle, int clevel) {
-      this.compressor = new CodecBuilder(dataType)
-          .withBlosc(cname, shuffle, clevel)
-          .build()[0];
-      return this;
+  public ArrayMetadataBuilder withBloscCompressor(
+      Blosc.Compressor cname, Blosc.Shuffle shuffle, int clevel, int typeSize,
+      int blockSize
+  ) {
+    try {
+      this.compressor = new BloscCodec(cname, shuffle, clevel, typeSize, blockSize);
+    } catch (ZarrException e) {
+      throw new RuntimeException(e);
+    }
+    return this;
+  }
+
+  public ArrayMetadataBuilder withBloscCompressor(String cname, String shuffle, int clevel, int blockSize) {
+    if (shuffle.equals("shuffle")) {
+      shuffle = "byteshuffle";
+    }
+    return withBloscCompressor(Blosc.Compressor.fromString(cname), Blosc.Shuffle.fromString(shuffle), clevel,
+        dataType.getByteCount(), blockSize
+    );
+  }
+
+  public ArrayMetadataBuilder withBloscCompressor(String cname, String shuffle, int clevel) {
+    return withBloscCompressor(cname, shuffle, clevel, 0);
+  }
+
+  public ArrayMetadataBuilder withBloscCompressor(String cname, int clevel) {
+    return withBloscCompressor(cname, "noshuffle", clevel);
+  }
+
+  public ArrayMetadataBuilder withBloscCompressor(String cname) {
+    return withBloscCompressor(cname, 5);
+  }
+
+  public ArrayMetadataBuilder withBloscCompressor() {
+    return withBloscCompressor("zstd");
   }
 
   public ArrayMetadataBuilder withZlibCompressor(int level) {
-      this.compressor = new CodecBuilder(dataType)
-          .withZlib(level)
-          .build()[0];
-      return this;
+    try {
+      this.compressor = new ZlibCodec(level);
+    } catch (ZarrException e) {
+      throw new RuntimeException(e);
+    }
+    return this;
+  }
+
+  public ArrayMetadataBuilder withZlibCompressor() {
+    return withZlibCompressor(5);
   }
 
   public ArrayMetadata build() throws ZarrException {

@@ -17,6 +17,10 @@ import java.util.stream.Stream;
 public interface Array {
 
     ArrayMetadata metadata();
+    
+    StoreHandle storeHandle();
+
+    CodecPipeline codecPipeline();
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
@@ -202,11 +206,6 @@ public interface Array {
         }
         return true;
     }
-
-
-    StoreHandle storeHandle();
-
-    CodecPipeline codecPipeline();
 
     /**
      * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
