@@ -5,8 +5,7 @@ import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.luben.zstd.Zstd;
-import com.github.luben.zstd.ZstdCompressCtx;
+import dev.zarr.zarrjava.core.Node;
 import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
@@ -53,40 +52,7 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    @CsvSource({"0,true", "0,false", "5, true", "10, false"})
-    @ParameterizedTest
-    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException {
-        //compress using ZstdCompressCtx
-        int number = 123456;
-        byte[] src = ByteBuffer.allocate(4).putInt(number).array();
-        byte[] compressed;
-        try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
-            ctx.setLevel(clevel);
-            ctx.setChecksum(checksumFlag);
-            compressed = ctx.compress(src);
-        }
-        //decompress with Zstd.decompress
-        long originalSize = Zstd.decompressedSize(compressed);
-        byte[] decompressed = Zstd.decompress(compressed, (int) originalSize);
-        Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
 
-        //write compressed to file
-        String compressedDataPath = TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
-        try (FileOutputStream fos = new FileOutputStream(compressedDataPath)) {
-            fos.write(compressed);
-        }
-
-        //decompress in python
-        Process process = new ProcessBuilder(
-            "uv",
-            "run",
-            PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
-            compressedDataPath,
-            Integer.toString(number)
-        ).start();
-        int exitCode = process.waitFor();
-        assert exitCode == 0;
-    }
 
 
     static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder() {
@@ -594,7 +560,7 @@ public class ZarrTest {
                 .withChunks(4, 5)
                 .build()
         );
-        Assertions.assertNull(array.metadata().fillValue);
+        Assertions.assertNull(array.metadata.fillValue);
 
         ucar.ma2.Array outArray = array.read(new long[]{0, 0}, new int[]{1, 1});
         if (dataType == dev.zarr.zarrjava.v2.DataType.BOOL) {
@@ -606,6 +572,6 @@ public class ZarrTest {
         dev.zarr.zarrjava.v2.Array array2 = dev.zarr.zarrjava.v2.Array.open(
             storeHandle
         );
-        Assertions.assertNull(array2.metadata().fillValue);
+        Assertions.assertNull(array2.metadata.fillValue);
     }
 }

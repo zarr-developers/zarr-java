@@ -17,15 +17,17 @@ import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class Array implements dev.zarr.zarrjava.core.Array {
+public class Array extends dev.zarr.zarrjava.core.Array {
 
   static final String ZARRAY = ".zarray";
   public ArrayMetadata metadata;
-  public StoreHandle storeHandle;
-  CodecPipeline codecPipeline;
+
+  protected ArrayMetadata metadata() {
+      return metadata;
+  }
 
   protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata) throws IOException, ZarrException {
-    this.storeHandle = storeHandle;
+    super(storeHandle);
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(Utils.concatArrays(
         new Codec[]{},
@@ -127,20 +129,4 @@ public class Array implements dev.zarr.zarrjava.core.Array {
         metadata.dataType
     );
   }
-
-  @Override
-  public ArrayMetadata metadata() {
-    return metadata;
-  }
-
-  @Override
-  public StoreHandle storeHandle() {
-    return storeHandle;
-  }
-
-  @Override
-  public CodecPipeline codecPipeline() {
-    return codecPipeline;
-  }
-
 }

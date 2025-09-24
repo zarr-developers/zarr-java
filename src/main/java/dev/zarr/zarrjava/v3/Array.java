@@ -14,13 +14,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-public class Array extends Node implements dev.zarr.zarrjava.core.Array {
+public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
   public ArrayMetadata metadata;
-  CodecPipeline codecPipeline;
 
-  protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
-      throws ZarrException {
+  protected ArrayMetadata metadata(){
+    return metadata;
+  }
+
+  protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata) throws ZarrException {
     super(storeHandle);
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(arrayMetadata.codecs, arrayMetadata.coreArrayMetadata);
@@ -112,21 +114,6 @@ public class Array extends Node implements dev.zarr.zarrjava.core.Array {
   public static ArrayMetadataBuilder metadataBuilder(ArrayMetadata existingMetadata) {
     return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
   }
-
-  @Override
-  public CodecPipeline codecPipeline() {
-    return codecPipeline;
-  }
-
-
-
-
-  @Override
-  public ArrayMetadata metadata() {
-    return metadata;
-  }
-
-
 
   private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
     ObjectMapper objectMapper = makeObjectMapper();

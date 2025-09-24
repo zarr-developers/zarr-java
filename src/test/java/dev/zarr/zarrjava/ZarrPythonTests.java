@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava;
 
+import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Array;
@@ -11,10 +13,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -66,7 +66,7 @@ public class ZarrPythonTests {
                 //setup uv
                 assert runCommand("uv", "venv") == 0;
                 assert runCommand("uv", "init") == 0;
-                assert runCommand("uv", "add", "zarr") == 0;
+                assert runCommand("uv", "add", "zarr", "zstandard") == 0;
             }
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("uv not installed or not in PATH. See");
@@ -260,5 +260,39 @@ public class ZarrPythonTests {
 
         //read in zarr_python
         run_python_script("zarr_python_read_v2.py", compressor, compressorParam, storeHandle.toPath().toString());
+    }
+
+    @CsvSource({"0,true", "0,false", "5, true", "10, false"})
+    @ParameterizedTest
+    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException {
+        //compress using ZstdCompressCtx
+        int number = 123456;
+        byte[] src = ByteBuffer.allocate(4).putInt(number).array();
+        byte[] compressed;
+        try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
+            ctx.setLevel(clevel);
+            ctx.setChecksum(checksumFlag);
+            compressed = ctx.compress(src);
+        }
+        //decompress with Zstd.decompress
+        long originalSize = Zstd.decompressedSize(compressed);
+        byte[] decompressed = Zstd.decompress(compressed, (int) originalSize);
+        Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
+
+        //write compressed to file
+        String compressedDataPath = TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
+        try (FileOutputStream fos = new FileOutputStream(compressedDataPath)) {
+            fos.write(compressed);
+        }
+
+        //decompress in python
+        int exitCode = ZarrPythonTests.runCommand(
+            "uv",
+            "run",
+            PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
+            compressedDataPath,
+            Integer.toString(number)
+        );
+        assert exitCode == 0;
     }
 }

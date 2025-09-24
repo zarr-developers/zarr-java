@@ -36,11 +36,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Set up zarr-python
-        run: |
-          uv venv && uv init
-          uv add zarr
-
       - name: Download testdata
         run: |
           mkdir testoutput
