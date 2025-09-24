@@ -39,12 +39,9 @@ public class ZarrPythonTests {
         Files.createDirectory(TESTOUTPUT);
     }
 
-    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
+    public static int runCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder();
-        pb.command().add("uv");
-        pb.command().add("run");
-        pb.command().add(PYTHON_TEST_PATH.resolve(scriptName).toString());
-        pb.command().addAll(Arrays.asList(args));
+        pb.command().addAll(Arrays.asList(command));
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -58,7 +55,27 @@ public class ZarrPythonTests {
             System.err.println(line);
         }
 
-        int exitCode = process.waitFor();
+        return process.waitFor();
+    }
+
+    @BeforeAll
+    public static void setupUV() {
+        try {
+            int exitCode = runCommand("uv", "version");
+            if (exitCode != 0) {
+                //setup uv
+                assert runCommand("uv", "venv") == 0;
+                assert runCommand("uv", "init") == 0;
+                assert runCommand("uv", "add", "zarr") == 0;
+            }
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException("uv not installed or not in PATH. See");
+        }
+    }
+
+    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
+        int exitCode = runCommand(Stream.concat(Stream.of("uv", "run", PYTHON_TEST_PATH.resolve(scriptName)
+            .toString()), Arrays.stream(args)).toArray(String[]::new));
         assert exitCode == 0;
     }
 
