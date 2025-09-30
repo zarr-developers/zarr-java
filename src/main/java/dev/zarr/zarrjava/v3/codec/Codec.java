@@ -8,4 +8,3 @@ import dev.zarr.zarrjava.v3.ArrayMetadata;
 public interface Codec extends dev.zarr.zarrjava.core.codec.Codec {
     long computeEncodedSize(long inputByteLength, ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException;
 }
-

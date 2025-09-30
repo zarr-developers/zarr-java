@@ -43,29 +43,13 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   }
 
   @Nullable
-  public dev.zarr.zarrjava.core.Node get(String key) throws ZarrException {
+  public Node get(String key) throws ZarrException {
     StoreHandle keyHandle = storeHandle.resolve(key);
-    ObjectMapper objectMapper = makeObjectMapper();
-    boolean isGroup = keyHandle.resolve(ZGROUP).exists();
-    boolean isArray = keyHandle.resolve(ZARRAY).exists();
-    if (isGroup && isArray) {
-      throw new ZarrException("Key '" + key + "' contains both a .zgroup and a .zarray file.");
-    } else if (isGroup) {
-      try {
-        return new Group(keyHandle, objectMapper.readValue(
-            Utils.toArray(keyHandle.resolve(ZGROUP).readNonNull()), GroupMetadata.class));
-      } catch (IOException e) {
+    try {
+      return Node.open(keyHandle);
+    } catch (IOException e) {
         return null;
-      }
-    } else if (isArray) {
-      try {
-        return new dev.zarr.zarrjava.v2.Array(keyHandle, objectMapper.readValue(
-            Utils.toArray(keyHandle.resolve(ZARRAY).readNonNull()), ArrayMetadata.class));
-      } catch (IOException e) {
-        throw new ZarrException("Failed to read array metadata for key '" + key + "'.", e);
-      }
     }
-    return null;
   }
 
   public Group createGroup(String key, GroupMetadata groupMetadata)

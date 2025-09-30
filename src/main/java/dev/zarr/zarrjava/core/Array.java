@@ -10,11 +10,12 @@ import ucar.ma2.InvalidRangeException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
-public abstract class Array extends Node {
+public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
     protected abstract ArrayMetadata metadata();
@@ -22,6 +23,28 @@ public abstract class Array extends Node {
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);
     }
+
+    /**
+     * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param storeHandle the storage location of the Zarr array
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(StoreHandle storeHandle) throws IOException, ZarrException {
+        boolean isV3 = storeHandle.resolve(ZARR_JSON).exists();
+        boolean isV2 = storeHandle.resolve(ZARRAY).exists();
+        if (isV3 && isV2) {
+            throw new ZarrException("Both Zarr v2 and v3 arrays found at the specified location.");
+        } else if (isV3) {
+            return dev.zarr.zarrjava.v3.Array.open(storeHandle);
+        } else if (isV2) {
+            return dev.zarr.zarrjava.v2.Array.open(storeHandle);
+        } else {
+            throw new ZarrException("No Zarr array found at the specified location.");
+        }
+    }
+
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array

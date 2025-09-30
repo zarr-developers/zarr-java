@@ -51,29 +51,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   @Nullable
-  public dev.zarr.zarrjava.core.Node get(String key) throws ZarrException {
+  public Node get(String key) throws ZarrException {
     StoreHandle keyHandle = storeHandle.resolve(key);
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = keyHandle.resolve(ZARR_JSON)
-        .read();
-    if (metadataBytes == null) {
-      return null;
-    }
-    byte[] metadataBytearray = Utils.toArray(metadataBytes);
     try {
-      String nodeType = objectMapper.readTree(metadataBytearray)
-          .get("node_type")
-          .asText();
-      switch (nodeType) {
-        case ArrayMetadata.NODE_TYPE:
-          return new Array(keyHandle,
-              objectMapper.readValue(metadataBytearray, ArrayMetadata.class));
-        case GroupMetadata.NODE_TYPE:
-          return new Group(keyHandle,
-              objectMapper.readValue(metadataBytearray, GroupMetadata.class));
-        default:
-          throw new ZarrException("Unsupported node_type '" + nodeType + "' in " + keyHandle);
-      }
+      return Node.open(keyHandle);
     } catch (IOException e) {
       return null;
     }

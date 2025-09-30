@@ -23,6 +23,7 @@ import ucar.ma2.MAMath;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -40,7 +41,6 @@ public class ZarrTest {
 
     final static Path TESTDATA = Paths.get("testdata");
     final static Path TESTOUTPUT = Paths.get("testoutput");
-    final static Path PYTHON_TEST_PATH = Paths.get("src/test/python-scripts/");
 
     @BeforeAll
     public static void clearTestoutputFolder() throws IOException {
@@ -589,5 +589,65 @@ public class ZarrTest {
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
         Assertions.assertArrayEquals(((dev.zarr.zarrjava.v2.Array) ((dev.zarr.zarrjava.v2.Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunks, new int[]{5, 5});
+    }
+
+    @Test
+    public void testGenericOpenV3() throws ZarrException, IOException {
+        StoreHandle arrayHandle = new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1");
+        StoreHandle groupHandle = new FilesystemStore(TESTDATA).resolve("l4_sample");
+        StoreHandle v2Handle = new FilesystemStore(TESTDATA).resolve("v2_sample");
+
+        Array array = (Array) Node.open(arrayHandle);
+        Assertions.assertEquals(4, (array).metadata.shape.length);
+
+        array = (Array) dev.zarr.zarrjava.core.Array.open(arrayHandle);
+        Assertions.assertEquals(4, (array).metadata.shape.length);
+
+        array = (Array) dev.zarr.zarrjava.v3.Node.open(arrayHandle);
+        Assertions.assertEquals(4, (array).metadata.shape.length);
+
+        Group group = (Group) Node.open(groupHandle);
+        Assertions.assertInstanceOf(Group.class, group.get("color"));
+
+        group = (Group) dev.zarr.zarrjava.core.Group.open(groupHandle);
+        Assertions.assertInstanceOf(Group.class, group.get("color"));
+
+        group = (Group) dev.zarr.zarrjava.v3.Node.open(groupHandle);
+        Assertions.assertInstanceOf(Group.class, group.get("color"));
+
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing")));
+        Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Node.open(v2Handle));
+        Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Group.open(v2Handle));
+        Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Array.open(v2Handle));
+    }
+
+    @Test
+    public void testGenericOpenV2() throws ZarrException, IOException {
+        StoreHandle arrayHandle = new FilesystemStore(TESTDATA).resolve("v2_sample", "subgroup", "array");
+        StoreHandle groupHandle = new FilesystemStore(TESTDATA).resolve("v2_sample");
+        StoreHandle v3Handle = new FilesystemStore(TESTDATA).resolve("l4_sample");
+
+        dev.zarr.zarrjava.v2.Array array = (dev.zarr.zarrjava.v2.Array) Node.open(arrayHandle);
+        Assertions.assertEquals(3, (array).metadata.shape.length);
+
+        array = (dev.zarr.zarrjava.v2.Array) dev.zarr.zarrjava.core.Array.open(arrayHandle);
+        Assertions.assertEquals(3, (array).metadata.shape.length);
+
+        array = (dev.zarr.zarrjava.v2.Array) dev.zarr.zarrjava.v2.Node.open(arrayHandle);
+        Assertions.assertEquals(3, (array).metadata.shape.length);
+
+        dev.zarr.zarrjava.v2.Group group = (dev.zarr.zarrjava.v2.Group) Node.open(groupHandle);
+        Assertions.assertInstanceOf(dev.zarr.zarrjava.v2.Group.class, group.get("subgroup"));
+
+        group = (dev.zarr.zarrjava.v2.Group) dev.zarr.zarrjava.core.Group.open(groupHandle);
+        Assertions.assertInstanceOf(dev.zarr.zarrjava.v2.Group.class, group.get("subgroup"));
+
+        group = (dev.zarr.zarrjava.v2.Group) dev.zarr.zarrjava.v2.Node.open(groupHandle);
+        Assertions.assertInstanceOf(dev.zarr.zarrjava.v2.Group.class, group.get("subgroup"));
+
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing")));
+        Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Node.open(v3Handle));
+        Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Group.open(v3Handle));
+        Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Array.open(v3Handle));
     }
 }
