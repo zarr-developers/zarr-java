@@ -4,15 +4,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.utils.MultiArrayUtils;
-import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
+import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -20,7 +18,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 
-public final class ArrayMetadata {
+public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
 
   static final String NODE_TYPE = "array";
   static final int ZARR_FORMAT = 3;
@@ -142,120 +140,19 @@ public final class ArrayMetadata {
         );
   }
 
-  public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType)
-      throws ZarrException {
-    if (fillValue instanceof Boolean) {
-      Boolean fillValueBool = (Boolean) fillValue;
-      if (dataType == DataType.BOOL) {
-        return fillValueBool;
-      }
-    }
-    if (fillValue instanceof Number) {
-      Number fillValueNumber = (Number) fillValue;
-      switch (dataType) {
-        case BOOL:
-          return fillValueNumber.byteValue() != 0;
-        case INT8:
-        case UINT8:
-          return fillValueNumber.byteValue();
-        case INT16:
-        case UINT16:
-          return fillValueNumber.shortValue();
-        case INT32:
-        case UINT32:
-          return fillValueNumber.intValue();
-        case INT64:
-        case UINT64:
-          return fillValueNumber.longValue();
-        case FLOAT32:
-          return fillValueNumber.floatValue();
-        case FLOAT64:
-          return fillValueNumber.doubleValue();
-        default:
-          // Fallback to throwing below
-      }
-    } else if (fillValue instanceof String) {
-      String fillValueString = (String) fillValue;
-      if (fillValueString.equals("NaN")) {
-        switch (dataType) {
-          case FLOAT32:
-            return Float.NaN;
-          case FLOAT64:
-            return Double.NaN;
-          default:
-            throw new ZarrException(
-                "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
-        }
-      } else if (fillValueString.equals("+Infinity")) {
-        switch (dataType) {
-          case FLOAT32:
-            return Float.POSITIVE_INFINITY;
-          case FLOAT64:
-            return Double.POSITIVE_INFINITY;
-          default:
-            throw new ZarrException(
-                "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
-        }
-      } else if (fillValueString.equals("-Infinity")) {
-        switch (dataType) {
-          case FLOAT32:
-            return Float.NEGATIVE_INFINITY;
-          case FLOAT64:
-            return Double.NEGATIVE_INFINITY;
-          default:
-            throw new ZarrException(
-                "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
-        }
-      } else if (fillValueString.startsWith("0b") || fillValueString.startsWith("0x")) {
-        ByteBuffer buf = null;
-        if (fillValueString.startsWith("0b")) {
-          buf = Utils.makeByteBuffer(dataType.getByteCount(), b -> {
-            for (int i = 0; i < dataType.getByteCount(); i++) {
-              b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 8, 2 + (i + 1) * 8),
-                  2));
-            }
-            return b;
-          });
-        } else if (fillValueString.startsWith("0x")) {
-          buf = Utils.makeByteBuffer(dataType.getByteCount(), b -> {
-            for (int i = 0; i < dataType.getByteCount(); i++) {
-              b.put((byte) Integer.parseInt(fillValueString.substring(2 + i * 2, 2 + (i + 1) * 2),
-                  16));
-            }
-            return b;
-          });
-        }
-        if (buf != null) {
-          switch (dataType) {
-            case BOOL:
-              return buf.get() != 0;
-            case INT8:
-            case UINT8:
-              return buf.get();
-            case INT16:
-            case UINT16:
-              return buf.getShort();
-            case INT32:
-            case UINT32:
-              return buf.getInt();
-            case INT64:
-            case UINT64:
-              return buf.getLong();
-            case FLOAT32:
-              return buf.getFloat();
-            case FLOAT64:
-              return buf.getDouble();
-            default:
-              // Fallback to throwing below
-          }
-        }
-      }
-    }
-    throw new ZarrException("Invalid fill value '" + fillValue + "'.");
-  }
 
   public ucar.ma2.Array allocateFillValueChunk() {
     return coreArrayMetadata.allocateFillValueChunk();
+  }
+
+  @Override
+  public ChunkKeyEncoding chunkKeyEncoding() {
+    return chunkKeyEncoding;
+  }
+
+  @Override
+  public Object parsedFillValue() {
+    return parsedFillValue;
   }
 
   public int ndim() {
@@ -270,6 +167,16 @@ public final class ArrayMetadata {
     return ((RegularChunkGrid) this.chunkGrid).configuration.chunkShape;
   }
 
+  @Override
+  public long[] shape() {
+    return shape;
+  }
+
+  @Override
+  public DataType dataType() {
+    return dataType;
+  }
+
   public int chunkSize() {
     return coreArrayMetadata.chunkSize();
   }
@@ -278,39 +185,5 @@ public final class ArrayMetadata {
     return coreArrayMetadata.chunkByteLength();
   }
 
-  public static final class CoreArrayMetadata {
-
-    public final long[] shape;
-    public final int[] chunkShape;
-    public final DataType dataType;
-    public final Object parsedFillValue;
-
-    public CoreArrayMetadata(long[] shape, int[] chunkShape, DataType dataType,
-        Object parsedFillValue) {
-      this.shape = shape;
-      this.chunkShape = chunkShape;
-      this.dataType = dataType;
-      this.parsedFillValue = parsedFillValue;
-    }
-
-    public int ndim() {
-      return shape.length;
-    }
-
-    public int chunkSize() {
-      return Arrays.stream(chunkShape)
-          .reduce(1, (acc, a) -> acc * a);
-    }
-
-    public int chunkByteLength() {
-      return this.dataType.getByteCount() * chunkSize();
-    }
-
-    public ucar.ma2.Array allocateFillValueChunk() {
-      ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunkShape);
-      MultiArrayUtils.fill(outputArray, parsedFillValue);
-      return outputArray;
-    }
-  }
 
 }

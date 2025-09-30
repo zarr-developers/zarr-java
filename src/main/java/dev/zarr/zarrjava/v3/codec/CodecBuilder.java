@@ -2,28 +2,24 @@ package dev.zarr.zarrjava.v3.codec;
 
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.codec.ArrayArrayCodec;
+import dev.zarr.zarrjava.core.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.v3.DataType;
-import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
+import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Endian;
-import dev.zarr.zarrjava.v3.codec.core.Crc32cCodec;
-import dev.zarr.zarrjava.v3.codec.core.GzipCodec;
-import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
-import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
-import dev.zarr.zarrjava.v3.codec.core.ZstdCodec;
+import dev.zarr.zarrjava.core.codec.core.BytesCodec.Endian;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 
-public class CodecBuilder {
+public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
 
-  final private DataType dataType;
-  private List<Codec> codecs;
-
+  protected List<Codec> codecs;
   public CodecBuilder(DataType dataType) {
-    this.dataType = dataType;
+    super(dataType);
     this.codecs = new ArrayList<>();
   }
 
@@ -129,7 +125,7 @@ public class CodecBuilder {
 
   public CodecBuilder withSharding(int[] chunkShape,
                                    Function<CodecBuilder, CodecBuilder> codecBuilder, String indexLocation) {
-    CodecBuilder nestedBuilder = new CodecBuilder(dataType);
+    CodecBuilder nestedBuilder = new CodecBuilder((DataType) dataType);
     try {
       codecs.add(new ShardingIndexedCodec(
               new ShardingIndexedCodec.Configuration(chunkShape,
@@ -161,7 +157,6 @@ public class CodecBuilder {
 
   public Codec[] build() {
     autoInsertBytesCodec();
-
     return codecs.toArray(new Codec[0]);
   }
 }

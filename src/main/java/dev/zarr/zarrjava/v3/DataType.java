@@ -2,7 +2,7 @@ package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum DataType {
+public enum DataType implements dev.zarr.zarrjava.core.DataType {
   BOOL("bool", 1),
   INT8("int8", 1),
   INT16("int16", 2),

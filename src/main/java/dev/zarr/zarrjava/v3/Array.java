@@ -3,10 +3,8 @@ package dev.zarr.zarrjava.v3;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.utils.IndexingUtils;
-import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.v3.codec.CodecPipeline;
+import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -14,18 +12,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import ucar.ma2.InvalidRangeException;
 
-public class Array extends Node {
+public class Array extends Node implements dev.zarr.zarrjava.core.Array {
 
   public ArrayMetadata metadata;
   CodecPipeline codecPipeline;
 
   protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
-      throws IOException, ZarrException {
+      throws ZarrException {
     super(storeHandle);
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(arrayMetadata.codecs, arrayMetadata.coreArrayMetadata);
@@ -34,9 +29,9 @@ public class Array extends Node {
   /**
    * Opens an existing Zarr array at a specified storage location.
    *
-   * @param storeHandle
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @throws IOException throws IOException if the metadata cannot be read
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
    */
   public static Array open(StoreHandle storeHandle) throws IOException, ZarrException {
     return new Array(
@@ -54,10 +49,10 @@ public class Array extends Node {
    * method will raise an exception if a Zarr array already exists at the specified storage
    * location.
    *
-   * @param storeHandle
-   * @param arrayMetadata
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
    */
   public static Array create(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
       throws IOException, ZarrException {
@@ -69,11 +64,11 @@ public class Array extends Node {
    * `existsOk` is false, this method will raise an exception if a Zarr array already exists at the
    * specified storage location.
    *
-   * @param storeHandle
-   * @param arrayMetadata
-   * @param existsOk
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @param existsOk if true, no exception is raised if the Zarr array already exists
+   * @throws IOException throws IOException if the metadata cannot be serialized
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be created
    */
   public static Array create(StoreHandle storeHandle, ArrayMetadata arrayMetadata, boolean existsOk)
       throws IOException, ZarrException {
@@ -95,11 +90,11 @@ public class Array extends Node {
    * be used to construct the metadata of the Zarr array. If `existsOk` is false, this method will
    * raise an exception if a Zarr array already exists at the specified storage location.
    *
-   * @param storeHandle
-   * @param arrayMetadataBuilderMapper
-   * @param existsOk
-   * @throws IOException
-   * @throws ZarrException
+   * @param storeHandle the storage location of the Zarr array
+   * @param arrayMetadataBuilderMapper a callback that is used to construct the metadata of the Zarr array
+   * @param existsOk if true, no exception is raised if the Zarr array already exists
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
    */
   public static Array create(StoreHandle storeHandle,
       Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper,
@@ -118,261 +113,20 @@ public class Array extends Node {
     return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
   }
 
-  /**
-   * Reads the entire Zarr array into an ucar.ma2.Array.
-   * Utilizes no parallelism.
-   *
-   * @throws ZarrException
-   */
-  @Nonnull
-  public ucar.ma2.Array read() throws ZarrException {
-    return read(new long[metadata.ndim()], Utils.toIntArray(metadata.shape));
-  }
-
-  /**
-   * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
-   * Utilizes no parallelism.
-   *
-   * @param offset
-   * @param shape
-   * @throws ZarrException
-   */
-  @Nonnull
-  public ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
-    return read(offset, shape, false);
-  }
-
-  /**
-   * Reads the entire Zarr array into an ucar.ma2.Array.
-   *
-   * @param parallel
-   * @throws ZarrException
-   */
-  @Nonnull
-  public ucar.ma2.Array read(final boolean parallel) throws ZarrException {
-    return read(new long[metadata.ndim()], Utils.toIntArray(metadata.shape), parallel);
-  }
-
-  /**
-   * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
-   *
-   * @param offset
-   * @param shape
-   * @param parallel
-   * @throws ZarrException
-   */
-  @Nonnull
-  public ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {
-    if (offset.length != metadata.ndim()) {
-      throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
-    }
-    if (shape.length != metadata.ndim()) {
-      throw new IllegalArgumentException("'shape' needs to have rank '" + metadata.ndim() + "'.");
-    }
-    for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
-      if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape[dimIdx]) {
-        throw new ZarrException("Requested data is outside of the array's domain.");
-      }
-    }
-
-    final int[] chunkShape = metadata.chunkShape();
-    if (IndexingUtils.isSingleFullChunk(offset, shape, chunkShape)) {
-      return readChunk(IndexingUtils.computeSingleChunkCoords(offset, chunkShape));
-    }
-
-    final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType.getMA2DataType(),
-        shape);
-    Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
-    if (parallel) {
-      chunkStream = chunkStream.parallel();
-    }
-    chunkStream.forEach(
-    chunkCoords -> {
-      try {
-        final IndexingUtils.ChunkProjection chunkProjection =
-            IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                shape
-            );
-
-        if (chunkIsInArray(chunkCoords)) {
-          MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
-              chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
-              chunkProjection.shape
-          );
-        }
-
-        final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
-        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-        if (!chunkHandle.exists()) {
-          return;
-        }
-        if (codecPipeline.supportsPartialDecode()) {
-          final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
-              Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
-          MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
-              chunkProjection.outOffset, chunkProjection.shape
-          );
-        } else {
-          MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
-              outputArray, chunkProjection.outOffset, chunkProjection.shape
-          );
-        }
-
-      } catch (ZarrException e) {
-        throw new RuntimeException(e);
-      }
-    });
-    return outputArray;
-  }
-
-  boolean chunkIsInArray(long[] chunkCoords) {
-    final int[] chunkShape = metadata.chunkShape();
-    for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
-      if (chunkCoords[dimIdx] < 0
-          || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata.shape[dimIdx]) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Reads one chunk of the Zarr array as specified by the chunk coordinates into an
-   * ucar.ma2.Array.
-   *
-   * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
-   *                    by the chunk shape.
-   * @throws ZarrException
-   */
-  @Nonnull
-  public ucar.ma2.Array readChunk(long[] chunkCoords)
-      throws ZarrException {
-    if (!chunkIsInArray(chunkCoords)) {
-      throw new ZarrException("Attempting to read data outside of the array's domain.");
-    }
-
-    final String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
-    final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-
-    ByteBuffer chunkBytes = chunkHandle.read();
-    if (chunkBytes == null) {
-      return metadata.allocateFillValueChunk();
-    }
-
-    return codecPipeline.decode(chunkBytes);
-  }
-
-  /**
-   * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
-   * the Zarr array needs be large enough for the write.
-   * Utilizes no parallelism.
-   *
-   * @param array
-   */
-  public void write(ucar.ma2.Array array) {
-    write(new long[metadata.ndim()], array);
-  }
-
-  /**
-   * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
-   * needs be large enough for the write.
-   * Utilizes no parallelism.
-   *
-   * @param offset
-   * @param array
-   */
-  public void write(long[] offset, ucar.ma2.Array array) {
-    write(offset, array, false);
-  }
-
-  /**
-   * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
-   * the Zarr array needs be large enough for the write.
-   *
-   * @param array
-   * @param parallel
-   */
-  public void write(ucar.ma2.Array array, boolean parallel) {
-    write(new long[metadata.ndim()], array, parallel);
+  @Override
+  public CodecPipeline codecPipeline() {
+    return codecPipeline;
   }
 
 
 
-  /**
-   * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
-   * needs be large enough for the write.
-   *
-   * @param offset
-   * @param array
-   * @param parallel
-   */
-  public void write(long[] offset, ucar.ma2.Array array, boolean parallel) {
-    if (offset.length != metadata.ndim()) {
-      throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
-    }
-    if (array.getRank() != metadata.ndim()) {
-      throw new IllegalArgumentException("'array' needs to have rank '" + metadata.ndim() + "'.");
-    }
 
-    int[] shape = array.getShape();
-
-    final int[] chunkShape = metadata.chunkShape();
-    Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
-    if(parallel) {
-      chunkStream = chunkStream.parallel();
-    }
-    chunkStream.forEach(
-    chunkCoords -> {
-      try {
-        final IndexingUtils.ChunkProjection chunkProjection =
-            IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                shape
-            );
-
-        ucar.ma2.Array chunkArray;
-        if (IndexingUtils.isFullChunk(chunkProjection.chunkOffset, chunkProjection.shape,
-            chunkShape
-        )) {
-          chunkArray = array.sectionNoReduce(chunkProjection.outOffset,
-              chunkProjection.shape,
-              null
-          );
-        } else {
-          chunkArray = readChunk(chunkCoords);
-          MultiArrayUtils.copyRegion(array, chunkProjection.outOffset, chunkArray,
-              chunkProjection.chunkOffset, chunkProjection.shape
-          );
-        }
-        writeChunk(chunkCoords, chunkArray);
-      } catch (ZarrException | InvalidRangeException e) {
-        throw new RuntimeException(e);
-      }
-    });
+  @Override
+  public ArrayMetadata metadata() {
+    return metadata;
   }
 
-  /**
-   * Writes one chunk into the Zarr array as specified by the chunk coordinates. The shape of the
-   * Zarr array needs be large enough for the write.
-   *
-   * @param chunkCoords
-   * @param chunkArray
-   * @throws ZarrException
-   */
-  public void writeChunk(long[] chunkCoords, ucar.ma2.Array chunkArray) throws ZarrException {
-    String[] chunkKeys = metadata.chunkKeyEncoding.encodeChunkKey(chunkCoords);
-    StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
-    if (MultiArrayUtils.allValuesEqual(chunkArray, metadata.parsedFillValue)) {
-      chunkHandle.delete();
-    } else {
-      ByteBuffer chunkBytes = codecPipeline.encode(chunkArray);
-      chunkHandle.set(chunkBytes);
-    }
-  }
-
-  public ArrayAccessor access() {
-    return new ArrayAccessor(this);
-  }
 
   private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
     ObjectMapper objectMapper = makeObjectMapper();
@@ -387,9 +141,9 @@ public class Array extends Node {
    * deleted. This method returns a new instance of the Zarr array class and the old instance
    * becomes invalid.
    *
-   * @param newShape
-   * @throws ZarrException
-   * @throws IOException
+   * @param newShape the new shape of the Zarr array
+   * @throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array resize(long[] newShape) throws ZarrException, IOException {
     if (newShape.length != metadata.ndim()) {
@@ -407,9 +161,9 @@ public class Array extends Node {
    * Sets the attributes of the Zarr array. It overwrites and removes any existing attributes. This
    * method returns a new instance of the Zarr array class and the old instance becomes invalid.
    *
-   * @param newAttributes
-   * @throws ZarrException
-   * @throws IOException
+   * @param newAttributes the new attributes of the Zarr array
+   * @throws ZarrException throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
     ArrayMetadata newArrayMetadata =
@@ -425,9 +179,9 @@ public class Array extends Node {
    * callback may be mutated. This method overwrites and removes any existing attributes. This
    * method returns a new instance of the Zarr array class and the old instance becomes invalid.
    *
-   * @param attributeMapper
-   * @throws ZarrException
-   * @throws IOException
+   * @param attributeMapper the callback that is used to construct the new attributes
+   * @throws ZarrException throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper)
       throws ZarrException, IOException {
@@ -445,54 +199,5 @@ public class Array extends Node {
     );
   }
 
-  public static final class ArrayAccessor {
 
-    @Nullable
-    long[] offset;
-    @Nullable
-    int[] shape;
-    @Nonnull
-    Array array;
-
-    private ArrayAccessor(@Nonnull Array array) {
-      this.array = array;
-    }
-
-    @Nonnull
-    public ArrayAccessor withOffset(@Nonnull long... offset) {
-      this.offset = offset;
-      return this;
-    }
-
-
-    @Nonnull
-    public ArrayAccessor withShape(@Nonnull int... shape) {
-      this.shape = shape;
-      return this;
-    }
-
-    @Nonnull
-    public ArrayAccessor withShape(@Nonnull long... shape) {
-      this.shape = Utils.toIntArray(shape);
-      return this;
-    }
-
-    @Nonnull
-    public ucar.ma2.Array read() throws ZarrException {
-      if (offset == null) {
-        throw new ZarrException("`offset` needs to be set.");
-      }
-      if (shape == null) {
-        throw new ZarrException("`shape` needs to be set.");
-      }
-      return array.read(offset, shape);
-    }
-
-    public void write(@Nonnull ucar.ma2.Array content) throws ZarrException {
-      if (offset == null) {
-        throw new ZarrException("`offset` needs to be set.");
-      }
-      array.write(offset, content);
-    }
-  }
 }

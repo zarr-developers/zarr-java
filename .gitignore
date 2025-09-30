@@ -38,4 +38,7 @@ build/
 ### Custom ###
 /testdata/l4_sample
 /testoutput
-/venv_zarrita
+/.python-version
+/main.py
+/pyproject.toml
+/uv.lock

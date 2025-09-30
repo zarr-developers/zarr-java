@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.store;
 import dev.zarr.zarrjava.utils.Utils;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,5 +70,12 @@ public class StoreHandle {
 
   public StoreHandle resolve(String... subKeys) {
     return new StoreHandle(store, Utils.concatArrays(keys, subKeys));
+  }
+
+  public Path toPath() {
+    if (!(store instanceof FilesystemStore)) {
+      throw new UnsupportedOperationException("The underlying store is not a filesystem store.");
+    }
+    return ((FilesystemStore) store).resolveKeys(keys);
   }
 }

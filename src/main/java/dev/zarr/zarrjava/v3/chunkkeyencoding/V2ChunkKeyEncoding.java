@@ -2,6 +2,8 @@ package dev.zarr.zarrjava.v3.chunkkeyencoding;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
+
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;

@@ -5,15 +5,13 @@ import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.DefaultChunkKeyEncoding;
-import dev.zarr.zarrjava.v3.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Endian;
-import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
+import dev.zarr.zarrjava.core.codec.core.BytesCodec.Endian;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -127,6 +125,7 @@ public class ArrayMetadataBuilder {
     this.attributes = attributes;
     return this;
   }
+
   public ArrayMetadataBuilder withStorageTransformers(Map<String, Object>[] storageTransformers) {
     this.storageTransformers = storageTransformers;
     return this;
@@ -142,8 +141,6 @@ public class ArrayMetadataBuilder {
     if (chunkGrid == null) {
       throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
     }
-
-
     return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
         dimensionNames,
         attributes,

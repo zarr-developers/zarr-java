@@ -3,20 +3,19 @@ package dev.zarr.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
-import dev.zarr.zarrjava.v3.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nonnull;
 
-public class GzipCodec extends BytesBytesCodec {
+public class GzipCodec extends BytesBytesCodec implements Codec {
 
   public final String name = "gzip";
   @Nonnull
@@ -28,20 +27,14 @@ public class GzipCodec extends BytesBytesCodec {
     this.configuration = configuration;
   }
 
-  private void copy(InputStream inputStream, OutputStream outputStream) throws IOException {
-    byte[] buffer = new byte[4096];
-    int len;
-    while ((len = inputStream.read(buffer)) > 0) {
-      outputStream.write(buffer, 0, len);
-    }
-  }
+
 
   @Override
   public ByteBuffer decode(ByteBuffer chunkBytes)
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPInputStream inputStream = new GZIPInputStream(
         new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
-      copy(inputStream, outputStream);
+      Utils.copyStream(inputStream, outputStream);
       inputStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {

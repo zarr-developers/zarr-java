@@ -1,7 +1,7 @@
-package dev.zarr.zarrjava.v3.codec;
+package dev.zarr.zarrjava.v2.codec;
 
 import com.fasterxml.jackson.databind.jsontype.NamedType;
-import dev.zarr.zarrjava.v3.codec.core.*;
+import dev.zarr.zarrjava.v2.codec.core.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,13 +11,8 @@ public class CodecRegistry {
   static Map<String, Class<? extends Codec>> map = new HashMap<>();
 
   static {
-    addType("transpose", TransposeCodec.class);
-    addType("bytes", BytesCodec.class);
     addType("blosc", BloscCodec.class);
-    addType("gzip", GzipCodec.class);
-    addType("zstd", ZstdCodec.class);
-    addType("crc32c", Crc32cCodec.class);
-    addType("sharding_indexed", ShardingIndexedCodec.class);
+    addType("zlib", ZlibCodec.class);
   }
 
   public static void addType(String name, Class<? extends Codec> codecClass) {

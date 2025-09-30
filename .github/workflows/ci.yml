@@ -19,7 +19,7 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -29,14 +29,18 @@ jobs:
           cache: maven
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
-      - name: Install zarrita
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up zarr-python
         run: |
-          python -m venv venv_zarrita
-          if [ "${{ runner.os }}" = "Windows" ]; then venv_zarrita/Scripts/pip install zarrita; else venv_zarrita/bin/pip install zarrita; fi
+          uv venv && uv init
+          uv add zarr
+          uv add zarrita
 
       - name: Download testdata
         run: |
