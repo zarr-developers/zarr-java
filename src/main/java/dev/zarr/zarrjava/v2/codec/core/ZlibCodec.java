@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 
 import java.io.ByteArrayInputStream;
@@ -34,7 +33,7 @@ public class ZlibCodec extends BytesBytesCodec implements Codec {
     public ByteBuffer decode(ByteBuffer chunkBytes) throws ZarrException {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); InflaterInputStream inputStream = new InflaterInputStream(
             new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
-            copy(inputStream, outputStream);
+            Utils.copyStream(inputStream, outputStream);
             inputStream.close();
             return ByteBuffer.wrap(outputStream.toByteArray());
         } catch (IOException ex) {

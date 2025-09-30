@@ -34,7 +34,7 @@ public class GzipCodec extends BytesBytesCodec implements Codec {
       throws ZarrException {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); GZIPInputStream inputStream = new GZIPInputStream(
         new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
-      copy(inputStream, outputStream);
+      Utils.copyStream(inputStream, outputStream);
       inputStream.close();
       return ByteBuffer.wrap(outputStream.toByteArray());
     } catch (IOException ex) {
