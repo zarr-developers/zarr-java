@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 

@@ -1,11 +1,12 @@
-package dev.zarr.zarrjava.v3;
+package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import dev.zarr.zarrjava.v3.codec.CodecRegistry;
+import dev.zarr.zarrjava.v2.codec.CodecRegistry;
 
 public interface Node {
-  String ZARR_JSON = "zarr.json";
+  String ZARRAY = ".zarray";
+  String ZGROUP = ".zgroup";
 
   static ObjectMapper makeObjectMapper() {
     ObjectMapper objectMapper = new ObjectMapper();

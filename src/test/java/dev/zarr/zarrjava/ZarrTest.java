@@ -22,7 +22,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import ucar.ma2.MAMath;
 
 import java.io.*;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,6 +33,7 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
+import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrTest {
@@ -218,7 +218,7 @@ public class ZarrTest {
     @Test
     public void testFileSystemStores() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTDATA);
-        ObjectMapper objectMapper = Node.makeObjectMapper();
+        ObjectMapper objectMapper = makeObjectMapper();
 
         GroupMetadata group = objectMapper.readValue(
             Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
@@ -573,5 +573,21 @@ public class ZarrTest {
             storeHandle
         );
         Assertions.assertNull(array2.metadata.fillValue);
+    }
+
+    @Test
+    public void testV2Group() throws IOException, ZarrException {
+        FilesystemStore fsStore = new FilesystemStore(TESTOUTPUT);
+
+        dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(fsStore.resolve("v2_testgroup"));
+        dev.zarr.zarrjava.v2.Group group2 = group.createGroup("test2");
+        dev.zarr.zarrjava.v2.Array array = group2.createArray("array", b ->
+            b.withShape(10, 10)
+                .withDataType(dev.zarr.zarrjava.v2.DataType.UINT8)
+                .withChunks(5, 5)
+        );
+        array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
+
+        Assertions.assertArrayEquals(((dev.zarr.zarrjava.v2.Array) ((dev.zarr.zarrjava.v2.Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunks, new int[]{5, 5});
     }
 }

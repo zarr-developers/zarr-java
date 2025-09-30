@@ -2,25 +2,22 @@ package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.core.Node;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
-import static dev.zarr.zarrjava.v3.Node.ZARR_JSON;
 
-public class Group extends Node {
+public class Group extends dev.zarr.zarrjava.core.Group implements Node {
 
   public GroupMetadata metadata;
 
-  Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
+  protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
     super(storeHandle);
     this.metadata = groupMetadata;
   }
@@ -28,14 +25,14 @@ public class Group extends Node {
   public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
     StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
     ByteBuffer metadataBytes = metadataHandle.readNonNull();
-    return new Group(storeHandle, Node.makeObjectMapper()
+    return new Group(storeHandle, makeObjectMapper()
         .readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
   }
 
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectMapper objectMapper = Node.makeObjectMapper();
+    ObjectMapper objectMapper = makeObjectMapper();
     ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(groupMetadata));
     storeHandle.resolve(ZARR_JSON)
         .set(metadataBytes);
@@ -54,9 +51,9 @@ public class Group extends Node {
   }
 
   @Nullable
-  public Node get(String key) throws ZarrException {
+  public dev.zarr.zarrjava.core.Node get(String key) throws ZarrException {
     StoreHandle keyHandle = storeHandle.resolve(key);
-    ObjectMapper objectMapper = Node.makeObjectMapper();
+    ObjectMapper objectMapper = makeObjectMapper();
     ByteBuffer metadataBytes = keyHandle.resolve(ZARR_JSON)
         .read();
     if (metadataBytes == null) {
@@ -107,26 +104,8 @@ public class Group extends Node {
     return Array.create(storeHandle.resolve(key), arrayMetadataBuilderMapper, false);
   }
 
-  public Stream<Node> list() {
-    return storeHandle.list()
-        .map(key -> {
-          try {
-            return get(key);
-          } catch (ZarrException e) {
-            throw new RuntimeException(e);
-          }
-        })
-        .filter(Objects::nonNull);
-  }
-
-  public Node[] listAsArray() {
-    try (Stream<Node> nodeStream = list()) {
-      return nodeStream.toArray(Node[]::new);
-    }
-  }
-
   private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {
-    ObjectMapper objectMapper = Node.makeObjectMapper();
+    ObjectMapper objectMapper = makeObjectMapper();
     ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(newGroupMetadata));
     storeHandle.resolve(ZARR_JSON)
         .set(metadataBytes);

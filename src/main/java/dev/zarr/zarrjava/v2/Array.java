@@ -1,13 +1,11 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.v2.codec.CodecRegistry;
 import dev.zarr.zarrjava.v2.codec.core.BytesCodec;
 
 import javax.annotation.Nonnull;
@@ -16,10 +14,10 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 
-public class Array extends dev.zarr.zarrjava.core.Array {
+public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
-  static final String ZARRAY = ".zarray";
   public ArrayMetadata metadata;
 
   protected ArrayMetadata metadata() {
@@ -53,13 +51,6 @@ public class Array extends dev.zarr.zarrjava.core.Array {
                 ArrayMetadata.class
             )
     );
-  }
-
-  public static ObjectMapper makeObjectMapper() {
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.registerModule(new Jdk8Module());
-    objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
-    return objectMapper;
   }
 
 

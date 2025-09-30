@@ -4,12 +4,14 @@ import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
+import dev.zarr.zarrjava.v2.Group;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.ArrayMetadataBuilder;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -295,4 +297,34 @@ public class ZarrPythonTests {
         );
         assert exitCode == 0;
     }
+
+    @Test
+    public void testGroupReadWriteV2() throws Exception {
+        int[] testData = new int[16 * 16 * 16];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
+        Group group = Group.create(storeHandle);
+        dev.zarr.zarrjava.v2.DataType dataType = dev.zarr.zarrjava.v2.DataType.INT32;
+        dev.zarr.zarrjava.v2.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
+                .withShape(16, 16, 16)
+                .withDataType(dataType)
+                .withChunks(2, 4, 8)
+            );
+
+        array.write(ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{16, 16, 16}, testData));
+
+        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString());
+
+        Group group2 = Group.open(storeHandle2);
+        Group subgroup = (Group) group2.get("group2");
+        Assertions.assertNotNull(subgroup);
+        dev.zarr.zarrjava.v2.Array array2 = (dev.zarr.zarrjava.v2.Array) subgroup.get("array2");
+        Assertions.assertNotNull(array2);
+        ucar.ma2.Array result = array2.read();
+        Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
 }

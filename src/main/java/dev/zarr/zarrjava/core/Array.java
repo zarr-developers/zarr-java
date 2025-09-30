@@ -43,7 +43,7 @@ public abstract class Array extends Node {
         int[] shape = array.getShape();
 
         final int[] chunkShape = metadata.chunkShape();
-        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape(), chunkShape, offset, shape));
+        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
@@ -51,7 +51,7 @@ public abstract class Array extends Node {
             chunkCoords -> {
                 try {
                     final IndexingUtils.ChunkProjection chunkProjection =
-                        IndexingUtils.computeProjection(chunkCoords, metadata.shape(), chunkShape, offset,
+                        IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
                             shape
                         );
 
@@ -169,7 +169,7 @@ public abstract class Array extends Node {
      */
     @Nonnull
     public ucar.ma2.Array read() throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape()));
+        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape));
     }
 
     /**
@@ -193,14 +193,14 @@ public abstract class Array extends Node {
      */
     @Nonnull
     public ucar.ma2.Array read(final boolean parallel) throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape()), parallel);
+        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape), parallel);
     }
 
     boolean chunkIsInArray(long[] chunkCoords) {
         final int[] chunkShape = metadata().chunkShape();
         for (int dimIdx = 0; dimIdx < metadata().ndim(); dimIdx++) {
             if (chunkCoords[dimIdx] < 0
-                || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape()[dimIdx]) {
+                || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape[dimIdx]) {
                 return false;
             }
         }
@@ -225,7 +225,7 @@ public abstract class Array extends Node {
             throw new IllegalArgumentException("'shape' needs to have rank '" + metadata.ndim() + "'.");
         }
         for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
-            if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape()[dimIdx]) {
+            if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape[dimIdx]) {
                 throw new ZarrException("Requested data is outside of the array's domain.");
             }
         }
@@ -237,7 +237,7 @@ public abstract class Array extends Node {
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
             shape);
-        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape(), chunkShape, offset, shape));
+        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
@@ -245,7 +245,7 @@ public abstract class Array extends Node {
             chunkCoords -> {
                 try {
                     final IndexingUtils.ChunkProjection chunkProjection =
-                        IndexingUtils.computeProjection(chunkCoords, metadata.shape(), chunkShape, offset,
+                        IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
                             shape
                         );
 
