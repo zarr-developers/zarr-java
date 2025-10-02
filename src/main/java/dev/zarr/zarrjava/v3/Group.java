@@ -2,10 +2,13 @@ package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -29,6 +32,15 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
         .readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
   }
 
+  
+  public static Group open(Path path) throws IOException {
+      return open(new StoreHandle(new FilesystemStore(path)));
+    }
+
+    public static Group open(String path) throws IOException {
+      return open(Paths.get(path));
+    }
+
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
@@ -48,6 +60,22 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
 
   public static Group create(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
     return create(storeHandle, GroupMetadata.defaultValue());
+  }
+
+  public static Group create(Path path, GroupMetadata groupMetadata) throws IOException, ZarrException {
+    return create(new FilesystemStore(path).resolve(), groupMetadata);
+  }
+
+  public static Group create(String path, GroupMetadata groupMetadata) throws IOException, ZarrException {
+    return create(Paths.get(path), groupMetadata);
+  }
+
+  public static Group create(Path path) throws IOException, ZarrException {
+    return create(new FilesystemStore(path).resolve());
+  }
+
+  public static Group create(String path) throws IOException, ZarrException {
+    return create(Paths.get(path));
   }
 
   @Nullable

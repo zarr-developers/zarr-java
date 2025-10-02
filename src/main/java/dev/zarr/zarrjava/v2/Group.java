@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 
@@ -9,6 +10,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.function.Function;
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 
@@ -27,6 +30,14 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
         .readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
   }
 
+  public static Group open(Path path) throws IOException {
+      return open(new StoreHandle(new FilesystemStore(path)));
+    }
+
+    public static Group open(String path) throws IOException {
+      return open(Paths.get(path));
+    }
+
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
@@ -39,7 +50,23 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   public static Group create(
       @Nonnull StoreHandle storeHandle
   ) throws IOException, ZarrException {
-    return new Group(storeHandle, new GroupMetadata());
+    return create(storeHandle, new GroupMetadata());
+  }
+
+  public static Group create(Path path, GroupMetadata groupMetadata) throws IOException {
+    return create(new StoreHandle(new FilesystemStore(path)), groupMetadata);
+  }
+
+  public static Group create(String path, GroupMetadata groupMetadata) throws IOException {
+    return create(Paths.get(path), groupMetadata);
+  }
+
+  public static Group create(Path path) throws IOException, ZarrException {
+    return create(new StoreHandle(new FilesystemStore(path)));
+  }
+
+  public static Group create(String path) throws IOException, ZarrException {
+    return create(Paths.get(path));
   }
 
   @Nullable

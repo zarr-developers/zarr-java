@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.core;
 
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
@@ -12,6 +13,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -44,7 +47,27 @@ public abstract class Array extends AbstractNode {
             throw new ZarrException("No Zarr array found at the specified location.");
         }
     }
+     /**
+     * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(Path path) throws IOException, ZarrException {
+        return open(new StoreHandle(new FilesystemStore(path)));
+    }
 
+    /**
+     * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(String path) throws IOException, ZarrException {
+        return open(Paths.get(path));
+    }
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array

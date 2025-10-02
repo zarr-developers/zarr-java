@@ -1,11 +1,14 @@
 package dev.zarr.zarrjava.core;
 
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -37,6 +40,28 @@ public abstract class Group extends AbstractNode {
         }
     }
 
+
+    /**
+     * Opens an existing Zarr group at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param path the storage location of the Zarr group
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr group cannot be opened
+     */
+    public static Group open(Path path) throws IOException, ZarrException {
+        return open(new StoreHandle(new FilesystemStore(path)));
+    }
+
+    /**
+     * Opens an existing Zarr group at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param path the storage location of the Zarr group
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr group cannot be opened
+     */
+    public static Group open(String path) throws IOException, ZarrException {
+        return open(Paths.get(path));
+    }
 
     @Nullable
     public abstract Node get(String key) throws ZarrException;
