@@ -1,10 +1,17 @@
 package dev.zarr.zarrjava.store;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import dev.zarr.zarrjava.utils.Utils;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,13 +23,13 @@ import javax.annotation.Nullable;
 public class S3Store implements Store, Store.ListableStore {
 
   @Nonnull
-  private final AmazonS3 s3client;
+  private final S3Client s3client;
   @Nonnull
   private final String bucketName;
   @Nullable
   private final String prefix;
 
-  public S3Store(@Nonnull AmazonS3 s3client, @Nonnull String bucketName, @Nullable String prefix) {
+  public S3Store(@Nonnull S3Client s3client, @Nonnull String bucketName, @Nullable String prefix) {
     this.s3client = s3client;
     this.bucketName = bucketName;
     this.prefix = prefix;
@@ -40,8 +47,7 @@ public class S3Store implements Store, Store.ListableStore {
 
   @Nullable
   ByteBuffer get(GetObjectRequest getObjectRequest) {
-    try (S3ObjectInputStream inputStream = s3client.getObject(getObjectRequest)
-        .getObjectContent()) {
+    try (ResponseInputStream<GetObjectResponse> inputStream = s3client.getObject(getObjectRequest)) {
       return Utils.asByteBuffer(inputStream);
     } catch (IOException e) {
       return null;
@@ -50,31 +56,44 @@ public class S3Store implements Store, Store.ListableStore {
 
   @Override
   public boolean exists(String[] keys) {
-    return s3client.doesObjectExist(bucketName, resolveKeys(keys));
+    HeadObjectRequest req = HeadObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build();
+    return s3client.headObject(req).sdkHttpResponse().statusCode() == 200;
   }
 
   @Nullable
   @Override
   public ByteBuffer get(String[] keys) {
-    return get(new GetObjectRequest(bucketName, resolveKeys(keys)));
+    return get(GetObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys))
+        .build());
   }
 
   @Nullable
   @Override
   public ByteBuffer get(String[] keys, long start) {
-    return get(new GetObjectRequest(bucketName, resolveKeys(keys)).withRange(start));
+    GetObjectRequest req = GetObjectRequest.builder()
+    .bucket(bucketName)
+    .key(resolveKeys(keys))
+    .range(String.valueOf(start))
+    .build();
+    return get(req);
   }
 
   @Nullable
   @Override
   public ByteBuffer get(String[] keys, long start, long end) {
-    return get(new GetObjectRequest(bucketName, resolveKeys(keys)).withRange(start, end));
+    GetObjectRequest req = GetObjectRequest.builder()
+    .bucket(bucketName)
+    .key(resolveKeys(keys))
+    .range(String.valueOf(start)+"-"+String.valueOf(end))
+    .build();
+    return get(req);
   }
 
   @Override
   public void set(String[] keys, ByteBuffer bytes) {
     try (InputStream byteStream = new ByteArrayInputStream(Utils.toArray(bytes))) {
-      s3client.putObject(bucketName, resolveKeys(keys), byteStream, new ObjectMetadata());
+      /*AWS SDK for Java v2 migration: When using InputStream to upload with S3Client, Content-Length should be specified and used with RequestBody.fromInputStream(). Otherwise, the entire stream will be buffered in memory. If content length must be unknown, we recommend using the CRT-based S3 client - https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/crt-based-s3-client.html*/
+      s3client.putObject(PutObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build(), RequestBody.fromContentProvider(() -> byteStream, "application/octet-stream"));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -82,16 +101,20 @@ public class S3Store implements Store, Store.ListableStore {
 
   @Override
   public void delete(String[] keys) {
-    s3client.deleteObject(bucketName, resolveKeys(keys));
+    s3client.deleteObject(DeleteObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys))
+        .build());
   }
 
   @Override
   public Stream<String> list(String[] keys) {
     final String fullKey = resolveKeys(keys);
-    return s3client.listObjects(bucketName, fullKey)
-        .getObjectSummaries()
+    ListObjectsRequest req = ListObjectsRequest.builder()
+    .bucket(bucketName).prefix(fullKey)
+    .build();
+    ListObjectsResponse res = s3client.listObjects(req);
+    return res.contents()
         .stream()
-        .map(p -> p.getKey().substring(fullKey.length() + 1));
+        .map(p -> p.key().substring(fullKey.length() + 1));
   }
 
   @Nonnull
