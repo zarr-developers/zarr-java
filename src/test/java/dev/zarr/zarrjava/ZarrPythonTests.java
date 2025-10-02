@@ -17,29 +17,17 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
-public class ZarrPythonTests {
+public class ZarrPythonTests extends ZarrTest {
 
-    final static Path TESTOUTPUT = Paths.get("testoutput");
     final static Path PYTHON_TEST_PATH = Paths.get("src/test/python-scripts/");
 
-    @BeforeAll
-    public static void clearTestoutputFolder() throws IOException {
-        if (Files.exists(TESTOUTPUT)) {
-            try (Stream<Path> walk = Files.walk(TESTOUTPUT)) {
-                walk.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-            }
-        }
-        Files.createDirectory(TESTOUTPUT);
-    }
 
     public static int runCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder();
