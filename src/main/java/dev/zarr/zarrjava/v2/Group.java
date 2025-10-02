@@ -47,18 +47,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
     return new Group(storeHandle, groupMetadata);
   }
 
-  public static Group create(
-      @Nonnull StoreHandle storeHandle
-  ) throws IOException, ZarrException {
+  public static Group create(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
     return create(storeHandle, new GroupMetadata());
-  }
-
-  public static Group create(Path path, GroupMetadata groupMetadata) throws IOException {
-    return create(new StoreHandle(new FilesystemStore(path)), groupMetadata);
-  }
-
-  public static Group create(String path, GroupMetadata groupMetadata) throws IOException {
-    return create(Paths.get(path), groupMetadata);
   }
 
   public static Group create(Path path) throws IOException, ZarrException {
@@ -79,13 +69,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
     }
   }
 
-  public Group createGroup(String key, GroupMetadata groupMetadata)
-      throws IOException, ZarrException {
-    return Group.create(storeHandle.resolve(key), groupMetadata);
-  }
-
   public Group createGroup(String key) throws IOException, ZarrException {
-    return Group.create(storeHandle.resolve(key), new GroupMetadata());
+    return Group.create(storeHandle.resolve(key));
   }
 
   public Array createArray(String key, ArrayMetadata arrayMetadata)

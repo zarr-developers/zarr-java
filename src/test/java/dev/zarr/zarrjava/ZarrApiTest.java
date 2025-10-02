@@ -6,6 +6,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.ArrayMetadata;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.Group;
+import dev.zarr.zarrjava.v3.GroupMetadata;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -14,6 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class ZarrApiTest extends ZarrTest {
@@ -42,7 +45,7 @@ public class ZarrApiTest extends ZarrTest {
         group = (Group) dev.zarr.zarrjava.v3.Node.open(groupHandle);
         Assertions.assertInstanceOf(Group.class, group.get("color"));
 
-        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing")));
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(TESTDATA.resolve("non_existing")));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Node.open(v2Handle));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Group.open(v2Handle));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Array.open(v2Handle));
@@ -84,8 +87,8 @@ public class ZarrApiTest extends ZarrTest {
         group = (Group) dev.zarr.zarrjava.v3.Node.open(groupPath.toString());
         Assertions.assertInstanceOf(Group.class, group.get("color"));
 
-        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing")));
-        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing").toString()));
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(TESTDATA.resolve("non_existing")));
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(TESTDATA.resolve("non_existing").toString()));
 
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Node.open(v2GroupPath));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v3.Node.open(v2GroupPath.toString()));
@@ -121,7 +124,7 @@ public class ZarrApiTest extends ZarrTest {
         group = (dev.zarr.zarrjava.v2.Group) dev.zarr.zarrjava.v2.Node.open(groupHandle);
         Assertions.assertInstanceOf(dev.zarr.zarrjava.v2.Group.class, group.get("subgroup"));
 
-        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing")));
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(TESTDATA.resolve("non_existing")));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Node.open(v3Handle));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Group.open(v3Handle));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Array.open(v3Handle));
@@ -163,8 +166,8 @@ public class ZarrApiTest extends ZarrTest {
         group = (dev.zarr.zarrjava.v2.Group) dev.zarr.zarrjava.v2.Node.open(groupPath.toString());
         Assertions.assertInstanceOf(dev.zarr.zarrjava.v2.Group.class, group.get("subgroup"));
 
-        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing")));
-        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(new FilesystemStore(TESTDATA).resolve("non_existing").toString()));
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(TESTDATA.resolve("non_existing")));
+        Assertions.assertThrows(NoSuchFileException.class, () -> Node.open(TESTDATA.resolve("non_existing").toString()));
 
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Node.open(v3GroupPath));
         Assertions.assertThrows(NoSuchFileException.class, () -> dev.zarr.zarrjava.v2.Node.open(v3GroupPath.toString()));
@@ -239,15 +242,20 @@ public class ZarrApiTest extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCreateGroupV3");
         Path storeHandlePath = TESTOUTPUT.resolve("testCreateGroupV3Path");
         String storeHandleString = String.valueOf(TESTOUTPUT.resolve("testCreateGroupV3String"));
+        Map<String, Object> attributes = new HashMap<>();
+        attributes.put("hello", "world");
 
-        dev.zarr.zarrjava.v3.Group.create(storeHandle);
+        Group group = Group.create(storeHandle, new GroupMetadata(attributes));
         Assertions.assertTrue(storeHandle.resolve("zarr.json").exists());
+        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
 
-        dev.zarr.zarrjava.v3.Group.create(storeHandlePath);
+        group = Group.create(storeHandlePath, new GroupMetadata(attributes));
         Assertions.assertTrue(Files.exists(storeHandlePath.resolve("zarr.json")));
+        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
 
-        dev.zarr.zarrjava.v3.Group.create(storeHandleString);
+        group = Group.create(storeHandleString, new GroupMetadata(attributes));
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve("zarr.json")));
+        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
     }
 
 }
