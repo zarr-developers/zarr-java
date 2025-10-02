@@ -44,11 +44,12 @@
     <properties>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jackson.version>2.14.2</jackson.version>
-        <aws.version>1.12.477</aws.version>
-        <netcdfJavaVersion>5.5.3</netcdfJavaVersion>
-        <zstdVersion>1.5.5-5</zstdVersion>
-        <junit-jupiter-version>5.10.2</junit-jupiter-version>
+        <jackson.version>2.20.0</jackson.version>
+        <aws.version>2.34.6</aws.version>
+        <netcdfJavaVersion>5.9.1</netcdfJavaVersion>
+        <zstdVersion>1.5.5-7</zstdVersion>
+        <junit-jupiter-version>5.14.0</junit-jupiter-version>
+        <findbugs.version>3.0.2</findbugs.version>
     </properties>
 
     <dependencies>
@@ -84,13 +85,18 @@
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>${findbugs.version}</version>
+        </dependency>
+        <dependency>
             <groupId>edu.ucar</groupId>
             <artifactId>cdm-core</artifactId>
             <version>${netcdfJavaVersion}</version>
         </dependency>
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-s3</artifactId>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
             <version>${aws.version}</version>
         </dependency>
         <dependency>
