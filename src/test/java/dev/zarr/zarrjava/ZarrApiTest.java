@@ -50,7 +50,7 @@ public class ZarrApiTest extends ZarrTest {
 
     @Test
     public void testGenericOpenOverloadsV3() throws ZarrException, IOException {
-        Path arrayPath = TESTDATA.resolve("l4_sample/color/1");
+        Path arrayPath = TESTDATA.resolve("l4_sample").resolve("color").resolve("1");
         Path groupPath = TESTDATA.resolve("l4_sample");
         Path v2GroupPath = TESTDATA.resolve("v2_sample");
 
@@ -129,7 +129,7 @@ public class ZarrApiTest extends ZarrTest {
 
     @Test
     public void testGenericOpenOverloadsV2() throws ZarrException, IOException {
-        Path arrayPath = TESTDATA.resolve("v2_sample/subgroup/array");
+        Path arrayPath = TESTDATA.resolve("v2_sample").resolve("subgroup").resolve("array");
         Path groupPath = TESTDATA.resolve("v2_sample");
         Path v3GroupPath = TESTDATA.resolve("l4_sample");
 
