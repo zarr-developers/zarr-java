@@ -1,50 +1,37 @@
 package dev.zarr.zarrjava;
 
+import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
+import dev.zarr.zarrjava.v2.Group;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.ArrayMetadataBuilder;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.file.Files;
+import java.io.*;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
-public class ZarrPythonTests {
+public class ZarrPythonTests extends ZarrTest {
 
-    final static Path TESTOUTPUT = Paths.get("testoutput");
     final static Path PYTHON_TEST_PATH = Paths.get("src/test/python-scripts/");
 
-    @BeforeAll
-    public static void clearTestoutputFolder() throws IOException {
-        if (Files.exists(TESTOUTPUT)) {
-            try (Stream<Path> walk = Files.walk(TESTOUTPUT)) {
-                walk.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-            }
-        }
-        Files.createDirectory(TESTOUTPUT);
-    }
 
-    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
+    public static int runCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder();
-        pb.command().add("uv");
-        pb.command().add("run");
-        pb.command().add(PYTHON_TEST_PATH.resolve(scriptName).toString());
-        pb.command().addAll(Arrays.asList(args));
+        pb.command().addAll(Arrays.asList(command));
         Process process = pb.start();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -58,7 +45,27 @@ public class ZarrPythonTests {
             System.err.println(line);
         }
 
-        int exitCode = process.waitFor();
+        return process.waitFor();
+    }
+
+    @BeforeAll
+    public static void setupUV() {
+        try {
+            int exitCode = runCommand("uv", "version");
+            if (exitCode != 0) {
+                //setup uv
+                assert runCommand("uv", "venv") == 0;
+                assert runCommand("uv", "init") == 0;
+                assert runCommand("uv", "add", "zarr", "zstandard") == 0;
+            }
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException("uv not installed or not in PATH. See");
+        }
+    }
+
+    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
+        int exitCode = runCommand(Stream.concat(Stream.of("uv", "run", PYTHON_TEST_PATH.resolve(scriptName)
+            .toString()), Arrays.stream(args)).toArray(String[]::new));
         assert exitCode == 0;
     }
 
@@ -244,4 +251,68 @@ public class ZarrPythonTests {
         //read in zarr_python
         run_python_script("zarr_python_read_v2.py", compressor, compressorParam, storeHandle.toPath().toString());
     }
+
+    @CsvSource({"0,true", "0,false", "5, true", "10, false"})
+    @ParameterizedTest
+    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException {
+        //compress using ZstdCompressCtx
+        int number = 123456;
+        byte[] src = ByteBuffer.allocate(4).putInt(number).array();
+        byte[] compressed;
+        try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
+            ctx.setLevel(clevel);
+            ctx.setChecksum(checksumFlag);
+            compressed = ctx.compress(src);
+        }
+        //decompress with Zstd.decompress
+        long originalSize = Zstd.decompressedSize(compressed);
+        byte[] decompressed = Zstd.decompress(compressed, (int) originalSize);
+        Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
+
+        //write compressed to file
+        String compressedDataPath = TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
+        try (FileOutputStream fos = new FileOutputStream(compressedDataPath)) {
+            fos.write(compressed);
+        }
+
+        //decompress in python
+        int exitCode = ZarrPythonTests.runCommand(
+            "uv",
+            "run",
+            PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
+            compressedDataPath,
+            Integer.toString(number)
+        );
+        assert exitCode == 0;
+    }
+
+    @Test
+    public void testGroupReadWriteV2() throws Exception {
+        int[] testData = new int[16 * 16 * 16];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
+        Group group = Group.create(storeHandle);
+        dev.zarr.zarrjava.v2.DataType dataType = dev.zarr.zarrjava.v2.DataType.INT32;
+        dev.zarr.zarrjava.v2.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
+                .withShape(16, 16, 16)
+                .withDataType(dataType)
+                .withChunks(2, 4, 8)
+            );
+
+        array.write(ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{16, 16, 16}, testData));
+
+        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString());
+
+        Group group2 = Group.open(storeHandle2);
+        Group subgroup = (Group) group2.get("group2");
+        Assertions.assertNotNull(subgroup);
+        dev.zarr.zarrjava.v2.Array array2 = (dev.zarr.zarrjava.v2.Array) subgroup.get("array2");
+        Assertions.assertNotNull(array2);
+        ucar.ma2.Array result = array2.read();
+        Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
 }

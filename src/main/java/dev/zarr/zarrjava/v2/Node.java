@@ -1,20 +1,18 @@
-package dev.zarr.zarrjava.v3;
+package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.v3.codec.CodecRegistry;
+import dev.zarr.zarrjava.v2.codec.CodecRegistry;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-
-public interface Node extends dev.zarr.zarrjava.core.Node{
+public interface Node extends dev.zarr.zarrjava.core.Node {
 
   static ObjectMapper makeObjectMapper() {
     ObjectMapper objectMapper = new ObjectMapper();
@@ -26,27 +24,26 @@ public interface Node extends dev.zarr.zarrjava.core.Node{
   /**
    * Opens an existing Zarr array or group at a specified storage location.
    *
-   * @param storeHandle the storage location of the Zarr array or group
+   * @param storeHandle the storage location of the Zarr array
    * @throws IOException   throws IOException if the metadata cannot be read
    * @throws ZarrException throws ZarrException if the Zarr array or group cannot be opened
    */
   static Node open(StoreHandle storeHandle) throws IOException, ZarrException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = storeHandle.resolve(ZARR_JSON).readNonNull();
-    byte[] metadataBytearray = Utils.toArray(metadataBytes);
-    String nodeType = objectMapper.readTree(metadataBytearray)
-        .get("node_type")
-        .asText();
-    switch (nodeType) {
-      case ArrayMetadata.NODE_TYPE:
-        return new Array(storeHandle,
-            objectMapper.readValue(metadataBytearray, ArrayMetadata.class));
-      case GroupMetadata.NODE_TYPE:
-        return new Group(storeHandle,
-            objectMapper.readValue(metadataBytearray, GroupMetadata.class));
-      default:
-        throw new ZarrException("Unsupported node_type '" + nodeType + "' at " + storeHandle);
+    boolean isGroup = storeHandle.resolve(ZGROUP).exists();
+    boolean isArray = storeHandle.resolve(ZARRAY).exists();
+
+    if (isGroup && isArray) {
+      throw new ZarrException("Store handle '" + storeHandle + "' contains both a " + ZGROUP + " and a " + ZARRAY + " file.");
+    } else if (isGroup) {
+      return Group.open(storeHandle);
+    } else if (isArray) {
+      try {
+        return Array.open(storeHandle);
+      } catch (IOException e) {
+        throw new ZarrException("Failed to read array metadata for store handle '" + storeHandle + "'.", e);
+      }
     }
+    throw new NoSuchFileException("Store handle '" + storeHandle + "' does not contain a " + ZGROUP + " or a " + ZARRAY + " file.");
   }
 
   static Node open(Path path) throws IOException, ZarrException {
