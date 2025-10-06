@@ -1,6 +1,9 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.store.S3Store;
+import dev.zarr.zarrjava.v3.Array;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
