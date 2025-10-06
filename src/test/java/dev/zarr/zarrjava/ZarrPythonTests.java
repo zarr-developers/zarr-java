@@ -265,7 +265,7 @@ public class ZarrPythonTests extends ZarrTest {
             compressed = ctx.compress(src);
         }
         //decompress with Zstd.decompress
-        long originalSize = Zstd.decompressedSize(compressed);
+        long originalSize = Zstd.getFrameContentSize(compressed);
         byte[] decompressed = Zstd.decompress(compressed, (int) originalSize);
         Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
 
