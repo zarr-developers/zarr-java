@@ -1,8 +1,5 @@
 package dev.zarr.zarrjava;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.AnonymousAWSCredentials;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.luben.zstd.Zstd;
@@ -20,6 +17,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 import ucar.ma2.MAMath;
 
 import java.io.*;
@@ -280,9 +281,9 @@ public class ZarrTest {
 
     @Test
     public void testS3Store() throws IOException, ZarrException {
-        S3Store s3Store = new S3Store(AmazonS3ClientBuilder.standard()
-            .withRegion("eu-west-1")
-            .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
+        S3Store s3Store = new S3Store(S3Client.builder()
+            .region(Region.of("eu-west-1"))
+            .credentialsProvider(AnonymousCredentialsProvider.create())
             .build(), "static.webknossos.org", "data");
         System.out.println(Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1")));
     }
