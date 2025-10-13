@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.core;
 
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
@@ -10,27 +11,73 @@ import ucar.ma2.InvalidRangeException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
-public interface Array {
+public abstract class Array extends AbstractNode {
 
-    ArrayMetadata metadata();
-    
-    StoreHandle storeHandle();
+    protected CodecPipeline codecPipeline;
+    public abstract ArrayMetadata metadata();
 
-    CodecPipeline codecPipeline();
+    protected Array(StoreHandle storeHandle) throws ZarrException {
+        super(storeHandle);
+    }
+
+    /**
+     * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param storeHandle the storage location of the Zarr array
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(StoreHandle storeHandle) throws IOException, ZarrException {
+        boolean isV3 = storeHandle.resolve(ZARR_JSON).exists();
+        boolean isV2 = storeHandle.resolve(ZARRAY).exists();
+        if (isV3 && isV2) {
+            throw new ZarrException("Both Zarr v2 and v3 arrays found at the specified location.");
+        } else if (isV3) {
+            return dev.zarr.zarrjava.v3.Array.open(storeHandle);
+        } else if (isV2) {
+            return dev.zarr.zarrjava.v2.Array.open(storeHandle);
+        } else {
+            throw new ZarrException("No Zarr array found at the specified location.");
+        }
+    }
+     /**
+     * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(Path path) throws IOException, ZarrException {
+        return open(new StoreHandle(new FilesystemStore(path)));
+    }
+
+    /**
+     * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException   throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(String path) throws IOException, ZarrException {
+        return open(Paths.get(path));
+    }
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
      * needs be large enough for the write.
      *
-     * @param offset the offset where to write the data
-     * @param array the data to write
+     * @param offset   the offset where to write the data
+     * @param array    the data to write
      * @param parallel utilizes parallelism if true
      */
-    default void write(long[] offset, ucar.ma2.Array array, boolean parallel) {
+    public void write(long[] offset, ucar.ma2.Array array, boolean parallel) {
         ArrayMetadata metadata = metadata();
         if (offset.length != metadata.ndim()) {
             throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
@@ -42,7 +89,7 @@ public interface Array {
         int[] shape = array.getShape();
 
         final int[] chunkShape = metadata.chunkShape();
-        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape(), chunkShape, offset, shape));
+        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
@@ -50,7 +97,7 @@ public interface Array {
             chunkCoords -> {
                 try {
                     final IndexingUtils.ChunkProjection chunkProjection =
-                        IndexingUtils.computeProjection(chunkCoords, metadata.shape(), chunkShape, offset,
+                        IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
                             shape
                         );
 
@@ -82,19 +129,19 @@ public interface Array {
      *
      * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
      *                    by the chunk shape.
-     * @param chunkArray The data to write into the chunk
+     * @param chunkArray  The data to write into the chunk
      * @throws ZarrException throws ZarrException if the write fails
      */
-    default void writeChunk(long[] chunkCoords, ucar.ma2.Array chunkArray) throws ZarrException {
+    public void writeChunk(long[] chunkCoords, ucar.ma2.Array chunkArray) throws ZarrException {
         ArrayMetadata metadata = metadata();
         String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
-        StoreHandle chunkHandle = storeHandle().resolve(chunkKeys);
+        StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
         Object parsedFillValue = metadata.parsedFillValue();
 
         if (parsedFillValue != null && MultiArrayUtils.allValuesEqual(chunkArray, parsedFillValue)) {
             chunkHandle.delete();
         } else {
-            ByteBuffer chunkBytes = codecPipeline().encode(chunkArray);
+            ByteBuffer chunkBytes = codecPipeline.encode(chunkArray);
             chunkHandle.set(chunkBytes);
         }
     }
@@ -108,22 +155,21 @@ public interface Array {
      * @throws ZarrException throws ZarrException if the requested chunk is outside the array's domain or if the read fails
      */
     @Nonnull
-    default ucar.ma2.Array readChunk(long[] chunkCoords)
-        throws ZarrException {
+    public ucar.ma2.Array readChunk(long[] chunkCoords) throws ZarrException {
         ArrayMetadata metadata = metadata();
         if (!chunkIsInArray(chunkCoords)) {
             throw new ZarrException("Attempting to read data outside of the array's domain.");
         }
 
         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
-        final StoreHandle chunkHandle = storeHandle().resolve(chunkKeys);
+        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
         ByteBuffer chunkBytes = chunkHandle.read();
         if (chunkBytes == null) {
             return metadata.allocateFillValueChunk();
         }
 
-        return codecPipeline().decode(chunkBytes);
+        return codecPipeline.decode(chunkBytes);
     }
 
 
@@ -134,7 +180,7 @@ public interface Array {
      *
      * @param array the data to write
      */
-    default void write(ucar.ma2.Array array) {
+    public void write(ucar.ma2.Array array) {
         write(new long[metadata().ndim()], array);
     }
 
@@ -144,9 +190,9 @@ public interface Array {
      * Utilizes no parallelism.
      *
      * @param offset the offset where to write the data
-     * @param array the data to write
+     * @param array  the data to write
      */
-    default void write(long[] offset, ucar.ma2.Array array) {
+    public void write(long[] offset, ucar.ma2.Array array) {
         write(offset, array, false);
     }
 
@@ -154,10 +200,10 @@ public interface Array {
      * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
      * the Zarr array needs be large enough for the write.
      *
-     * @param array the data to write
+     * @param array    the data to write
      * @param parallel utilizes parallelism if true
      */
-    default void write(ucar.ma2.Array array, boolean parallel) {
+    public void write(ucar.ma2.Array array, boolean parallel) {
         write(new long[metadata().ndim()], array, parallel);
     }
 
@@ -168,8 +214,8 @@ public interface Array {
      * @throws ZarrException throws ZarrException if the read fails
      */
     @Nonnull
-    default ucar.ma2.Array read() throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape()));
+    public ucar.ma2.Array read() throws ZarrException {
+        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape));
     }
 
     /**
@@ -177,11 +223,11 @@ public interface Array {
      * Utilizes no parallelism.
      *
      * @param offset the offset where to start reading
-     * @param shape the shape of the data to read
+     * @param shape  the shape of the data to read
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    default ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
+    public ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
         return read(offset, shape, false);
     }
 
@@ -192,15 +238,15 @@ public interface Array {
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    default ucar.ma2.Array read(final boolean parallel) throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape()), parallel);
+    public ucar.ma2.Array read(final boolean parallel) throws ZarrException {
+        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape), parallel);
     }
 
-    default boolean chunkIsInArray(long[] chunkCoords) {
+    boolean chunkIsInArray(long[] chunkCoords) {
         final int[] chunkShape = metadata().chunkShape();
         for (int dimIdx = 0; dimIdx < metadata().ndim(); dimIdx++) {
             if (chunkCoords[dimIdx] < 0
-                || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape()[dimIdx]) {
+                || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape[dimIdx]) {
                 return false;
             }
         }
@@ -210,15 +256,14 @@ public interface Array {
     /**
      * Reads a part of the Zarr array based on a requested offset and shape into an ucar.ma2.Array.
      *
-     * @param offset the offset where to start reading
-     * @param shape the shape of the data to read
+     * @param offset   the offset where to start reading
+     * @param shape    the shape of the data to read
      * @param parallel utilizes parallelism if true
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    default ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {
+    public ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {
         ArrayMetadata metadata = metadata();
-        CodecPipeline codecPipeline = codecPipeline();
         if (offset.length != metadata.ndim()) {
             throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
         }
@@ -226,7 +271,7 @@ public interface Array {
             throw new IllegalArgumentException("'shape' needs to have rank '" + metadata.ndim() + "'.");
         }
         for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
-            if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape()[dimIdx]) {
+            if (offset[dimIdx] < 0 || offset[dimIdx] + shape[dimIdx] > metadata.shape[dimIdx]) {
                 throw new ZarrException("Requested data is outside of the array's domain.");
             }
         }
@@ -238,7 +283,7 @@ public interface Array {
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
             shape);
-        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape(), chunkShape, offset, shape));
+        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
@@ -246,7 +291,7 @@ public interface Array {
             chunkCoords -> {
                 try {
                     final IndexingUtils.ChunkProjection chunkProjection =
-                        IndexingUtils.computeProjection(chunkCoords, metadata.shape(), chunkShape, offset,
+                        IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
                             shape
                         );
 
@@ -258,7 +303,7 @@ public interface Array {
                     }
 
                     final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
-                    final StoreHandle chunkHandle = storeHandle().resolve(chunkKeys);
+                    final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
                     if (!chunkHandle.exists()) {
                         return;
                     }
@@ -281,11 +326,11 @@ public interface Array {
         return outputArray;
     }
 
-    default ArrayAccessor access() {
+    public ArrayAccessor access() {
         return new ArrayAccessor(this);
     }
 
-    final class ArrayAccessor {
+    public static final class ArrayAccessor {
         @Nullable
         long[] offset;
         @Nullable

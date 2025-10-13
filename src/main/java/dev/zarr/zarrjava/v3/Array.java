@@ -2,25 +2,31 @@ package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
-public class Array extends Node implements dev.zarr.zarrjava.core.Array {
+public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
-  public ArrayMetadata metadata;
-  CodecPipeline codecPipeline;
+  private final ArrayMetadata metadata;
 
-  protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata)
-      throws ZarrException {
+  public ArrayMetadata metadata(){
+    return metadata;
+  }
+
+  protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata) throws ZarrException {
     super(storeHandle);
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(arrayMetadata.codecs, arrayMetadata.coreArrayMetadata);
@@ -42,6 +48,58 @@ public class Array extends Node implements dev.zarr.zarrjava.core.Array {
                 ArrayMetadata.class
             )
     );
+  }
+
+  /**
+     * Opens an existing Zarr array at a specified storage location using a Path.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException if the metadata cannot be read
+     * @throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(Path path) throws IOException, ZarrException {
+      return open(new FilesystemStore(path).resolve());
+    }
+
+    /**
+     * Opens an existing Zarr array at a specified storage location using a String path.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException if the metadata cannot be read
+     * @throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(String path) throws IOException, ZarrException {
+      return open(Paths.get(path));
+    }
+
+  /**
+   * Creates a new Zarr array with the provided metadata at a specified storage location. This
+   * method will raise an exception if a Zarr array already exists at the specified storage
+   * location.
+   *
+   * @param path the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
+   */
+  public static Array create(Path path, ArrayMetadata arrayMetadata)
+      throws IOException, ZarrException {
+    return Array.create(new FilesystemStore(path).resolve(), arrayMetadata);
+  }
+
+  /**
+   * Creates a new Zarr array with the provided metadata at a specified storage location. This
+   * method will raise an exception if a Zarr array already exists at the specified storage
+   * location.
+   *
+   * @param path the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
+   */
+  public static Array create(String path, ArrayMetadata arrayMetadata)
+      throws IOException, ZarrException {
+    return Array.create(Paths.get(path), arrayMetadata);
   }
 
   /**
@@ -103,6 +161,16 @@ public class Array extends Node implements dev.zarr.zarrjava.core.Array {
         arrayMetadataBuilderMapper.apply(new ArrayMetadataBuilder()).build(), existsOk);
   }
 
+  public static Array create(Path path, Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper, boolean existsOk)
+      throws IOException, ZarrException {
+    return Array.create(new FilesystemStore(path).resolve(), arrayMetadataBuilderMapper, existsOk);
+  }
+
+  public static Array create(String path, Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper, boolean existsOk)
+      throws IOException, ZarrException {
+    return Array.create(Paths.get(path), arrayMetadataBuilderMapper, existsOk);
+  }
+
   @Nonnull
   public static ArrayMetadataBuilder metadataBuilder() {
     return new ArrayMetadataBuilder();
@@ -112,21 +180,6 @@ public class Array extends Node implements dev.zarr.zarrjava.core.Array {
   public static ArrayMetadataBuilder metadataBuilder(ArrayMetadata existingMetadata) {
     return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
   }
-
-  @Override
-  public CodecPipeline codecPipeline() {
-    return codecPipeline;
-  }
-
-
-
-
-  @Override
-  public ArrayMetadata metadata() {
-    return metadata;
-  }
-
-
 
   private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
     ObjectMapper objectMapper = makeObjectMapper();

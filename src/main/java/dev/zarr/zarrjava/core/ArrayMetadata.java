@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.core;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
@@ -10,23 +12,40 @@ import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public interface ArrayMetadata {
-    int ndim();
+public abstract class ArrayMetadata {
 
-    int[] chunkShape();
+    public final long[] shape;
 
-    long[] shape();
+    @JsonProperty("fill_value")
+    public final Object fillValue;
+    @JsonIgnore
+    public final Object parsedFillValue;
 
-    DataType dataType();
+    public ArrayMetadata(long[] shape, Object fillValue, DataType dataType) throws ZarrException {
+        this.shape = shape;
+        this.fillValue = fillValue;
+        this.parsedFillValue = parseFillValue(fillValue, dataType);
+    }
 
-    Array allocateFillValueChunk();
+    public int ndim() {
+        return shape.length;
+    }
 
-    ChunkKeyEncoding chunkKeyEncoding();
+    public abstract int[] chunkShape();
 
-    Object parsedFillValue();
+    public abstract DataType dataType();
 
-    static Object parseFillValue(Object fillValue, @Nonnull DataType dataType)
+    public abstract Array allocateFillValueChunk();
+
+    public abstract ChunkKeyEncoding chunkKeyEncoding();
+
+    public abstract Object parsedFillValue();
+
+    public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType)
       throws ZarrException {
+    if (fillValue == null) {
+        return null;
+    }
     boolean dataTypeIsBool = dataType == dev.zarr.zarrjava.v3.DataType.BOOL || dataType == dev.zarr.zarrjava.v2.DataType.BOOL;
     boolean dataTypeIsByte = dataType == dev.zarr.zarrjava.v3.DataType.INT8 || dataType == dev.zarr.zarrjava.v2.DataType.INT8 || dataType == dev.zarr.zarrjava.v3.DataType.UINT8 || dataType == dev.zarr.zarrjava.v2.DataType.UINT8;
     boolean dataTypeIsShort = dataType == dev.zarr.zarrjava.v3.DataType.INT16 || dataType == dev.zarr.zarrjava.v2.DataType.INT16 || dataType == dev.zarr.zarrjava.v3.DataType.UINT16 || dataType == dev.zarr.zarrjava.v2.DataType.UINT16;
@@ -128,7 +147,7 @@ public interface ArrayMetadata {
     throw new ZarrException("Invalid fill value '" + fillValue + "'.");
   }
 
-    final class CoreArrayMetadata {
+  public static final class CoreArrayMetadata {
 
     public final long[] shape;
     public final int[] chunkShape;

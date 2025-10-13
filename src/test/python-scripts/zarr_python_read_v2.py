@@ -11,9 +11,13 @@ from parse_codecs import parse_codecs_zarr_python
 codec_string = sys.argv[1]
 param_string = sys.argv[2]
 compressor, serializer, filters = parse_codecs_zarr_python(codec_string, param_string, zarr_version=2)
-store_path = Path(sys.argv[3])
+dtype = sys.argv[3]
+store_path = Path(sys.argv[4])
 
-expected_data = np.arange(16 * 16 * 16, dtype='int32').reshape(16, 16, 16)
+if dtype == 'bool':
+    expected_data = np.arange(16 * 16 * 16, dtype='uint8').reshape(16, 16, 16) % 2 == 0
+else:
+    expected_data = np.arange(16 * 16 * 16, dtype=dtype).reshape(16, 16, 16)
 
 a = zarr.open_array(store=LocalStore(store_path))
 read_data = a[:, :]
@@ -24,7 +28,7 @@ b = zarr.create_array(
     zarr_format=2,
     shape=(16, 16, 16),
     chunks=(2, 4, 8),
-    dtype='uint32',
+    dtype=dtype,
     fill_value=0,
     filters=filters,
     serializer=serializer,

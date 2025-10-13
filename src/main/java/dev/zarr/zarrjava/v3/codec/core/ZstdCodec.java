@@ -28,7 +28,7 @@ public class ZstdCodec extends BytesBytesCodec implements Codec {
     public ByteBuffer decode(ByteBuffer compressedBytes) throws ZarrException {
         byte[] compressedArray = compressedBytes.array();
 
-        long originalSize = Zstd.decompressedSize(compressedArray);
+        long originalSize = Zstd.getFrameContentSize(compressedArray);
         if (originalSize == 0) {
             throw new ZarrException("Failed to get decompressed size");
         }
