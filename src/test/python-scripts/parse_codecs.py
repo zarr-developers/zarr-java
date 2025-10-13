@@ -15,7 +15,7 @@ def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version:
 
     if codec_string == "blosc" and zarr_version == 3:
         cname, shuffle, clevel = param_string.split("_")
-        compressor = BloscCodec(typesize=4, cname=cname, shuffle=shuffle, clevel=int(clevel))
+        compressor = BloscCodec(cname=cname, shuffle=shuffle, clevel=int(clevel))
     elif codec_string == "blosc" and zarr_version == 2:
         cname, shuffle, clevel = param_string.split("_")
         if shuffle == "noshuffle":
