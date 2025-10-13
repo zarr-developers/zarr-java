@@ -21,7 +21,7 @@ import java.util.stream.Stream;
 public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
-    protected abstract ArrayMetadata metadata();
+    public abstract ArrayMetadata metadata();
 
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);

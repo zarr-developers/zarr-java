@@ -220,7 +220,7 @@ public class ZarrV3Test extends ZarrTest {
 
         Array writeArray = Array.create(
             new FilesystemStore(TESTOUTPUT).resolve("l4_sample_2", "color", "1"),
-            readArray.metadata
+            readArray.metadata()
         );
         writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
     }
@@ -233,7 +233,7 @@ public class ZarrV3Test extends ZarrTest {
         ucar.ma2.Array readArrayContent = readArray.read();
         Array writeArray = Array.create(
             new FilesystemStore(TESTOUTPUT).resolve("sharding_index_location", indexLocation),
-            readArray.metadata
+            readArray.metadata()
         );
         writeArray.write(readArrayContent);
         ucar.ma2.Array outArray = writeArray.read();
@@ -250,7 +250,7 @@ public class ZarrV3Test extends ZarrTest {
         {
             Array gzipArray = Array.create(
                 new FilesystemStore(TESTOUTPUT).resolve("l4_sample_gzip", "color", "8-8-2"),
-                Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withGzip(5)).build()
+                Array.metadataBuilder(readArray.metadata()).withCodecs(c -> c.withGzip(5)).build()
             );
             gzipArray.write(readArrayContent);
             ucar.ma2.Array outGzipArray = gzipArray.read(new long[4], readShape);
@@ -259,7 +259,7 @@ public class ZarrV3Test extends ZarrTest {
         {
             Array bloscArray = Array.create(
                 new FilesystemStore(TESTOUTPUT).resolve("l4_sample_blosc", "color", "8-8-2"),
-                Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withBlosc("zstd", 5)).build()
+                Array.metadataBuilder(readArray.metadata()).withCodecs(c -> c.withBlosc("zstd", 5)).build()
             );
             bloscArray.write(readArrayContent);
             ucar.ma2.Array outBloscArray = bloscArray.read(new long[4], readShape);
@@ -268,7 +268,7 @@ public class ZarrV3Test extends ZarrTest {
         {
             Array zstdArray = Array.create(
                 new FilesystemStore(TESTOUTPUT).resolve("l4_sample_zstd", "color", "8-8-2"),
-                Array.metadataBuilder(readArray.metadata).withCodecs(c -> c.withZstd(10)).build()
+                Array.metadataBuilder(readArray.metadata()).withCodecs(c -> c.withZstd(10)).build()
             );
             zstdArray.write(readArrayContent);
             ucar.ma2.Array outZstdArray = zstdArray.read(new long[4], readShape);
@@ -356,8 +356,8 @@ public class ZarrV3Test extends ZarrTest {
         Array httpArray = Array.open(httpStoreHandle);
         Array localArray = Array.open(localStoreHandle);
 
-        Assertions.assertArrayEquals(httpArray.metadata.shape, localArray.metadata.shape);
-        Assertions.assertArrayEquals(httpArray.metadata.chunkShape(), localArray.metadata.chunkShape());
+        Assertions.assertArrayEquals(httpArray.metadata().shape, localArray.metadata().shape);
+        Assertions.assertArrayEquals(httpArray.metadata().chunkShape(), localArray.metadata().chunkShape());
 
         ucar.ma2.Array httpData1 = httpArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
         ucar.ma2.Array localData1 = localArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
@@ -368,7 +368,7 @@ public class ZarrV3Test extends ZarrTest {
         long[] offset = new long[4];
         long[] originalOffset = new long[]{0, 3073, 3073, 513};
         long[] originalShape = new long[]{1, 4096, 4096, 2048};
-        long[] arrayShape = httpArray.metadata.shape;
+        long[] arrayShape = httpArray.metadata().shape;
         for (int i = 0; i < 4; i++) {
             offset[i] = originalOffset[i] / (originalShape[i] / arrayShape[i]);
         }
@@ -408,7 +408,7 @@ public class ZarrV3Test extends ZarrTest {
 
         Map<String, Object>[] storageTransformersEmpty = Array.open(
             new FilesystemStore(TESTDATA).resolve("storage_transformer", "empty")
-        ).metadata.storageTransformers;
+        ).metadata().storageTransformers;
         assert storageTransformersEmpty.length == 0;
 
         assertThrows(JsonMappingException.class, () -> Array.open(
@@ -436,13 +436,13 @@ public class ZarrV3Test extends ZarrTest {
         StoreHandle v2Handle = new FilesystemStore(TESTDATA).resolve("v2_sample");
 
         Array array = (Array) Node.open(arrayHandle);
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Array.open(arrayHandle);
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Node.open(arrayHandle);
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
 
         Group group = (Group) Node.open(groupHandle);
         Assertions.assertInstanceOf(Group.class, group.get("color"));
@@ -466,19 +466,19 @@ public class ZarrV3Test extends ZarrTest {
         Path v2GroupPath = TESTDATA.resolve("v2_sample");
 
         Array array = (Array) Node.open(arrayPath);
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
         array = (Array) Node.open(arrayPath.toString());
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Array.open(arrayPath);
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
         array = (Array) dev.zarr.zarrjava.core.Array.open(arrayPath.toString());
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Node.open(arrayPath);
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
         array = (Array) dev.zarr.zarrjava.core.Node.open(arrayPath.toString());
-        Assertions.assertEquals(4, (array).metadata.shape.length);
+        Assertions.assertEquals(4, array.metadata().shape.length);
 
         Group group = (Group) Node.open(groupPath);
         Assertions.assertInstanceOf(Group.class, group.get("color"));
@@ -524,7 +524,7 @@ public class ZarrV3Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape());
+        Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata().chunkShape());
     }
 
     @Test

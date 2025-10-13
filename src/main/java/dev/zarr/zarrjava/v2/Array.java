@@ -21,9 +21,9 @@ import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 
 public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
-  public ArrayMetadata metadata;
+  private final ArrayMetadata metadata;
 
-  protected ArrayMetadata metadata() {
+  public ArrayMetadata metadata() {
       return metadata;
   }
 

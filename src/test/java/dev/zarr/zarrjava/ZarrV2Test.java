@@ -51,7 +51,7 @@ public class ZarrV2Test extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTDATA).resolve("v2_sample", arrayname);
         Array array = Array.open(storeHandle);
         ucar.ma2.Array output = array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
-        Assertions.assertEquals(dt, array.metadata.dataType);
+        Assertions.assertEquals(dt, array.metadata().dataType);
     }
 
     @Test
@@ -107,7 +107,7 @@ public class ZarrV2Test extends ZarrTest {
                 .withChunks(4, 5)
                 .build()
         );
-        Assertions.assertNull(array.metadata.fillValue);
+        Assertions.assertNull(array.metadata().fillValue);
 
         ucar.ma2.Array outArray = array.read(new long[]{0, 0}, new int[]{1, 1});
         if (dataType == DataType.BOOL) {
@@ -119,7 +119,7 @@ public class ZarrV2Test extends ZarrTest {
         Array array2 = Array.open(
             storeHandle
         );
-        Assertions.assertNull(array2.metadata.fillValue);
+        Assertions.assertNull(array2.metadata().fillValue);
     }
 
 
@@ -130,13 +130,13 @@ public class ZarrV2Test extends ZarrTest {
         StoreHandle v3Handle = new FilesystemStore(TESTDATA).resolve("l4_sample");
 
         Array array = (Array) Node.open(arrayHandle);
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Array.open(arrayHandle);
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Node.open(arrayHandle);
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
 
         Group group = (Group) Node.open(groupHandle);
         Assertions.assertInstanceOf(Group.class, group.get("subgroup"));
@@ -160,19 +160,19 @@ public class ZarrV2Test extends ZarrTest {
         Path v3GroupPath = TESTDATA.resolve("l4_sample");
 
         Array array = (Array) Node.open(arrayPath);
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
         array = (Array) Node.open(arrayPath.toString());
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Array.open(arrayPath);
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
         array = (Array) dev.zarr.zarrjava.core.Array.open(arrayPath.toString());
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
 
         array = (Array) dev.zarr.zarrjava.core.Node.open(arrayPath);
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
         array = (Array) dev.zarr.zarrjava.core.Node.open(arrayPath.toString());
-        Assertions.assertEquals(3, (array).metadata.shape.length);
+        Assertions.assertEquals(3, array.metadata().shape.length);
 
         Group group = (Group) Node.open(groupPath);
         Assertions.assertInstanceOf(Group.class, group.get("subgroup"));
@@ -236,7 +236,7 @@ public class ZarrV2Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunks);
+        Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata().chunks);
     }
 
 

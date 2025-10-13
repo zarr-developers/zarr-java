@@ -199,9 +199,9 @@ public class ZarrPythonTests extends ZarrTest {
         ucar.ma2.Array result = array.read();
 
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(dataType, array.metadata.dataType);
-        Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata.chunkShape());
-        Assertions.assertEquals(42, array.metadata.attributes.get("answer"));
+        Assertions.assertEquals(dataType, array.metadata().dataType);
+        Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata().chunkShape());
+        Assertions.assertEquals(42, array.metadata().attributes.get("answer"));
 
         assertIsTestdata(result, DataType.INT32);
     }
@@ -262,9 +262,9 @@ public class ZarrPythonTests extends ZarrTest {
         ucar.ma2.Array result = readArray.read();
 
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(dataType, readArray.metadata.dataType);
-        Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
-        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
+        Assertions.assertEquals(dataType, readArray.metadata().dataType);
+        Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata().chunkShape());
+        Assertions.assertEquals("test_value", readArray.metadata().attributes.get("test_key"));
 
         assertIsTestdata(result, DataType.INT32);
 
@@ -312,9 +312,9 @@ public class ZarrPythonTests extends ZarrTest {
         ucar.ma2.Array result = array.read();
 
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(dt, array.metadata.dataType);
-        Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata.chunkShape());
-//        Assertions.assertEquals(42, array.metadata.attributes.get("answer"));
+        Assertions.assertEquals(dt, array.metadata().dataType);
+        Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata().chunkShape());
+//        Assertions.assertEquals(42, array.metadata().attributes.get("answer"));
 
         assertIsTestdata(result, dt);
     }
@@ -356,8 +356,8 @@ public class ZarrPythonTests extends ZarrTest {
         ucar.ma2.Array result = readArray.read();
 
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
-        Assertions.assertEquals(dt, readArray.metadata.dataType);
-        Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata.chunkShape());
+        Assertions.assertEquals(dt, readArray.metadata().dataType);
+        Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata().chunkShape());
 //        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
         assertIsTestdata(result, dt);
 

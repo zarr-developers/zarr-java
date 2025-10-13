@@ -52,7 +52,7 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertInstanceOf(Array.class, colorSubNodes[0]);
 
         Array array = (Array) ((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).get("1");
-        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata.shape);
+        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
     }
 
     @Test
@@ -63,7 +63,7 @@ public class ZarrStoreTest extends ZarrTest {
             .build(), "static.webknossos.org", "data");
         Array array = Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1"));
 
-        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata.shape);
+        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
     }
 
     @Test
@@ -71,6 +71,6 @@ public class ZarrStoreTest extends ZarrTest {
         HttpStore httpStore = new dev.zarr.zarrjava.store.HttpStore("https://static.webknossos.org/data/zarr_v3/l4_sample");
         Array array = Array.open(httpStore.resolve("color", "1"));
 
-        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata.shape);
+        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
     }
 }
