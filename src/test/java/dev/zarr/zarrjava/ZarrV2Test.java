@@ -22,7 +22,7 @@ import java.nio.file.Paths;
 public class ZarrV2Test extends ZarrTest {
     @ParameterizedTest
     @CsvSource({"blosclz,noshuffle,0", "lz4,shuffle,6", "lz4hc,bitshuffle,3", "zlib,shuffle,5", "zstd,bitshuffle,9"})
-    public void testV2createBlosc(String cname, String shuffle, int clevel) throws IOException, ZarrException {
+    public void testCreateBlosc(String cname, String shuffle, int clevel) throws IOException, ZarrException {
         Array array = Array.create(
             new FilesystemStore(TESTOUTPUT).resolve("v2_create_blosc", cname + "_" + shuffle + "_" + clevel),
             Array.metadataBuilder()
@@ -38,6 +38,20 @@ public class ZarrV2Test extends ZarrTest {
         ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
         Assertions.assertEquals(8 * 8, outArray.getSize());
         Assertions.assertEquals(0, outArray.getByte(0));
+    }
+
+
+
+    @ParameterizedTest
+    @CsvSource({
+        "BOOL", "FLOAT64"
+    })
+    public void testReadBloscDetectTypesize(DataType dt) throws IOException, ZarrException {
+        String arrayname = dt == DataType.BOOL ? "bool" : "double";
+        StoreHandle storeHandle = new FilesystemStore(TESTDATA).resolve("v2_sample", arrayname);
+        Array array = Array.open(storeHandle);
+        ucar.ma2.Array output = array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
+        Assertions.assertEquals(dt, array.metadata.dataType);
     }
 
     @Test

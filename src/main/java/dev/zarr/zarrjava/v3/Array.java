@@ -193,7 +193,6 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    * Sets a new shape for the Zarr array. It only changes the metadata, no array data is modified or
    * deleted. This method returns a new instance of the Zarr array class and the old instance
    * becomes invalid.
-   * TODO: test
    *
    * @param newShape the new shape of the Zarr array
    * @throws ZarrException if the new metadata is invalid
@@ -232,7 +231,6 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    * attributes as input and needs to return the new set of attributes. The attributes in the
    * callback may be mutated. This method overwrites and removes any existing attributes. This
    * method returns a new instance of the Zarr array class and the old instance becomes invalid.
-   * TODO: test
    *
    * @param attributeMapper the callback that is used to construct the new attributes
    * @throws ZarrException throws ZarrException if the new metadata is invalid

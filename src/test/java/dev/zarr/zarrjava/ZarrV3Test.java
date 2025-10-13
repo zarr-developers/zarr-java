@@ -527,7 +527,7 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata.chunkShape());
     }
 
-        @Test
+    @Test
     public void testCreateArray() throws ZarrException, IOException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCreateArrayV3");
         Path storeHandlePath = TESTOUTPUT.resolve("testCreateArrayV3Path");

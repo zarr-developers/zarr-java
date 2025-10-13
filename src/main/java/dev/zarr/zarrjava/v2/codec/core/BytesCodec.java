@@ -2,6 +2,8 @@ package dev.zarr.zarrjava.v2.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.v2.codec.Codec;
 
 import javax.annotation.Nonnull;
@@ -21,6 +23,11 @@ public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec imp
     @Override
     protected ByteOrder getByteOrder() {
         return endian.getByteOrder();
+    }
+
+    @Override
+    public Codec evolve_from_core_array_metadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+        return this;
     }
 }
 

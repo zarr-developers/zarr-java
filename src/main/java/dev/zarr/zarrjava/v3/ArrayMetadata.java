@@ -113,18 +113,19 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         shardingCodec = getShardingIndexedCodec(shardingConfig.codecs);
       }
     }
-    this.dataType = dataType;
     this.chunkGrid = chunkGrid;
+    this.dataType = dataType;
+    this.coreArrayMetadata =
+        new CoreArrayMetadata(this.shape, ((RegularChunkGrid) chunkGrid).configuration.chunkShape,
+            this.dataType,
+            this.parsedFillValue
+        );
+
     this.chunkKeyEncoding = chunkKeyEncoding;
     this.codecs = codecs;
     this.dimensionNames = dimensionNames;
     this.attributes = attributes;
     this.storageTransformers = storageTransformers;
-    this.coreArrayMetadata =
-        new CoreArrayMetadata(shape, ((RegularChunkGrid) chunkGrid).configuration.chunkShape,
-            this.dataType,
-            this.parsedFillValue
-        );
   }
 
 

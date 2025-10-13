@@ -65,13 +65,19 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
     this.endianness = dataType.getEndianness();
     this.order = order;
     this.dimensionSeparator = dimensionSeparator;
-    this.filters = filters;
-    this.compressor = compressor;
     this.coreArrayMetadata =
-        new ArrayMetadata.CoreArrayMetadata(shape, chunks,
+        new CoreArrayMetadata(shape, chunks,
             this.dataType,
             this.parsedFillValue
         );
+    if (filters == null) this.filters = null;
+    else{
+      this.filters = new Codec[filters.length];
+      for(int i = 0; i < filters.length; i++) {
+        this.filters[i] = filters[i].evolve_from_core_array_metadata(this.coreArrayMetadata);
+      }
+    }
+    this.compressor = compressor == null ? null : compressor.evolve_from_core_array_metadata(this.coreArrayMetadata);
   }
 
 
@@ -90,7 +96,7 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
 
   @Override
   public Array allocateFillValueChunk() {
-      ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunks);
+      Array outputArray = Array.factory(dataType.getMA2DataType(), chunks);
       if (parsedFillValue != null) MultiArrayUtils.fill(outputArray, parsedFillValue);
       return outputArray;
   }
