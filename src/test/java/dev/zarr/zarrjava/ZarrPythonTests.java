@@ -2,6 +2,7 @@ package dev.zarr.zarrjava;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.Group;
@@ -314,7 +315,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
         Assertions.assertEquals(dt, array.metadata().dataType);
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata().chunkShape());
-//        Assertions.assertEquals(42, array.metadata().attributes.get("answer"));
+        Assertions.assertEquals(42, array.metadata().attributes().get("answer"));
 
         assertIsTestdata(result, dt);
     }
@@ -323,15 +324,15 @@ public class ZarrPythonTests extends ZarrTest {
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV2")
     public void testWriteV2(String compressor, String compressorParam, dev.zarr.zarrjava.v2.DataType dt) throws Exception {
-//        Map<String, Object> attributes = new HashMap<>();
-//        attributes.put("test_key", "test_value");
+        Attributes attributes = new Attributes();
+        attributes.put("test_key", "test_value");
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecsWriteV2", compressor, compressorParam, dt.name());
 
         dev.zarr.zarrjava.v2.ArrayMetadataBuilder builder = dev.zarr.zarrjava.v2.Array.metadataBuilder()
             .withShape(16, 16, 16)
             .withDataType(dt)
             .withChunks(2, 4, 8)
-//            .withAttributes(attributes)
+            .withAttributes(attributes)
             .withFillValue(0);
 
         switch (compressor) {
@@ -358,7 +359,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
         Assertions.assertEquals(dt, readArray.metadata().dataType);
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata().chunkShape());
-//        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
+        Assertions.assertEquals("test_value", readArray.metadata().attributes().get("test_key"));
         assertIsTestdata(result, dt);
 
         //read in zarr_python

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
@@ -141,6 +142,15 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
   @Override
   public Object parsedFillValue() {
     return parsedFillValue;
+  }
+
+  @Nonnull
+  @Override
+  public Attributes attributes() throws ZarrException {
+    if (attributes == null) {
+      throw new ZarrException("Array attributes have not been set.");
+    }
+    return new Attributes(attributes); //todo change attributes to Attributes type
   }
 
   public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {

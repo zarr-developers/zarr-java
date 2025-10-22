@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
@@ -11,6 +12,7 @@ import dev.zarr.zarrjava.v2.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import ucar.ma2.Array;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 
@@ -39,6 +41,10 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
   @Nullable
   public final Codec compressor;
 
+  @Nullable
+  @JsonIgnore
+  public Attributes attributes;
+
   @JsonIgnore
   public CoreArrayMetadata coreArrayMetadata;
 
@@ -54,6 +60,22 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
       @Nullable @JsonProperty(value = "filters", required = true) Codec[] filters,
       @Nullable @JsonProperty(value = "compressor", required = true) Codec compressor,
       @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator
+      ) throws ZarrException {
+    this(zarrFormat, shape, chunks, dataType, fillValue, order, filters, compressor, dimensionSeparator, null);
+  }
+
+
+  public ArrayMetadata(
+      int zarrFormat,
+      long[] shape,
+      int[] chunks,
+      DataType dataType,
+      @Nullable Object fillValue,
+      Order order,
+      @Nullable Codec[] filters,
+      @Nullable Codec compressor,
+      @Nullable Separator dimensionSeparator,
+      @Nullable Attributes attributes
   ) throws ZarrException {
     super(shape, fillValue, dataType);
     if (zarrFormat != this.zarrFormat) {
@@ -78,6 +100,7 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
       }
     }
     this.compressor = compressor == null ? null : compressor.evolveFromCoreArrayMetadata(this.coreArrayMetadata);
+    this.attributes = attributes;
   }
 
 
@@ -86,8 +109,6 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
   public int[] chunkShape() {
     return chunks;
   }
-
-
 
   @Override
   public DataType dataType() {
@@ -111,4 +132,14 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
   public Object parsedFillValue() {
     return parsedFillValue;
   }
+
+  @Override
+  public @Nonnull Attributes attributes() throws ZarrException {
+    if (attributes == null) {
+      throw new ZarrException("Array attributes have not been set.");
+    }
+    return attributes;
+  }
+
+
 }

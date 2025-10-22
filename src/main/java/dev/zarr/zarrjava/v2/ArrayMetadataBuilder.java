@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.v2;
 
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.core.BloscCodec;
@@ -16,6 +17,7 @@ public class ArrayMetadataBuilder {
   Object fillValue = null;
   Codec[] filters = null;
   Codec compressor = null;
+  Attributes attributes = null;
 
 
   protected ArrayMetadataBuilder() {
@@ -119,6 +121,14 @@ public class ArrayMetadataBuilder {
     return withZlibCompressor(5);
   }
 
+  public ArrayMetadataBuilder withAttributes(Attributes attributes) {
+    if (this.attributes == null) {
+      this.attributes = attributes;
+    } else {
+      this.attributes.putAll(attributes);
+    }
+    return this;
+  }
   public ArrayMetadata build() throws ZarrException {
     if (shape == null) {
       throw new IllegalStateException("Please call `withShape` first.");
@@ -138,7 +148,8 @@ public class ArrayMetadataBuilder {
         order,
         filters,
         compressor,
-        dimensionSeparator
+        dimensionSeparator,
+        attributes
     );
   }
 }

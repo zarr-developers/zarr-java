@@ -569,6 +569,38 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
     }
 
+    @Test
+    public void testAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(5, 5)
+                .withAttributes(new HashMap<String, Object>() {{
+                    put("string", "stringvalue");
+                    put("int", 42);
+                    put("float", 3.14);
+                    put("boolean", true);
+                    put("array", new int[]{1, 2, 3});
+                }})
+                .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        Assertions.assertEquals("stringvalue", array.metadata().attributes.get("string"));
+        Assertions.assertEquals(42, array.metadata().attributes.get("int"));
+        Assertions.assertEquals(3.14, array.metadata().attributes.get("float"));
+        Assertions.assertEquals(true, array.metadata().attributes.get("boolean"));
+        Assertions.assertArrayEquals(new int[]{1, 2, 3}, (int[]) array.metadata().attributes.get("array"));
+
+        Array array2 = Array.open(storeHandle);
+        Assertions.assertEquals("stringvalue", array2.metadata().attributes.get("string"));
+        Assertions.assertEquals(42, array2.metadata().attributes.get("int"));
+        Assertions.assertEquals(3.14, array2.metadata().attributes.get("float"));
+        Assertions.assertEquals(true, array2.metadata().attributes.get("boolean"));
+        Assertions.assertArrayEquals(new int[]{1, 2, 3}, (int[])(array2.metadata().attributes.get("array")));
+    }
+
+
 
 
 }

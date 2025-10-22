@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
@@ -46,13 +47,19 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
    */
   public static Array open(StoreHandle storeHandle) throws IOException, ZarrException {
+    ObjectMapper mapper = makeObjectMapper();
+    ArrayMetadata metadata = mapper.readValue(
+        Utils.toArray(storeHandle.resolve(ZARRAY).readNonNull()),
+        ArrayMetadata.class
+    );
+    if (storeHandle.resolve(ZATTRS).exists())
+      metadata.attributes = mapper.readValue(
+          Utils.toArray(storeHandle.resolve(ZATTRS).readNonNull()),
+          Attributes.class
+      );
     return new Array(
         storeHandle,
-        makeObjectMapper()
-            .readValue(
-                Utils.toArray(storeHandle.resolve(ZARRAY).readNonNull()),
-                ArrayMetadata.class
-            )
+        metadata
     );
   }
 
@@ -143,6 +150,12 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
     }
     ObjectMapper objectMapper = makeObjectMapper();
     ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(arrayMetadata));
+    if (arrayMetadata.attributes != null) {
+      StoreHandle attrsHandle = storeHandle.resolve(ZATTRS);
+      ByteBuffer attrsBytes = ByteBuffer.wrap(
+          objectMapper.writeValueAsBytes(arrayMetadata.attributes));
+      attrsHandle.set(attrsBytes);
+    }
     metadataHandle.set(metadataBytes);
     return new Array(storeHandle, arrayMetadata);
   }

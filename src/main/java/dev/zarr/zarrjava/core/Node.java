@@ -13,6 +13,7 @@ public interface Node {
 
     String ZARR_JSON = "zarr.json";
     String ZARRAY = ".zarray";
+    String ZATTRS = ".zattrs";
     String ZGROUP = ".zgroup";
 
     /**
