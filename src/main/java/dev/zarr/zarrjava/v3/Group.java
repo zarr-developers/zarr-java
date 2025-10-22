@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
@@ -53,7 +54,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
 
   public static Group create(
       @Nonnull StoreHandle storeHandle,
-      @Nonnull Map<String, Object> attributes
+      @Nonnull Attributes attributes
   ) throws IOException, ZarrException {
     return new Group(storeHandle, new GroupMetadata(attributes));
   }
@@ -93,7 +94,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return Group.create(storeHandle.resolve(key), groupMetadata);
   }
 
-  public Group createGroup(String key, Map<String, Object> attributes)
+  public Group createGroup(String key, Attributes attributes)
       throws IOException, ZarrException {
     return Group.create(storeHandle.resolve(key), new GroupMetadata(attributes));
   }
@@ -121,12 +122,12 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return new Group(storeHandle, newGroupMetadata);
   }
 
-  public Group setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
+  public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
     GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
     return writeMetadata(newGroupMetadata);
   }
 
-  public Group updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper)
+  public Group updateAttributes(Function<Attributes, Attributes> attributeMapper)
       throws ZarrException, IOException {
     return setAttributes(attributeMapper.apply(metadata.attributes));
   }

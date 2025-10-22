@@ -40,7 +40,7 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
   public final Codec[] codecs;
   @Nullable
   @JsonProperty("attributes")
-  public final Map<String, Object> attributes;
+  public final Attributes attributes;
   @Nullable
   @JsonProperty("dimension_names")
   public final String[] dimensionNames;
@@ -56,7 +56,7 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
       Object fillValue,
       @Nonnull Codec[] codecs,
       @Nullable String[] dimensionNames,
-      @Nullable Map<String, Object> attributes,
+      @Nullable Attributes attributes,
       @Nullable Map<String, Object>[] storageTransformers
   ) throws ZarrException {
     this(ZARR_FORMAT, NODE_TYPE, shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
@@ -76,7 +76,7 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
       @JsonProperty(value = "fill_value", required = true) Object fillValue,
       @Nonnull @JsonProperty(value = "codecs") Codec[] codecs,
       @Nullable @JsonProperty(value = "dimension_names") String[] dimensionNames,
-      @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes,
+      @Nullable @JsonProperty(value = "attributes") Attributes attributes,
       @Nullable @JsonProperty(value = "storage_transformers") Map<String, Object>[] storageTransformers
   ) throws ZarrException {
     super(shape, fillValue, dataType);

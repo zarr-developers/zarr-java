@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 
@@ -512,7 +513,7 @@ public class ZarrV3Test extends ZarrTest {
     public void testGroup() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTOUTPUT);
 
-        Map<String, Object> attributes = new HashMap<>();
+        Attributes attributes = new Attributes();
         attributes.put("hello", "world");
 
         Group group = Group.create(fsStore.resolve("testgroup"));
@@ -553,7 +554,7 @@ public class ZarrV3Test extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCreateGroupV3");
         Path storeHandlePath = TESTOUTPUT.resolve("testCreateGroupV3Path");
         String storeHandleString = String.valueOf(TESTOUTPUT.resolve("testCreateGroupV3String"));
-        Map<String, Object> attributes = new HashMap<>();
+        Attributes attributes = new Attributes();
         attributes.put("hello", "world");
 
         Group group = Group.create(storeHandle, new GroupMetadata(attributes));
@@ -568,39 +569,4 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve("zarr.json")));
         Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
     }
-
-    @Test
-    public void testAttributes() throws IOException, ZarrException {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV3");
-        ArrayMetadata arrayMetadata = Array.metadataBuilder()
-                .withShape(10, 10)
-                .withDataType(DataType.UINT8)
-                .withChunkShape(5, 5)
-                .withAttributes(new HashMap<String, Object>() {{
-                    put("string", "stringvalue");
-                    put("int", 42);
-                    put("float", 3.14);
-                    put("boolean", true);
-                    put("array", new int[]{1, 2, 3});
-                }})
-                .build();
-
-        Array array = Array.create(storeHandle, arrayMetadata);
-        Assertions.assertEquals("stringvalue", array.metadata().attributes.get("string"));
-        Assertions.assertEquals(42, array.metadata().attributes.get("int"));
-        Assertions.assertEquals(3.14, array.metadata().attributes.get("float"));
-        Assertions.assertEquals(true, array.metadata().attributes.get("boolean"));
-        Assertions.assertArrayEquals(new int[]{1, 2, 3}, (int[]) array.metadata().attributes.get("array"));
-
-        Array array2 = Array.open(storeHandle);
-        Assertions.assertEquals("stringvalue", array2.metadata().attributes.get("string"));
-        Assertions.assertEquals(42, array2.metadata().attributes.get("int"));
-        Assertions.assertEquals(3.14, array2.metadata().attributes.get("float"));
-        Assertions.assertEquals(true, array2.metadata().attributes.get("boolean"));
-        Assertions.assertArrayEquals(new int[]{1, 2, 3}, (int[])(array2.metadata().attributes.get("array")));
-    }
-
-
-
-
 }

@@ -210,7 +210,7 @@ public class ZarrPythonTests extends ZarrTest {
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV3")
     public void testWriteV3(String codec, String codecParam, DataType dataType) throws Exception {
-        Map<String, Object> attributes = new HashMap<>();
+        Attributes attributes = new Attributes();
         attributes.put("test_key", "test_value");
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testWriteV3", codec, codecParam, dataType.name());
 

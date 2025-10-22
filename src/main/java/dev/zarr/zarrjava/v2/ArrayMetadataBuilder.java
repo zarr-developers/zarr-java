@@ -17,7 +17,7 @@ public class ArrayMetadataBuilder {
   Object fillValue = null;
   Codec[] filters = null;
   Codec compressor = null;
-  Attributes attributes = null;
+  Attributes attributes = new Attributes();
 
 
   protected ArrayMetadataBuilder() {
@@ -119,6 +119,11 @@ public class ArrayMetadataBuilder {
 
   public ArrayMetadataBuilder withZlibCompressor() {
     return withZlibCompressor(5);
+  }
+
+  public ArrayMetadataBuilder putAttribute(String key, Object value) {
+    this.attributes.put(key, value);
+    return this;
   }
 
   public ArrayMetadataBuilder withAttributes(Attributes attributes) {

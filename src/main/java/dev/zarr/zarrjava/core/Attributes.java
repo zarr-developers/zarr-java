@@ -1,7 +1,8 @@
 package dev.zarr.zarrjava.core;
 
+import dev.zarr.zarrjava.ZarrException;
+
 import javax.annotation.Nonnull;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,19 +78,21 @@ public class Attributes extends HashMap<String, Object> {
         throw new IllegalArgumentException("Value for key " + key + " is not an Attributes object");
     }
 
-    public <T> T[] getArray(String key, Class<T> clazz) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    public <T> T[] getArray(String key, Class<T> clazz) throws ZarrException {
     Object value = this.get(key);
     if (value instanceof Object[] && ( ((Object[]) value).length == 0 || clazz.isInstance(((Object[]) value)[0]) )) {
         return (T[]) value;
     }
     if (value instanceof List) {
         List<?> list = (List<?>) value;
+        @SuppressWarnings("unchecked")
         T[] array = (T[]) java.lang.reflect.Array.newInstance(clazz, list.size());
         for (int i = 0; i < list.size(); i++) {
             Object elem = list.get(i);
             if (clazz.isInstance(elem)) {
                 array[i] = clazz.cast(elem);
             } else {
+                // Try to find a constructor that takes the element's class
                 java.lang.reflect.Constructor<?> matched = null;
                 for (java.lang.reflect.Constructor<?> c : clazz.getConstructors()) {
                     Class<?>[] params = c.getParameterTypes();
@@ -99,9 +102,13 @@ public class Attributes extends HashMap<String, Object> {
                     }
                 }
                 if (matched != null) {
-                    array[i] = (T) matched.newInstance(elem);
+                    try {
+                        array[i] = (T) matched.newInstance(elem);
+                    } catch (Exception e) {
+                        throw new ZarrException("Failed to convert element at index " + i + " to type " + clazz.getName(), e);
+                    }
                 } else {
-                    throw new IllegalArgumentException("Element at index " + i + " is not of type " + clazz.getName());
+                    throw new IllegalArgumentException("Element at index " + i + " is not of type " + clazz.getName() + " and no suitable constructor found for conversion of type " + elem.getClass().getName());
                 }
             }
         }
