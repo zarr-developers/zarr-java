@@ -9,7 +9,6 @@ import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
-import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -18,18 +17,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 
-public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
-
-  static final String NODE_TYPE = "array";
+public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
+  public static final String NODE_TYPE = "array";
   static final int ZARR_FORMAT = 3;
 
   @JsonProperty("zarr_format")
   public final int zarrFormat = ZARR_FORMAT;
   @JsonProperty("node_type")
   public final String nodeType = NODE_TYPE;
-
-
-  public final long[] shape;
 
   @JsonProperty("data_type")
   public final DataType dataType;
@@ -40,11 +35,6 @@ public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata
   @JsonProperty("chunk_key_encoding")
   public final ChunkKeyEncoding chunkKeyEncoding;
 
-  @JsonProperty("fill_value")
-  public final Object fillValue;
-  @JsonIgnore
-  public final Object parsedFillValue;
-
   @JsonProperty("codecs")
   public final Codec[] codecs;
   @Nullable
@@ -52,10 +42,10 @@ public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata
   public final Map<String, Object> attributes;
   @Nullable
   @JsonProperty("dimension_names")
-  public String[] dimensionNames;
+  public final String[] dimensionNames;
   @Nullable
   @JsonProperty("storage_transformers")
-  public Map<String, Object>[] storageTransformers;
+  public final Map<String, Object>[] storageTransformers;
 
   @JsonIgnore
   public CoreArrayMetadata coreArrayMetadata;
@@ -88,6 +78,7 @@ public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata
       @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes,
       @Nullable @JsonProperty(value = "storage_transformers") Map<String, Object>[] storageTransformers
   ) throws ZarrException {
+    super(shape, fillValue, dataType);
     if (zarrFormat != this.zarrFormat) {
       throw new ZarrException(
           "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
@@ -122,22 +113,19 @@ public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata
         shardingCodec = getShardingIndexedCodec(shardingConfig.codecs);
       }
     }
-
-    this.shape = shape;
-    this.dataType = dataType;
     this.chunkGrid = chunkGrid;
+    this.dataType = dataType;
+    this.coreArrayMetadata =
+        new CoreArrayMetadata(this.shape, ((RegularChunkGrid) chunkGrid).configuration.chunkShape,
+            this.dataType,
+            this.parsedFillValue
+        );
+
     this.chunkKeyEncoding = chunkKeyEncoding;
-    this.fillValue = fillValue;
-    this.parsedFillValue = parseFillValue(fillValue, dataType);
     this.codecs = codecs;
     this.dimensionNames = dimensionNames;
     this.attributes = attributes;
     this.storageTransformers = storageTransformers;
-    this.coreArrayMetadata =
-        new CoreArrayMetadata(shape, ((RegularChunkGrid) chunkGrid).configuration.chunkShape,
-            dataType,
-            parsedFillValue
-        );
   }
 
 
@@ -155,21 +143,12 @@ public final class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata
     return parsedFillValue;
   }
 
-  public int ndim() {
-    return shape.length;
-  }
-
   public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
     return Arrays.stream(codecs).filter(codec -> codec instanceof ShardingIndexedCodec).findFirst();
   }
 
   public int[] chunkShape() {
     return ((RegularChunkGrid) this.chunkGrid).configuration.chunkShape;
-  }
-
-  @Override
-  public long[] shape() {
-    return shape;
   }
 
   @Override

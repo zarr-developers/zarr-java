@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.v2.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
@@ -51,5 +52,10 @@ public class ZlibCodec extends BytesBytesCodec implements Codec {
         } catch (IOException ex) {
             throw new ZarrException("Error in encoding zlib.", ex);
         }
+    }
+
+    @Override
+    public Codec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) {
+        return this;
     }
 }

@@ -1,31 +1,34 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.v2.codec.CodecRegistry;
 import dev.zarr.zarrjava.v2.codec.core.BytesCodec;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 
-public class Array implements dev.zarr.zarrjava.core.Array {
+public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
-  static final String ZARRAY = ".zarray";
-  public ArrayMetadata metadata;
-  public StoreHandle storeHandle;
-  CodecPipeline codecPipeline;
+  private final ArrayMetadata metadata;
+
+  public ArrayMetadata metadata() {
+      return metadata;
+  }
 
   protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata) throws IOException, ZarrException {
-    this.storeHandle = storeHandle;
+    super(storeHandle);
     this.metadata = arrayMetadata;
     this.codecPipeline = new CodecPipeline(Utils.concatArrays(
         new Codec[]{},
@@ -53,14 +56,57 @@ public class Array implements dev.zarr.zarrjava.core.Array {
     );
   }
 
-  public static ObjectMapper makeObjectMapper() {
-    ObjectMapper objectMapper = new ObjectMapper();
-    objectMapper.registerModule(new Jdk8Module());
-    objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
-    return objectMapper;
+  /**
+   * Opens an existing Zarr array at a specified storage location.
+   *
+   * @param path the storage location of the Zarr array
+   * @throws IOException throws IOException if the metadata cannot be read
+   * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+   */
+  public static Array open(Path path) throws IOException, ZarrException {
+    return open(new StoreHandle(new FilesystemStore(path)));
   }
 
+    /**
+     * Opens an existing Zarr array at a specified storage location.
+     *
+     * @param path the storage location of the Zarr array
+     * @throws IOException throws IOException if the metadata cannot be read
+     * @throws ZarrException throws ZarrException if the Zarr array cannot be opened
+     */
+    public static Array open(String path) throws IOException, ZarrException {
+      return open(Paths.get(path));
+    }
 
+  /**
+   * Creates a new Zarr array with the provided metadata at a specified storage location. This
+   * method will raise an exception if a Zarr array already exists at the specified storage
+   * location.
+   *
+   * @param path the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
+   */
+  public static Array create(Path path, ArrayMetadata arrayMetadata)
+      throws IOException, ZarrException {
+      return create(new StoreHandle(new FilesystemStore(path)), arrayMetadata);
+  }
+
+  /**
+   * Creates a new Zarr array with the provided metadata at a specified storage location. This
+   * method will raise an exception if a Zarr array already exists at the specified storage
+   * location.
+   *
+   * @param path the storage location of the Zarr array
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
+   */
+  public static Array create(String path, ArrayMetadata arrayMetadata)
+      throws IOException, ZarrException {
+      return create(Paths.get(path), arrayMetadata);
+  }
   /**
    * Creates a new Zarr array with the provided metadata at a specified storage location. This
    * method will raise an exception if a Zarr array already exists at the specified storage
@@ -127,20 +173,4 @@ public class Array implements dev.zarr.zarrjava.core.Array {
         metadata.dataType
     );
   }
-
-  @Override
-  public ArrayMetadata metadata() {
-    return metadata;
-  }
-
-  @Override
-  public StoreHandle storeHandle() {
-    return storeHandle;
-  }
-
-  @Override
-  public CodecPipeline codecPipeline() {
-    return codecPipeline;
-  }
-
 }

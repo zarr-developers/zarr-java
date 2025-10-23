@@ -13,39 +13,31 @@ import ucar.ma2.Array;
 
 import javax.annotation.Nullable;
 
-import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 
-
-public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
+public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
   static final int ZARR_FORMAT = 2;
 
   @JsonProperty("zarr_format")
   public final int zarrFormat = ZARR_FORMAT;
 
-  public long[] shape;
-  public int[] chunks;
+  public final int[] chunks;
 
   @JsonProperty("dtype")
-  public DataType dataType;
+  public final DataType dataType;
 
   @JsonIgnore
   public final Endianness endianness;
 
   @JsonProperty("order")
-  public Order order;
+  public final Order order;
 
   @JsonProperty("dimension_separator")
-  public Separator dimensionSeparator;
-
-  @JsonProperty("fill_value")
-  public Object fillValue;
-  @JsonIgnore
-  public final Object parsedFillValue;
+  public final Separator dimensionSeparator;
 
   @Nullable
-  public Codec[] filters;
+  public final Codec[] filters;
   @Nullable
-  public Codec compressor;
+  public final Codec compressor;
 
   @JsonIgnore
   public CoreArrayMetadata coreArrayMetadata;
@@ -63,46 +55,39 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
       @Nullable @JsonProperty(value = "compressor", required = true) Codec compressor,
       @Nullable @JsonProperty(value = "dimension_separator") Separator dimensionSeparator
   ) throws ZarrException {
-    super();
+    super(shape, fillValue, dataType);
     if (zarrFormat != this.zarrFormat) {
       throw new ZarrException(
           "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
     }
-    this.shape = shape;
     this.chunks = chunks;
     this.dataType = dataType;
     this.endianness = dataType.getEndianness();
-    this.fillValue = fillValue;
-    if (fillValue == null) {
-      this.parsedFillValue = null;
-    } else {
-      this.parsedFillValue = parseFillValue(fillValue, this.dataType);
-    }
     this.order = order;
     this.dimensionSeparator = dimensionSeparator;
-    this.filters = filters;
-    this.compressor = compressor;
     this.coreArrayMetadata =
-        new ArrayMetadata.CoreArrayMetadata(shape, chunks,
+        new CoreArrayMetadata(shape, chunks,
             this.dataType,
-            parsedFillValue
+            this.parsedFillValue
         );
+    if (filters == null) this.filters = null;
+    else{
+      this.filters = new Codec[filters.length];
+      for(int i = 0; i < filters.length; i++) {
+        this.filters[i] = filters[i].evolveFromCoreArrayMetadata(this.coreArrayMetadata);
+      }
+    }
+    this.compressor = compressor == null ? null : compressor.evolveFromCoreArrayMetadata(this.coreArrayMetadata);
   }
 
 
-  public int ndim() {
-    return shape.length;
-  }
 
   @Override
   public int[] chunkShape() {
     return chunks;
   }
 
-  @Override
-  public long[] shape() {
-    return shape;
-  }
+
 
   @Override
   public DataType dataType() {
@@ -111,7 +96,7 @@ public class ArrayMetadata implements dev.zarr.zarrjava.core.ArrayMetadata {
 
   @Override
   public Array allocateFillValueChunk() {
-      ucar.ma2.Array outputArray = ucar.ma2.Array.factory(dataType.getMA2DataType(), chunks);
+      Array outputArray = Array.factory(dataType.getMA2DataType(), chunks);
       if (parsedFillValue != null) MultiArrayUtils.fill(outputArray, parsedFillValue);
       return outputArray;
   }

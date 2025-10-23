@@ -7,12 +7,12 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-public final class GroupMetadata {
+public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
 
   static final String NODE_TYPE = "group";
   static final int ZARR_FORMAT = 3;
   @JsonProperty("zarr_format")
-  public final int zarrFormat = 3;
+  public final int zarrFormat = ZARR_FORMAT;
   @JsonProperty("node_type")
   public final String nodeType = "group";
 

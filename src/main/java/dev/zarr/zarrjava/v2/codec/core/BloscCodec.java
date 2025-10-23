@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 
@@ -44,9 +45,6 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
       @JsonProperty(value = "typesize", defaultValue = "0") int typesize,
       @JsonProperty(value = "blocksize", defaultValue = "0") int blocksize
   ) throws ZarrException {
-    if (typesize < 1 && shuffle != Blosc.Shuffle.NO_SHUFFLE) {
-      typesize = 4; //todo: in v2 typesize is not a required parameter. default to correct value based on dtype
-    }
     if (clevel < 0 || clevel > 9) {
       throw new ZarrException("'clevel' needs to be between 0 and 9.");
     }
@@ -56,7 +54,6 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
     this.typesize = typesize;
     this.blocksize = blocksize;
   }
-
 
   @Override
   public ByteBuffer encode(ByteBuffer chunkBytes)
@@ -70,6 +67,20 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
     } catch (Exception ex) {
       throw new ZarrException("Error in encoding blosc.", ex);
     }
+  }
+
+  @Override
+  public BloscCodec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    if (typesize == 0) {
+        return new BloscCodec(
+            this.cname,
+            this.shuffle,
+            this.clevel,
+            arrayMetadata.dataType.getByteCount(),
+            this.blocksize
+        );
+    }
+    return this;
   }
 
   public static final class CustomShuffleSerializer extends StdSerializer<Blosc.Shuffle> {
