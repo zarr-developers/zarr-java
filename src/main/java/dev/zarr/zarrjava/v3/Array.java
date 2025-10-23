@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
@@ -182,11 +183,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
   }
 
   private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(newArrayMetadata));
-    storeHandle.resolve(ZARR_JSON)
-        .set(metadataBytes);
-    return new Array(storeHandle, newArrayMetadata);
+    return Array.create(storeHandle, newArrayMetadata, true);
   }
 
   /**
@@ -218,7 +215,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    * @throws ZarrException throws ZarrException if the new metadata is invalid
    * @throws IOException throws IOException if the new metadata cannot be serialized
    */
-  public Array setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
+  public Array setAttributes(Attributes newAttributes) throws ZarrException, IOException {
     ArrayMetadata newArrayMetadata =
         ArrayMetadataBuilder.fromArrayMetadata(metadata)
             .withAttributes(newAttributes)
@@ -234,12 +231,10 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    *
    * @param attributeMapper the callback that is used to construct the new attributes
    * @throws ZarrException throws ZarrException if the new metadata is invalid
-   * @throws IOException throws IOException if the new metadata cannot be serialized
+   * @throws IOException   throws IOException if the new metadata cannot be serialized
    */
-  public Array updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper)
-      throws ZarrException, IOException {
-    return setAttributes(attributeMapper.apply(new HashMap<String, Object>(metadata.attributes) {
-    }));
+  public Array updateAttributes(Function<Attributes, Attributes> attributeMapper) throws ZarrException, IOException {
+    return setAttributes(attributeMapper.apply(metadata.attributes));
   }
 
   @Override

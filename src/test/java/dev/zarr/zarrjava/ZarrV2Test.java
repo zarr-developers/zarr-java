@@ -1,12 +1,9 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.v2.Array;
-import dev.zarr.zarrjava.v2.ArrayMetadata;
-import dev.zarr.zarrjava.v2.DataType;
-import dev.zarr.zarrjava.v2.Group;
-import dev.zarr.zarrjava.v2.Node;
+import dev.zarr.zarrjava.v2.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -18,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 public class ZarrV2Test extends ZarrTest {
     @ParameterizedTest
@@ -254,5 +252,89 @@ public class ZarrV2Test extends ZarrTest {
 
         Group.create(storeHandleString);
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
+    }
+
+    @Test
+    public void testAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV2");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .putAttribute("specific", "attribute")
+            .withAttributes(defaultTestAttributes())
+            .withAttributes(new Attributes() {{
+                put("another", "attribute");
+            }})
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertEquals("attribute", array.metadata().attributes().getString("specific"));
+        Assertions.assertEquals("attribute", array.metadata().attributes().getString("another"));
+
+        Array arrayOpened = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("another"));
+        Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("specific"));
+    }
+
+    @Test
+    public void testSetAndUpdateAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV2");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.setAttributes(defaultTestAttributes());
+        array = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+
+        // add attribute
+        array = array.updateAttributes(b -> b.add("new_attribute", "new_value"));
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+        array = Array.open(storeHandle);
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+        
+        // delete attribute
+        array = array.updateAttributes(b -> b.delete("new_value"));
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+        array = Array.open(storeHandle);
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+
+        assertContainsTestAttributes(array.metadata().attributes());
+    }
+    
+    @Test
+    public void testResizeArray() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayV2");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT32)
+            .withChunks(5, 5)
+            .withFillValue(1)
+            .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+        
+        array = array.resize(new long[]{20, 15});
+        Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        int[] expectedData = new int[5 * 5];
+        Arrays.fill(expectedData, 1);
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
 }
