@@ -177,6 +177,62 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
     return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
   }
 
+  private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
+    return Array.create(storeHandle, newArrayMetadata, true);
+  }
+
+  /**
+   * Sets a new shape for the Zarr array. It only changes the metadata, no array data is modified or
+   * deleted. This method returns a new instance of the Zarr array class and the old instance
+   * becomes invalid.
+   *
+   * @param newShape the new shape of the Zarr array
+   * @throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
+   */
+  public Array resize(long[] newShape) throws ZarrException, IOException {
+    //TODO: test
+    if (newShape.length != metadata.ndim()) {
+      throw new IllegalArgumentException(
+          "'newShape' needs to have rank '" + metadata.ndim() + "'.");
+    }
+
+    ArrayMetadata newArrayMetadata = ArrayMetadataBuilder.fromArrayMetadata(metadata)
+        .withShape(newShape)
+        .build();
+    return writeMetadata(newArrayMetadata);
+  }
+
+  /**
+   * Sets the attributes of the Zarr array. It overwrites and removes any existing attributes. This
+   * method returns a new instance of the Zarr array class and the old instance becomes invalid.
+   *
+   * @param newAttributes the new attributes of the Zarr array
+   * @throws ZarrException throws ZarrException if the new metadata is invalid
+   * @throws IOException throws IOException if the new metadata cannot be serialized
+   */
+  public Array setAttributes(Attributes newAttributes) throws ZarrException, IOException {
+    ArrayMetadata newArrayMetadata =
+        ArrayMetadataBuilder.fromArrayMetadata(metadata)
+            .withAttributes(newAttributes)
+            .build();
+    return writeMetadata(newArrayMetadata);
+  }
+
+  /**
+   * Updates the attributes of the Zarr array. It provides a callback that gets the current
+   * attributes as input and needs to return the new set of attributes. The attributes in the
+   * callback may be mutated. This method overwrites and removes any existing attributes. This
+   * method returns a new instance of the Zarr array class and the old instance becomes invalid.
+   *
+   * @param attributeMapper the callback that is used to construct the new attributes
+   * @throws ZarrException throws ZarrException if the new metadata is invalid
+   * @throws IOException   throws IOException if the new metadata cannot be serialized
+   */
+  public Array updateAttributes(Function<Attributes, Attributes> attributeMapper) throws ZarrException, IOException {
+    return setAttributes(attributeMapper.apply(metadata.attributes));
+  }
+
   @Override
   public String toString() {
     return String.format("<v2.Array {%s} (%s) %s>", storeHandle,

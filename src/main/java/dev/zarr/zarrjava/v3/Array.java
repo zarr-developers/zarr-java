@@ -183,11 +183,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
   }
 
   private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(newArrayMetadata));
-    storeHandle.resolve(ZARR_JSON)
-        .set(metadataBytes);
-    return new Array(storeHandle, newArrayMetadata);
+    return Array.create(storeHandle, newArrayMetadata, true);
   }
 
   /**
@@ -238,8 +234,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    * @throws IOException   throws IOException if the new metadata cannot be serialized
    */
   public Array updateAttributes(Function<Attributes, Attributes> attributeMapper) throws ZarrException, IOException {
-    return setAttributes(attributeMapper.apply(new Attributes(metadata.attributes) {
-    }));
+    return setAttributes(attributeMapper.apply(metadata.attributes));
   }
 
   @Override

@@ -3,11 +3,7 @@ package dev.zarr.zarrjava;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.v2.Array;
-import dev.zarr.zarrjava.v2.ArrayMetadata;
-import dev.zarr.zarrjava.v2.DataType;
-import dev.zarr.zarrjava.v2.Group;
-import dev.zarr.zarrjava.v2.Node;
+import dev.zarr.zarrjava.v2.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,13 +11,10 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ZarrV2Test extends ZarrTest {
     @ParameterizedTest
@@ -260,4 +253,59 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
     }
 
+    @Test
+    public void testAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV2");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .putAttribute("specific", "attribute")
+            .withAttributes(defaultTestAttributes())
+            .withAttributes(new Attributes() {{
+                put("another", "attribute");
+            }})
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertEquals("attribute", array.metadata().attributes().getString("specific"));
+        Assertions.assertEquals("attribute", array.metadata().attributes().getString("another"));
+
+        Array arrayOpened = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("another"));
+        Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("specific"));
+    }
+
+    @Test
+    public void testSetAndUpdateAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV3");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.setAttributes(defaultTestAttributes());
+        array = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+
+        // add attribute
+        array = array.updateAttributes(b -> b.add("new_attribute", "new_value"));
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+        array = Array.open(storeHandle);
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+        
+        // delete attribute
+        array = array.updateAttributes(b -> b.delete("new_value"));
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+        array = Array.open(storeHandle);
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+
+        assertContainsTestAttributes(array.metadata().attributes());
+    }
 }

@@ -17,6 +17,16 @@ public class Attributes extends HashMap<String, Object> {
         super(attributes);
     }
 
+    public Attributes add(String s, Object o){
+        this.put(s, o);
+        return this;
+    }
+
+    public Attributes delete(String s){
+        this.remove(s);
+        return this;
+    }
+
     public boolean getBoolean(String key) {
         Object value = this.get(key);
         if (value instanceof Boolean) {

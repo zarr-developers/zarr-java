@@ -150,7 +150,7 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
     if (attributes == null) {
       throw new ZarrException("Array attributes have not been set.");
     }
-    return new Attributes(attributes); //todo change attributes to Attributes type
+    return attributes;
   }
 
   public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
