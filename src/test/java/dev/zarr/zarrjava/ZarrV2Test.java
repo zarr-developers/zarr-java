@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 public class ZarrV2Test extends ZarrTest {
     @ParameterizedTest
@@ -281,7 +282,7 @@ public class ZarrV2Test extends ZarrTest {
 
     @Test
     public void testSetAndUpdateAttributes() throws IOException, ZarrException {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV3");
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV2");
 
         ArrayMetadata arrayMetadata = Array.metadataBuilder()
             .withShape(10, 10)
@@ -307,5 +308,33 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertNull(array.metadata().attributes().get("new_value"));
 
         assertContainsTestAttributes(array.metadata().attributes());
+    }
+    
+    @Test
+    public void testResizeArray() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayV2");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT32)
+            .withChunks(5, 5)
+            .withFillValue(1)
+            .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+        
+        array = array.resize(new long[]{20, 15});
+        Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        int[] expectedData = new int[5 * 5];
+        Arrays.fill(expectedData, 1);
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
 }
