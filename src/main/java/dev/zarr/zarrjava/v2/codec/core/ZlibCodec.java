@@ -55,7 +55,7 @@ public class ZlibCodec extends BytesBytesCodec implements Codec {
     }
 
     @Override
-    public Codec evolve_from_core_array_metadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    public Codec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         return this;
     }
 }

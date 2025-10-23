@@ -6,6 +6,6 @@ import dev.zarr.zarrjava.v2.ArrayMetadata;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "id")
 public interface Codec extends dev.zarr.zarrjava.core.codec.Codec {
-    Codec evolve_from_core_array_metadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException;
+    Codec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException;
 }
 

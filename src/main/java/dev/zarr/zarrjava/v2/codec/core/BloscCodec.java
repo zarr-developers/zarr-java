@@ -70,7 +70,7 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
   }
 
   @Override
-  public BloscCodec evolve_from_core_array_metadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+  public BloscCodec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
     if (typesize == 0) {
         return new BloscCodec(
             this.cname,

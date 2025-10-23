@@ -74,10 +74,10 @@ public class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
     else{
       this.filters = new Codec[filters.length];
       for(int i = 0; i < filters.length; i++) {
-        this.filters[i] = filters[i].evolve_from_core_array_metadata(this.coreArrayMetadata);
+        this.filters[i] = filters[i].evolveFromCoreArrayMetadata(this.coreArrayMetadata);
       }
     }
-    this.compressor = compressor == null ? null : compressor.evolve_from_core_array_metadata(this.coreArrayMetadata);
+    this.compressor = compressor == null ? null : compressor.evolveFromCoreArrayMetadata(this.coreArrayMetadata);
   }
 
 

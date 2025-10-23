@@ -26,7 +26,7 @@ public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec imp
     }
 
     @Override
-    public Codec evolve_from_core_array_metadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+    public Codec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) {
         return this;
     }
 }
