@@ -191,7 +191,6 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    * @throws IOException throws IOException if the new metadata cannot be serialized
    */
   public Array resize(long[] newShape) throws ZarrException, IOException {
-    //TODO: test
     if (newShape.length != metadata.ndim()) {
       throw new IllegalArgumentException(
           "'newShape' needs to have rank '" + metadata.ndim() + "'.");
@@ -213,7 +212,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    */
   public Array setAttributes(Attributes newAttributes) throws ZarrException, IOException {
     ArrayMetadata newArrayMetadata =
-        ArrayMetadataBuilder.fromArrayMetadata(metadata)
+        ArrayMetadataBuilder.fromArrayMetadata(metadata, false)
             .withAttributes(newAttributes)
             .build();
     return writeMetadata(newArrayMetadata);

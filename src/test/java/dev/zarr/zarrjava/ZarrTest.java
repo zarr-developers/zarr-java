@@ -65,6 +65,7 @@ public class ZarrTest {
             put("long_array", new long[]{1, 2, 3});
             put("double_array", new double[]{1.0, 2.0, 3.0});
             put("float_array", new float[]{1.0f, 2.0f, 3.0f});
+            put("boolean_array", new boolean[]{true, false, true});
             put("nested", new Attributes() {{
                 put("element", "value");
             }});
@@ -96,6 +97,7 @@ public class ZarrTest {
         Assertions.assertArrayEquals(new long[]{1, 2, 3}, attributes.getLongArray("long_array"));
         Assertions.assertArrayEquals(new double[]{1, 2, 3}, attributes.getDoubleArray("double_array"));
         Assertions.assertArrayEquals(new float[]{1, 2, 3}, attributes.getFloatArray("float_array"));
+        Assertions.assertArrayEquals(new boolean[]{true, false, true}, attributes.getBooleanArray("boolean_array"));
         Assertions.assertEquals("value", attributes.getAttributes("nested").getString("element"));
         Assertions.assertArrayEquals(
             new Attributes[]{

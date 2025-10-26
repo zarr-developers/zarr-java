@@ -35,6 +35,10 @@ public class ArrayMetadataBuilder {
   }
 
   protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata) {
+    return fromArrayMetadata(arrayMetadata, true);
+  }
+
+  protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata, boolean withAttributes) {
     ArrayMetadataBuilder builder = new ArrayMetadataBuilder();
     builder.shape = arrayMetadata.shape;
     builder.dataType = arrayMetadata.dataType;
@@ -42,9 +46,11 @@ public class ArrayMetadataBuilder {
     builder.chunkKeyEncoding = arrayMetadata.chunkKeyEncoding;
     builder.fillValue = arrayMetadata.parsedFillValue;
     builder.codecs = arrayMetadata.codecs;
-    builder.attributes = arrayMetadata.attributes;
     builder.dimensionNames = arrayMetadata.dimensionNames;
     builder.storageTransformers = arrayMetadata.storageTransformers;
+    if (withAttributes) {
+      builder.attributes = arrayMetadata.attributes;
+    }
     return builder;
   }
 

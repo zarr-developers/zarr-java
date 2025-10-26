@@ -602,12 +602,15 @@ public class ZarrV3Test extends ZarrTest {
             .withShape(10, 10)
             .withDataType(DataType.UINT8)
             .withChunkShape(5, 5)
+            .withAttributes(new Attributes(b -> b.add("some", "value")))
             .build();
 
         Array array = Array.create(storeHandle, arrayMetadata);
+        Assertions.assertEquals("value", array.metadata().attributes().getString("some"));
         array.setAttributes(defaultTestAttributes());
         array = Array.open(storeHandle);
         assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertNull(array.metadata().attributes().get("some"));
 
         // add attribute
         array = array.updateAttributes(b -> b.add("new_attribute", "new_value"));

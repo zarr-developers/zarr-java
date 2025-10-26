@@ -12,8 +12,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -217,7 +215,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
    */
   public Array setAttributes(Attributes newAttributes) throws ZarrException, IOException {
     ArrayMetadata newArrayMetadata =
-        ArrayMetadataBuilder.fromArrayMetadata(metadata)
+        ArrayMetadataBuilder.fromArrayMetadata(metadata, false)
             .withAttributes(newAttributes)
             .build();
     return writeMetadata(newArrayMetadata);

@@ -6,12 +6,19 @@ import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class Attributes extends HashMap<String, Object> {
 
     public Attributes() {
         super();
     }
+
+    public Attributes (Function<Attributes, Attributes> attributeMapper) {
+        super();
+        attributeMapper.apply(this);
+    }
+
 
     public Attributes(Map<String, Object> attributes) {
         super(attributes);
@@ -90,7 +97,7 @@ public class Attributes extends HashMap<String, Object> {
 
     public <T> T[] getArray(String key, Class<T> clazz) throws ZarrException {
     Object value = this.get(key);
-    if (value instanceof Object[] && ( ((Object[]) value).length == 0 || clazz.isInstance(((Object[]) value)[0]) )) {
+    if (value instanceof Object[] && (((Object[]) value).length == 0 || clazz.isInstance(((Object[]) value)[0]) )) {
         return (T[]) value;
     }
     if (value instanceof List) {
