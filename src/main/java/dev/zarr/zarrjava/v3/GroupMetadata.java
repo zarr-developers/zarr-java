@@ -3,8 +3,8 @@ package dev.zarr.zarrjava.v3;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
-import java.util.HashMap;
-import java.util.Map;
+import dev.zarr.zarrjava.core.Attributes;
+
 import javax.annotation.Nullable;
 
 public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
@@ -17,9 +17,9 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
   public final String nodeType = "group";
 
   @Nullable
-  public final Map<String, Object> attributes;
+  public final Attributes attributes;
 
-  public GroupMetadata(@Nullable Map<String, Object> attributes) throws ZarrException {
+  public GroupMetadata(@Nullable Attributes attributes) throws ZarrException {
     this(ZARR_FORMAT, NODE_TYPE, attributes);
   }
 
@@ -27,7 +27,7 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
   public GroupMetadata(
       @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
       @JsonProperty(value = "node_type", required = true) String nodeType,
-      @Nullable @JsonProperty(value = "attributes") Map<String, Object> attributes
+      @Nullable @JsonProperty(value = "attributes") Attributes attributes
   ) throws ZarrException {
     if (zarrFormat != this.zarrFormat) {
       throw new ZarrException(
@@ -41,6 +41,6 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
   }
 
   public static GroupMetadata defaultValue() throws ZarrException {
-    return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new HashMap<>());
+    return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new Attributes());
   }
 }
