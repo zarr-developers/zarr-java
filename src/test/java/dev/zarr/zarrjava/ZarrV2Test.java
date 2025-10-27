@@ -288,7 +288,7 @@ public class ZarrV2Test extends ZarrTest {
             .withShape(10, 10)
             .withDataType(DataType.UINT8)
             .withChunks(5, 5)
-            .withAttributes(new Attributes(b -> b.add("some", "value")))
+            .withAttributes(new Attributes(b -> b.set("some", "value")))
             .build();
 
         Array array = Array.create(storeHandle, arrayMetadata);
@@ -299,7 +299,7 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertNull(array.metadata().attributes().get("some"));
 
         // add attribute
-        array = array.updateAttributes(b -> b.add("new_attribute", "new_value"));
+        array = array.updateAttributes(b -> b.set("new_attribute", "new_value"));
         Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
         array = Array.open(storeHandle);
         Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));

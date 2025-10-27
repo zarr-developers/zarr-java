@@ -24,7 +24,7 @@ public class Attributes extends HashMap<String, Object> {
         super(attributes);
     }
 
-    public Attributes add(String s, Object o){
+    public Attributes set(String s, Object o){
         this.put(s, o);
         return this;
     }
