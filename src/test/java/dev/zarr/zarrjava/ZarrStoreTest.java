@@ -61,9 +61,14 @@ public class ZarrStoreTest extends ZarrTest {
             .region(Region.of("eu-west-1"))
             .credentialsProvider(AnonymousCredentialsProvider.create())
             .build(), "static.webknossos.org", "data");
-        Array array = Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1"));
 
-        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
+        Array arrayV3 = Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1"));
+        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, arrayV3.metadata().shape);
+        Assertions.assertEquals(0, arrayV3.read(new long[]{0,0,0,0}, new int[]{1,1,1,1}).getInt(0));
+
+        dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3Store.resolve("zarr_v3", "l4_sample", "color", "1"));
+        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, arrayCore.metadata().shape);
+        Assertions.assertEquals(0, arrayCore.read(new long[]{0,0,0,0}, new int[]{1,1,1,1}).getInt(0));
     }
 
     @Test
