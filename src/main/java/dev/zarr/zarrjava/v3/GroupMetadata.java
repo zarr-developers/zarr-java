@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
@@ -42,5 +43,10 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
 
   public static GroupMetadata defaultValue() throws ZarrException {
     return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new Attributes());
+  }
+
+  @Override
+  public @Nonnull Attributes attributes() throws ZarrException {
+    return attributes;
   }
 }

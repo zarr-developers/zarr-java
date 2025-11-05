@@ -24,10 +24,17 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   }
 
   public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
-    StoreHandle metadataHandle = storeHandle.resolve(ZGROUP);
-    ByteBuffer metadataBytes = metadataHandle.readNonNull();
-    return new Group(storeHandle, makeObjectMapper()
-        .readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
+    ObjectMapper mapper = makeObjectMapper();
+    GroupMetadata metadata = mapper.readValue(
+        Utils.toArray(storeHandle.resolve(ZGROUP).readNonNull()),
+        GroupMetadata.class
+    );
+    if (storeHandle.resolve(ZATTRS).exists())
+      metadata.attributes = mapper.readValue(
+          Utils.toArray(storeHandle.resolve(ZATTRS).readNonNull()),
+          dev.zarr.zarrjava.core.Attributes.class
+      );
+    return new Group(storeHandle, metadata);
   }
 
   public static Group open(Path path) throws IOException {
@@ -44,6 +51,12 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
     ObjectMapper objectMapper = makeObjectMapper();
     ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(groupMetadata));
     storeHandle.resolve(ZGROUP).set(metadataBytes);
+    if (groupMetadata.attributes != null) {
+      StoreHandle attrsHandle = storeHandle.resolve(ZATTRS);
+      ByteBuffer attrsBytes = ByteBuffer.wrap(
+          objectMapper.writeValueAsBytes(groupMetadata.attributes));
+      attrsHandle.set(attrsBytes);
+    }
     return new Group(storeHandle, groupMetadata);
   }
 
@@ -86,5 +99,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   @Override
   public String toString() {
     return String.format("<v2.Group {%s}>", storeHandle);
+  }
+
+  @Override
+  public dev.zarr.zarrjava.core.GroupMetadata metadata() {
+    return metadata;
   }
 }
