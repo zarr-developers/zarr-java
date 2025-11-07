@@ -47,6 +47,9 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
 
   @Override
   public @Nonnull Attributes attributes() throws ZarrException {
+  if (attributes == null) {
+      throw new ZarrException("Group attributes have not been set.");
+    }
     return attributes;
   }
 }
