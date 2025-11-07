@@ -137,7 +137,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   @Override
-  public dev.zarr.zarrjava.core.GroupMetadata metadata() {
+  public GroupMetadata metadata() {
     return metadata;
   }
 }
