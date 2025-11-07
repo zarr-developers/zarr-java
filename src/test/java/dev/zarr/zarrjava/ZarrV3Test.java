@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 
@@ -569,6 +570,20 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
     }
 
-
-
+    @Test
+    public void testCodecWithoutConfiguration() throws ZarrException, IOException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecWithoutConfigurationV3");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
+            .withCodecs(CodecBuilder::withBytes)
+            .build()
+        );
+        Assertions.assertTrue(storeHandle.resolve("zarr.json").exists());
+        Codec bytesCodec = array.metadata().codecs[0];
+        Assertions.assertInstanceOf(BytesCodec.class, bytesCodec);
+        Assertions.assertNull(((BytesCodec) bytesCodec).configuration);
+        // further todo: remove redundant "name" attribute from codec metadata serialization
+    }
 }

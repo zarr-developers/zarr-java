@@ -67,12 +67,19 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
   }
 
   public CodecBuilder withBytes(Endian endian) {
-    codecs.add(new BytesCodec(new BytesCodec.Configuration(endian)));
+    if (dataType.getByteCount() <= 1)
+        codecs.add(new BytesCodec());
+    else
+        codecs.add(new BytesCodec(endian));
     return this;
   }
 
   public CodecBuilder withBytes(String endian) {
     return withBytes(BytesCodec.Endian.valueOf(endian));
+  }
+
+  public CodecBuilder withBytes() {
+    return withBytes(Endian.nativeOrder());
   }
 
   public CodecBuilder withGzip(int clevel) {
