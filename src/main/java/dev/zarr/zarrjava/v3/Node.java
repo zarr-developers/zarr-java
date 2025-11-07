@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -21,6 +22,10 @@ public interface Node extends dev.zarr.zarrjava.core.Node{
     objectMapper.registerModule(new Jdk8Module());
     objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
     return objectMapper;
+  }
+
+  static ObjectWriter makeObjectWriter() {
+    return makeObjectMapper().writerWithDefaultPrettyPrinter();
   }
 
   /**
