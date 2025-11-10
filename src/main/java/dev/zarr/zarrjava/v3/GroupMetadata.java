@@ -9,7 +9,6 @@ import dev.zarr.zarrjava.core.Attributes;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
 
   static final String NODE_TYPE = "group";
@@ -18,6 +17,8 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
   public final int zarrFormat = ZARR_FORMAT;
   @JsonProperty("node_type")
   public final String nodeType = "group";
+  @JsonProperty("consolidated_metadata")
+  public final String consolidatedMetadata = null;
 
   @Nullable
   public final Attributes attributes;
