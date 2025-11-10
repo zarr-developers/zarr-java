@@ -414,7 +414,7 @@ public class ZarrPythonTests extends ZarrTest {
 
         array.write(testdata(dataType));
 
-        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 2);
+        run_python_script("zarr_python_group.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 2);
 
         Group group2 = Group.open(storeHandle2);
         Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
@@ -441,7 +441,7 @@ public class ZarrPythonTests extends ZarrTest {
 
         array.write(testdata(dataType));
 
-        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 3);
+        run_python_script("zarr_python_group.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 3);
 
         dev.zarr.zarrjava.v3.Group group2 = dev.zarr.zarrjava.v3.Group.open(storeHandle2);
         Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
