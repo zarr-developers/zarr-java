@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
@@ -30,6 +32,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
@@ -550,6 +553,23 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
+    public void testZarrJsonFormat() throws ZarrException, IOException {
+        // regression test: ensure that 'name' keyword of named configurations (e.g. codecs) are only written once.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZarrJsonFormatV3");
+        Array.create(storeHandle, Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
+            .build());
+
+        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve("zarr.json").toPath())) {
+            String jsonInString = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            JsonNode JSON = new ObjectMapper().readTree(jsonInString);
+            Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
+        }
+    }
+
+    @Test
     public void testCreateGroup() throws ZarrException, IOException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCreateGroupV3");
         Path storeHandlePath = TESTOUTPUT.resolve("testCreateGroupV3Path");
@@ -585,5 +605,12 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertInstanceOf(BytesCodec.class, bytesCodec);
         Assertions.assertNull(((BytesCodec) bytesCodec).configuration);
         // further todo: remove redundant "name" attribute from codec metadata serialization
+    }
+
+    @Test
+    public void testParseZarrJson(){
+
+
+
     }
 }
