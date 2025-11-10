@@ -404,7 +404,7 @@ public class ZarrPythonTests extends ZarrTest {
     public void testGroupReadWriteV2() throws Exception {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
         StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
-        Group group = Group.create(storeHandle);
+        Group group = Group.create(storeHandle, new Attributes(b -> b.set("attr", "value")));
         dev.zarr.zarrjava.v2.DataType dataType = dev.zarr.zarrjava.v2.DataType.INT32;
         dev.zarr.zarrjava.v2.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
                 .withShape(16, 16, 16)
@@ -417,6 +417,7 @@ public class ZarrPythonTests extends ZarrTest {
         run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString());
 
         Group group2 = Group.open(storeHandle2);
+        Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
         Group subgroup = (Group) group2.get("group2");
         Assertions.assertNotNull(subgroup);
         dev.zarr.zarrjava.v2.Array array2 = (dev.zarr.zarrjava.v2.Array) subgroup.get("array2");

@@ -252,6 +252,10 @@ public class ZarrV2Test extends ZarrTest {
 
         Group.create(storeHandleString);
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
+
+        Group.create(storeHandleString, new Attributes(b -> b.set("some", "value")));
+        Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
+        Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zattrs")));
     }
 
     @Test
