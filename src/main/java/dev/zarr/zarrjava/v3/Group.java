@@ -55,7 +55,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
       @Nonnull StoreHandle storeHandle,
       @Nonnull Attributes attributes
   ) throws IOException, ZarrException {
-    return new Group(storeHandle, new GroupMetadata(attributes));
+    return create(storeHandle, new GroupMetadata(attributes));
   }
 
   public static Group create(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {

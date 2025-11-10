@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
@@ -8,6 +9,7 @@ import dev.zarr.zarrjava.core.Attributes;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
 
   static final String NODE_TYPE = "group";

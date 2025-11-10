@@ -414,13 +414,40 @@ public class ZarrPythonTests extends ZarrTest {
 
         array.write(testdata(dataType));
 
-        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString());
+        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 2);
 
         Group group2 = Group.open(storeHandle2);
         Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
         Group subgroup = (Group) group2.get("group2");
         Assertions.assertNotNull(subgroup);
         dev.zarr.zarrjava.v2.Array array2 = (dev.zarr.zarrjava.v2.Array) subgroup.get("array2");
+        Assertions.assertNotNull(array2);
+        ucar.ma2.Array result = array2.read();
+        Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
+        assertIsTestdata(result, dataType);
+    }
+
+    @Test
+    public void testGroupReadWriteV3() throws Exception {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
+        dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(storeHandle, new Attributes(b -> b.set("attr", "value")));
+        dev.zarr.zarrjava.v3.DataType dataType = DataType.INT32;
+        dev.zarr.zarrjava.v3.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
+                .withShape(16, 16, 16)
+                .withDataType(dataType)
+                .withChunkShape(2, 4, 8)
+            );
+
+        array.write(testdata(dataType));
+
+        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 3);
+
+        dev.zarr.zarrjava.v3.Group group2 = dev.zarr.zarrjava.v3.Group.open(storeHandle2);
+        Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
+        dev.zarr.zarrjava.v3.Group subgroup = (dev.zarr.zarrjava.v3.Group) group2.get("group2");
+        Assertions.assertNotNull(subgroup);
+        dev.zarr.zarrjava.v3.Array array2 = (dev.zarr.zarrjava.v3.Array) subgroup.get("array2");
         Assertions.assertNotNull(array2);
         ucar.ma2.Array result = array2.read();
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
