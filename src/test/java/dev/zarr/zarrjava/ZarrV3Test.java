@@ -585,7 +585,7 @@ public class ZarrV3Test extends ZarrTest {
             .withCodecs(CodecBuilder::withBytes)
             .build()
         );
-        Assertions.assertTrue(storeHandle.resolve("zarr.json").exists());
+        Assertions.assertTrue(storeHandle.resolve(ZARR_JSON).exists());
         Codec bytesCodec = array.metadata().codecs[0];
         Assertions.assertInstanceOf(BytesCodec.class, bytesCodec);
         Assertions.assertNull(((BytesCodec) bytesCodec).configuration);
