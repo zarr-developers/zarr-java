@@ -20,7 +20,6 @@ public interface Node extends dev.zarr.zarrjava.core.Node {
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
     objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
-    objectMapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
     return objectMapper;
   }
 
