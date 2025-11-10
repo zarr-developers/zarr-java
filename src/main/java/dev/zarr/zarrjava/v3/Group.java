@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -135,5 +134,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   @Override
   public String toString() {
     return String.format("<v3.Group {%s}>", storeHandle);
+  }
+
+  @Override
+  public GroupMetadata metadata() {
+    return metadata;
   }
 }
