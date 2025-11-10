@@ -150,9 +150,9 @@ public class ZarrPythonTests extends ZarrTest {
 
     static Stream<Object[]> compressorAndDataTypeProviderV3() {
         Stream<Object[]> datatypeTests = Stream.of(
-//            DataType.BOOL,
-//            DataType.INT8,
-//            DataType.UINT8, // -> BUG: see https://github.com/zarr-developers/zarr-java/issues/27
+            DataType.BOOL,
+            DataType.INT8,
+            DataType.UINT8,
             DataType.INT16,
             DataType.UINT16,
             DataType.INT32,
@@ -203,7 +203,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata().chunkShape());
         Assertions.assertEquals(42, array.metadata().attributes.get("answer"));
 
-        assertIsTestdata(result, DataType.INT32);
+        assertIsTestdata(result, dataType);
     }
 
     @ParameterizedTest
@@ -266,7 +266,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata().chunkShape());
         Assertions.assertEquals("test_value", readArray.metadata().attributes.get("test_key"));
 
-        assertIsTestdata(result, DataType.INT32);
+        assertIsTestdata(result, dataType);
 
         //read in zarr_python
         run_python_script("zarr_python_read.py", codec, codecParam, dataType.name().toLowerCase(), storeHandle.toPath().toString());

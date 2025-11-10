@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -23,6 +24,7 @@ import javax.annotation.Nonnull;
 
 public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec implements Codec{
 
+  @JsonIgnore
   public final String name = "blosc";
   @Nonnull
   public final Configuration configuration;

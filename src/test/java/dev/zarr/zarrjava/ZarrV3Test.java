@@ -1,5 +1,8 @@
 package dev.zarr.zarrjava;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 
@@ -29,9 +32,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
+import static dev.zarr.zarrjava.core.Node.ZARR_JSON;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrV3Test extends ZarrTest {
@@ -548,6 +553,7 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve("zarr.json")));
     }
 
+
     @Test
     public void testCreateGroup() throws ZarrException, IOException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCreateGroupV3");
@@ -569,6 +575,60 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
     }
 
+    @Test
+    public void testCodecWithoutConfiguration() throws ZarrException, IOException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecWithoutConfigurationV3");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
+            .withCodecs(CodecBuilder::withBytes)
+            .build()
+        );
+        Assertions.assertTrue(storeHandle.resolve(ZARR_JSON).exists());
+        Codec bytesCodec = array.metadata().codecs[0];
+        Assertions.assertInstanceOf(BytesCodec.class, bytesCodec);
+        Assertions.assertNull(((BytesCodec) bytesCodec).configuration);
+    }
+
+    static Stream<Function<CodecBuilder, CodecBuilder>> codecBuilders() {
+        return Stream.of(
+                CodecBuilder::withBlosc,
+                c -> c.withTranspose(new int[]{1, 0}),
+                CodecBuilder::withBytes,
+                CodecBuilder::withGzip,
+                CodecBuilder::withZstd,
+                c -> c.withSharding(new int[]{2, 2}),
+                CodecBuilder::withCrc32c
+        );
+    }
+    static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> chunkKeyEncodingsAndCodecs() {
+        Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> builders = Stream.of(
+                ArrayMetadataBuilder::withDefaultChunkKeyEncoding,
+                ArrayMetadataBuilder::withV2ChunkKeyEncoding
+        );
+
+        return Stream.concat(builders, codecBuilders().map(codecFunc -> b -> b.withCodecs(codecFunc)));
+    }
 
 
+    @ParameterizedTest
+    @MethodSource("chunkKeyEncodingsAndCodecs")
+    public void testZarrJsonFormat(Function<ArrayMetadataBuilder, ArrayMetadataBuilder> chunkKeyEncodingsAndCodecs) throws ZarrException, IOException {
+        // regression test: ensure that 'name' keyword of named configurations (e.g. codecs) are only written once.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZarrJsonFormatV3").resolve(String.valueOf(chunkKeyEncodingsAndCodecs.hashCode()));
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(6, 6);
+        builder = chunkKeyEncodingsAndCodecs.apply(builder);
+
+        Array.create(storeHandle, builder.build());
+
+        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve(ZARR_JSON).toPath())) {
+            String jsonInString = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            JsonNode JSON = new ObjectMapper().readTree(jsonInString);
+            Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
+        }
+    }
 }

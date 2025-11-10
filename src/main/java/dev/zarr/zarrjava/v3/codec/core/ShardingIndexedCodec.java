@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -24,6 +25,7 @@ import ucar.ma2.InvalidRangeException;
 
 public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode implements Codec {
 
+  @JsonIgnore
   public final String name = "sharding_indexed";
   @Nonnull
   public final Configuration configuration;

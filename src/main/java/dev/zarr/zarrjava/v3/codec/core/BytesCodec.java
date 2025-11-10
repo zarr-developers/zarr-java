@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
@@ -8,18 +9,24 @@ import dev.zarr.zarrjava.v3.ArrayMetadata;
 
 import java.nio.ByteOrder;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec implements Codec {
 
+  @JsonIgnore
   public final String name = "bytes";
-  @Nonnull
+  @Nullable
   public final Configuration configuration;
 
   @JsonCreator
   public BytesCodec(
-      @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration
+      @JsonProperty(value = "configuration") Configuration configuration
   ) {
     this.configuration = configuration;
+  }
+
+  public BytesCodec() {
+    this((Configuration) null);
   }
 
   public BytesCodec(Endian endian) {
@@ -33,7 +40,10 @@ public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec imp
   }
 
   @Override
-  protected ByteOrder getByteOrder() {
+  protected ByteOrder getByteOrder() throws ZarrException {
+    if (configuration == null) {
+      throw new ZarrException("BytesCodec configuration is required to determine endianess.");
+    }
     return configuration.endian.getByteOrder();
   }
 

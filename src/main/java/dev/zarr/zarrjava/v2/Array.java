@@ -1,6 +1,6 @@
 package dev.zarr.zarrjava.v2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
+import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
 
 public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
@@ -141,8 +142,8 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
           "Trying to create a new array in " + storeHandle + ". But " + metadataHandle
               + " already exists.");
     }
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(arrayMetadata));
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(arrayMetadata));
     metadataHandle.set(metadataBytes);
     return new Array(storeHandle, arrayMetadata);
   }

@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.core;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
@@ -16,6 +17,7 @@ public abstract class ArrayMetadata {
 
     public final long[] shape;
 
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     @JsonProperty("fill_value")
     public final Object fillValue;
     @JsonIgnore

@@ -1,8 +1,5 @@
 package dev.zarr.zarrjava.v2.codec.core;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.v2.codec.Codec;
 
@@ -14,9 +11,7 @@ public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec imp
     @Nonnull
     public final Endian endian;
 
-    @JsonCreator
-    public BytesCodec(
-        @JsonProperty(value = "endian", defaultValue = "little") Endian endian) {
+    public BytesCodec(Endian endian) {
         this.endian = endian;
     }
 

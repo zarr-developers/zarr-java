@@ -1,6 +1,8 @@
 package dev.zarr.zarrjava.v3;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -20,7 +22,12 @@ public interface Node extends dev.zarr.zarrjava.core.Node{
     ObjectMapper objectMapper = new ObjectMapper();
     objectMapper.registerModule(new Jdk8Module());
     objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
+    objectMapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
     return objectMapper;
+  }
+
+  static ObjectWriter makeObjectWriter() {
+    return makeObjectMapper().writerWithDefaultPrettyPrinter();
   }
 
   /**

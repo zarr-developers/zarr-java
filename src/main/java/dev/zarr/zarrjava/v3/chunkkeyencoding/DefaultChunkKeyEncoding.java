@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.chunkkeyencoding;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 
@@ -11,6 +12,7 @@ import javax.annotation.Nonnull;
 
 public class DefaultChunkKeyEncoding extends ChunkKeyEncoding {
 
+  @JsonIgnore
   public final String name = "default";
   @Nonnull
   public final Configuration configuration;
