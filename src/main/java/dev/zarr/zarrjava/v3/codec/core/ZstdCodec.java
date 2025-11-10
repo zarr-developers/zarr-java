@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
@@ -14,6 +15,7 @@ import java.nio.ByteBuffer;
 
 public class ZstdCodec extends BytesBytesCodec implements Codec {
 
+    @JsonIgnore
     public final String name = "zstd";
     @Nonnull
     public final Configuration configuration;

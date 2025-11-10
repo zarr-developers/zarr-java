@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
@@ -14,6 +15,7 @@ import javax.annotation.Nullable;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class BytesCodec extends dev.zarr.zarrjava.core.codec.core.BytesCodec implements Codec {
 
+  @JsonIgnore
   public final String name = "bytes";
   @Nullable
   public final Configuration configuration;
