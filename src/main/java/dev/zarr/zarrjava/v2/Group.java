@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
@@ -64,12 +65,24 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
     return create(storeHandle, new GroupMetadata());
   }
 
+  public static Group create(@Nonnull StoreHandle storeHandle, Attributes attributes) throws IOException, ZarrException {
+    return create(storeHandle, new GroupMetadata(attributes));
+  }
+
   public static Group create(Path path) throws IOException, ZarrException {
     return create(new StoreHandle(new FilesystemStore(path)));
   }
 
+  public static Group create(Path path, Attributes attributes) throws IOException, ZarrException {
+    return create(new StoreHandle(new FilesystemStore(path)), attributes);
+  }
+
   public static Group create(String path) throws IOException, ZarrException {
     return create(Paths.get(path));
+  }
+
+  public static Group create(String path, Attributes attributes) throws IOException, ZarrException {
+    return create(Paths.get(path), attributes);
   }
 
   @Nullable
@@ -102,7 +115,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   }
 
   @Override
-  public dev.zarr.zarrjava.core.GroupMetadata metadata() {
+  public GroupMetadata metadata() {
     return metadata;
   }
 }
