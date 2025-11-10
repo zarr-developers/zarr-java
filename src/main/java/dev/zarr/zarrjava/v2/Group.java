@@ -1,6 +1,6 @@
 package dev.zarr.zarrjava.v2;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Function;
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
+import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   public GroupMetadata metadata;
@@ -41,8 +42,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(groupMetadata));
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(groupMetadata));
     storeHandle.resolve(ZGROUP).set(metadataBytes);
     return new Group(storeHandle, groupMetadata);
   }

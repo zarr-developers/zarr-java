@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
+import static dev.zarr.zarrjava.core.Node.ZARR_JSON;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrV3Test extends ZarrTest {
@@ -624,7 +625,7 @@ public class ZarrV3Test extends ZarrTest {
 
         Array.create(storeHandle, builder.build());
 
-        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve("zarr.json").toPath())) {
+        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve(ZARR_JSON).toPath())) {
             String jsonInString = reader.lines().collect(Collectors.joining(System.lineSeparator()));
             JsonNode JSON = new ObjectMapper().readTree(jsonInString);
             Assertions.assertEquals(JSON.toPrettyString(), jsonInString);

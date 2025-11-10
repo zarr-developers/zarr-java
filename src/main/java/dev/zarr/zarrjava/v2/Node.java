@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -21,7 +22,11 @@ public interface Node extends dev.zarr.zarrjava.core.Node {
     return objectMapper;
   }
 
-  /**
+  static ObjectWriter makeObjectWriter() {
+    return makeObjectMapper().writerWithDefaultPrettyPrinter();
+  }
+
+    /**
    * Opens an existing Zarr array or group at a specified storage location.
    *
    * @param storeHandle the storage location of the Zarr array
