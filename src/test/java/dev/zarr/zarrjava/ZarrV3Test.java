@@ -556,16 +556,17 @@ public class ZarrV3Test extends ZarrTest {
 
         Group group = Group.create(storeHandle, new GroupMetadata(attributes));
         Assertions.assertTrue(storeHandle.resolve("zarr.json").exists());
-        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
+        Assertions.assertEquals("world", group.metadata.attributes().get("hello"));
 
         group = Group.create(storeHandlePath, new GroupMetadata(attributes));
         Assertions.assertTrue(Files.exists(storeHandlePath.resolve("zarr.json")));
-        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
+        Assertions.assertEquals("world", group.metadata.attributes().get("hello"));
 
         group = Group.create(storeHandleString, new GroupMetadata(attributes));
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve("zarr.json")));
-        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
+        Assertions.assertEquals("world", group.metadata.attributes().get("hello"));
     }
+
     @Test
     public void testAttributes() throws IOException, ZarrException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV3");
@@ -592,7 +593,6 @@ public class ZarrV3Test extends ZarrTest {
          Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("specific"));
          Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("another"));
     }
-
 
     @Test
     public void testSetAndUpdateAttributes() throws IOException, ZarrException {
@@ -653,5 +653,19 @@ public class ZarrV3Test extends ZarrTest {
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+    
+    @Test
+    public void testGroupAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupAttributesV3");
+
+        Group group = Group.create(storeHandle, new Attributes() {{
+            put("group_attr", "group_value");
+        }});
+
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+
+        group = Group.open(storeHandle);
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
     }
 }

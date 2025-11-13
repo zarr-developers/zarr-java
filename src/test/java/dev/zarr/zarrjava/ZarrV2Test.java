@@ -38,8 +38,6 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertEquals(0, outArray.getByte(0));
     }
 
-
-
     @ParameterizedTest
     @CsvSource({
         "BOOL", "FLOAT64"
@@ -48,7 +46,7 @@ public class ZarrV2Test extends ZarrTest {
         String arrayname = dt == DataType.BOOL ? "bool" : "double";
         StoreHandle storeHandle = new FilesystemStore(TESTDATA).resolve("v2_sample", arrayname);
         Array array = Array.open(storeHandle);
-        ucar.ma2.Array output = array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
+        array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
         Assertions.assertEquals(dt, array.metadata().dataType);
     }
 
@@ -343,5 +341,19 @@ public class ZarrV2Test extends ZarrTest {
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testGroupAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupAttributesV2");
+
+        Group group = Group.create(storeHandle, new Attributes() {{
+            put("group_attr", "group_value");
+        }});
+
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+
+        group = Group.open(storeHandle);
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
     }
 }
