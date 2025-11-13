@@ -1,9 +1,6 @@
-# Early preview of `zarr-java`
+# zarr-java
 
-This repository contains an early preview of a Java implementation of the Zarr specification. 
-It is intended for collecting feedback from the community and not for use. The API is subject to changes.
-
-Refer to [JZarr](https://github.com/zarr-developers/jzarr) for a stable implementation of Zarr version 2.
+This repository contains a Java implementation of Zarr version 2 and 3.
 
 ## Usage
 ```java
