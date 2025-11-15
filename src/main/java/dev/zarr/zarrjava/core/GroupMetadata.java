@@ -1,3 +1,11 @@
 package dev.zarr.zarrjava.core;
 
-public abstract class GroupMetadata {}
+import javax.annotation.Nonnull;
+
+import dev.zarr.zarrjava.ZarrException;
+
+public abstract class GroupMetadata {
+
+    public @Nonnull abstract Attributes attributes() throws ZarrException;
+
+}

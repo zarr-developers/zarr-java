@@ -83,4 +83,6 @@ public abstract class Group extends AbstractNode {
             return nodeStream.toArray(Node[]::new);
         }
     }
+
+    public abstract GroupMetadata metadata();
 }
