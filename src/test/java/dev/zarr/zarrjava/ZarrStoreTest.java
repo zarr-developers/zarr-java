@@ -1,12 +1,13 @@
 package dev.zarr.zarrjava;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.zarr.zarrjava.store.FilesystemStore;
-import dev.zarr.zarrjava.store.HttpStore;
-import dev.zarr.zarrjava.store.S3Store;
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.v3.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -17,7 +18,7 @@ import java.nio.file.Files;
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 public class ZarrStoreTest extends ZarrTest {
-        @Test
+    @Test
     public void testFileSystemStores() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTDATA);
         ObjectMapper objectMapper = makeObjectMapper();
@@ -77,5 +78,23 @@ public class ZarrStoreTest extends ZarrTest {
         Array array = Array.open(httpStore.resolve("color", "1"));
 
         Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "DOT", "SLASH"
+    })
+    public void testMemoryStore(Separator separator) throws ZarrException, IOException {
+        StoreHandle storeHandle = new MemoryStore(separator).resolve();
+        Group group = Group.create(storeHandle);
+        Array array = group.createArray("array", b -> b
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(5, 5)
+        );
+        group.createGroup("subgroup");
+        Assertions.assertEquals(2, group.list().count());
+        for(String s: storeHandle.list().toArray(String[]::new))
+            System.out.println(s);
     }
 }

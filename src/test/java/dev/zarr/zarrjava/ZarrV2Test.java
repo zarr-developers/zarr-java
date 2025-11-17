@@ -1,6 +1,8 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.Array;
 import dev.zarr.zarrjava.v2.ArrayMetadata;
@@ -255,4 +257,20 @@ public class ZarrV2Test extends ZarrTest {
         Group.create(storeHandleString);
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
     }
+    
+    @Test
+    public void testMemoryStore() throws ZarrException, IOException {
+        StoreHandle storeHandle = new MemoryStore().resolve();
+        Group group = Group.create(storeHandle);
+        Array array = group.createArray("array", b -> b
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(5, 5)
+        );
+        group.createGroup("subgroup");
+        Assertions.assertEquals(2, group.list().count());
+        for(String s: storeHandle.list().toArray(String[]::new))
+            System.out.println(s);
+    }
+
 }

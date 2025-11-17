@@ -7,6 +7,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -79,11 +80,11 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   @Nullable
-  public Node get(String key) throws ZarrException {
+  public Node get(String key) throws ZarrException, IOException{
     StoreHandle keyHandle = storeHandle.resolve(key);
     try {
       return Node.open(keyHandle);
-    } catch (IOException e) {
+    } catch (NoSuchFileException e) {
       return null;
     }
   }
