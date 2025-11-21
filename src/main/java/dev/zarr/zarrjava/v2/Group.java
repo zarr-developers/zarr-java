@@ -52,16 +52,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectWriter objectWriter = makeObjectWriter();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(groupMetadata));
-    storeHandle.resolve(ZGROUP).set(metadataBytes);
-    if (groupMetadata.attributes != null) {
-      StoreHandle attrsHandle = storeHandle.resolve(ZATTRS);
-      ByteBuffer attrsBytes = ByteBuffer.wrap(
-          objectWriter.writeValueAsBytes(groupMetadata.attributes));
-      attrsHandle.set(attrsBytes);
-    }
-    return new Group(storeHandle, groupMetadata);
+    return new Group(storeHandle, groupMetadata).writeMetadata();
   }
 
   public static Group create(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
@@ -108,9 +99,37 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   }
 
   public Array createArray(String key, Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper)
-      throws IOException, ZarrException {
+          throws IOException, ZarrException {
     return Array.create(storeHandle.resolve(key), arrayMetadataBuilderMapper, false);
   }
+
+  private Group writeMetadata() throws IOException {
+    return writeMetadata(this.metadata);
+  }
+
+  private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(newGroupMetadata));
+    storeHandle.resolve(ZGROUP).set(metadataBytes);
+    if (newGroupMetadata.attributes != null) {
+      StoreHandle attrsHandle = storeHandle.resolve(ZATTRS);
+      ByteBuffer attrsBytes = ByteBuffer.wrap(
+          objectWriter.writeValueAsBytes(newGroupMetadata.attributes));
+      attrsHandle.set(attrsBytes);
+    }
+    return new Group(storeHandle, newGroupMetadata);
+  }
+
+  public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
+    GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
+    return writeMetadata(newGroupMetadata);
+  }
+
+  public Group updateAttributes(Function<Attributes, Attributes> attributeMapper)
+          throws ZarrException, IOException {
+    return setAttributes(attributeMapper.apply(metadata.attributes));
+  }
+
 
   @Override
   public String toString() {

@@ -46,11 +46,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectWriter objectWriter = makeObjectWriter();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(groupMetadata));
-    storeHandle.resolve(ZARR_JSON)
-        .set(metadataBytes);
-    return new Group(storeHandle, groupMetadata);
+    return new Group(storeHandle, groupMetadata).writeMetadata();
   }
 
   public static Group create(
@@ -113,6 +109,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
       Function<ArrayMetadataBuilder, ArrayMetadataBuilder> arrayMetadataBuilderMapper)
       throws IOException, ZarrException {
     return Array.create(storeHandle.resolve(key), arrayMetadataBuilderMapper, false);
+  }
+
+  private Group writeMetadata() throws IOException {
+    return writeMetadata(this.metadata);
   }
 
   private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {
