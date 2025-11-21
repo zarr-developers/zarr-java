@@ -117,7 +117,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
           objectWriter.writeValueAsBytes(newGroupMetadata.attributes));
       attrsHandle.set(attrsBytes);
     }
-    return new Group(storeHandle, newGroupMetadata);
+    this.metadata = newGroupMetadata;
+    return this;
   }
 
   public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {

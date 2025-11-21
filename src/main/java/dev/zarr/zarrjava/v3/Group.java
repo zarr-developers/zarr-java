@@ -120,7 +120,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(newGroupMetadata));
     storeHandle.resolve(ZARR_JSON)
         .set(metadataBytes);
-    return new Group(storeHandle, newGroupMetadata);
+    this.metadata = newGroupMetadata;
+    return this;
   }
 
   public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
