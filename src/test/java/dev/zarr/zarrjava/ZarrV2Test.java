@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.core.Attributes;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -18,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,8 +47,6 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertEquals(0, outArray.getByte(0));
     }
 
-
-
     @ParameterizedTest
     @CsvSource({
         "BOOL", "FLOAT64"
@@ -55,7 +55,7 @@ public class ZarrV2Test extends ZarrTest {
         String arrayname = dt == DataType.BOOL ? "bool" : "double";
         StoreHandle storeHandle = new FilesystemStore(TESTDATA).resolve("v2_sample", arrayname);
         Array array = Array.open(storeHandle);
-        ucar.ma2.Array output = array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
+        array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
         Assertions.assertEquals(dt, array.metadata().dataType);
     }
 
@@ -259,6 +259,111 @@ public class ZarrV2Test extends ZarrTest {
 
         Group.create(storeHandleString);
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
+
+        Group.create(storeHandleString, new Attributes(b -> b.set("some", "value")));
+        Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
+        Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zattrs")));
+    }
+
+    @Test
+    public void testAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV2");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .putAttribute("specific", "attribute")
+            .withAttributes(defaultTestAttributes())
+            .withAttributes(new Attributes() {{
+                put("another", "attribute");
+            }})
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertEquals("attribute", array.metadata().attributes().getString("specific"));
+        Assertions.assertEquals("attribute", array.metadata().attributes().getString("another"));
+
+        Array arrayOpened = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("another"));
+        Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("specific"));
+    }
+
+    @Test
+    public void testSetAndUpdateAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV2");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunks(5, 5)
+            .withAttributes(new Attributes(b -> b.set("some", "value")))
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        Assertions.assertEquals("value", array.metadata().attributes().getString("some"));
+        array.setAttributes(defaultTestAttributes());
+        array = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertNull(array.metadata().attributes().get("some"));
+
+        // add attribute
+        array = array.updateAttributes(b -> b.set("new_attribute", "new_value"));
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+        array = Array.open(storeHandle);
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+
+        // delete attribute
+        array = array.updateAttributes(b -> b.delete("new_value"));
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+        array = Array.open(storeHandle);
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+
+        assertContainsTestAttributes(array.metadata().attributes());
+    }
+
+    @Test
+    public void testResizeArray() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayV2");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT32)
+            .withChunks(5, 5)
+            .withFillValue(1)
+            .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        array = array.resize(new long[]{20, 15});
+        Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        int[] expectedData = new int[5 * 5];
+        Arrays.fill(expectedData, 1);
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testGroupAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupAttributesV2");
+
+        Group group = Group.create(storeHandle, new Attributes() {{
+            put("group_attr", "group_value");
+        }});
+
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+
+        group = Group.open(storeHandle);
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
     }
 
 

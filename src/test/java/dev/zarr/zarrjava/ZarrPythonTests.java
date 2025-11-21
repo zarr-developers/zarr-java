@@ -2,6 +2,7 @@ package dev.zarr.zarrjava;
 
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.Group;
@@ -209,7 +210,7 @@ public class ZarrPythonTests extends ZarrTest {
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV3")
     public void testWriteV3(String codec, String codecParam, DataType dataType) throws Exception {
-        Map<String, Object> attributes = new HashMap<>();
+        Attributes attributes = new Attributes();
         attributes.put("test_key", "test_value");
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testWriteV3", codec, codecParam, dataType.name());
 
@@ -314,7 +315,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
         Assertions.assertEquals(dt, array.metadata().dataType);
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, array.metadata().chunkShape());
-//        Assertions.assertEquals(42, array.metadata().attributes.get("answer"));
+        Assertions.assertEquals(42, array.metadata().attributes().get("answer"));
 
         assertIsTestdata(result, dt);
     }
@@ -323,15 +324,15 @@ public class ZarrPythonTests extends ZarrTest {
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV2")
     public void testWriteV2(String compressor, String compressorParam, dev.zarr.zarrjava.v2.DataType dt) throws Exception {
-//        Map<String, Object> attributes = new HashMap<>();
-//        attributes.put("test_key", "test_value");
+        Attributes attributes = new Attributes();
+        attributes.put("test_key", "test_value");
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecsWriteV2", compressor, compressorParam, dt.name());
 
         dev.zarr.zarrjava.v2.ArrayMetadataBuilder builder = dev.zarr.zarrjava.v2.Array.metadataBuilder()
             .withShape(16, 16, 16)
             .withDataType(dt)
             .withChunks(2, 4, 8)
-//            .withAttributes(attributes)
+            .withAttributes(attributes)
             .withFillValue(0);
 
         switch (compressor) {
@@ -358,7 +359,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
         Assertions.assertEquals(dt, readArray.metadata().dataType);
         Assertions.assertArrayEquals(new int[]{2, 4, 8}, readArray.metadata().chunkShape());
-//        Assertions.assertEquals("test_value", readArray.metadata.attributes.get("test_key"));
+        Assertions.assertEquals("test_value", readArray.metadata().attributes().get("test_key"));
         assertIsTestdata(result, dt);
 
         //read in zarr_python
@@ -401,9 +402,9 @@ public class ZarrPythonTests extends ZarrTest {
 
     @Test
     public void testGroupReadWriteV2() throws Exception {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
-        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
-        Group group = Group.create(storeHandle);
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV2", "write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV2", "read");
+        Group group = Group.create(storeHandle, new Attributes(b -> b.set("attr", "value")));
         dev.zarr.zarrjava.v2.DataType dataType = dev.zarr.zarrjava.v2.DataType.INT32;
         dev.zarr.zarrjava.v2.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
                 .withShape(16, 16, 16)
@@ -413,12 +414,40 @@ public class ZarrPythonTests extends ZarrTest {
 
         array.write(testdata(dataType));
 
-        run_python_script("zarr_python_group_v2.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString());
+        run_python_script("zarr_python_group.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 2);
 
         Group group2 = Group.open(storeHandle2);
+        Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
         Group subgroup = (Group) group2.get("group2");
         Assertions.assertNotNull(subgroup);
         dev.zarr.zarrjava.v2.Array array2 = (dev.zarr.zarrjava.v2.Array) subgroup.get("array2");
+        Assertions.assertNotNull(array2);
+        ucar.ma2.Array result = array2.read();
+        Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
+        assertIsTestdata(result, dataType);
+    }
+
+    @Test
+    public void testGroupReadWriteV3() throws Exception {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV3", "write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV3", "read");
+        dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(storeHandle, new Attributes(b -> b.set("attr", "value")));
+        dev.zarr.zarrjava.v3.DataType dataType = DataType.INT32;
+        dev.zarr.zarrjava.v3.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
+                .withShape(16, 16, 16)
+                .withDataType(dataType)
+                .withChunkShape(2, 4, 8)
+            );
+
+        array.write(testdata(dataType));
+
+        run_python_script("zarr_python_group.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 3);
+
+        dev.zarr.zarrjava.v3.Group group2 = dev.zarr.zarrjava.v3.Group.open(storeHandle2);
+        Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
+        dev.zarr.zarrjava.v3.Group subgroup = (dev.zarr.zarrjava.v3.Group) group2.get("group2");
+        Assertions.assertNotNull(subgroup);
+        dev.zarr.zarrjava.v3.Array array2 = (dev.zarr.zarrjava.v3.Array) subgroup.get("array2");
         Assertions.assertNotNull(array2);
         ucar.ma2.Array result = array2.read();
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());

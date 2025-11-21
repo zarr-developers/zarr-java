@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3;
 
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
@@ -26,7 +27,7 @@ public class ArrayMetadataBuilder {
 
   Object fillValue = 0;
   Codec[] codecs = new Codec[]{new BytesCodec(Endian.LITTLE)};
-  Map<String, Object> attributes = new HashMap<>();
+  Attributes attributes = new Attributes();
   Map<String, Object>[] storageTransformers = new HashMap[]{};
   String[] dimensionNames = null;
 
@@ -34,6 +35,10 @@ public class ArrayMetadataBuilder {
   }
 
   protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata) {
+    return fromArrayMetadata(arrayMetadata, true);
+  }
+
+  protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata, boolean withAttributes) {
     ArrayMetadataBuilder builder = new ArrayMetadataBuilder();
     builder.shape = arrayMetadata.shape;
     builder.dataType = arrayMetadata.dataType;
@@ -41,9 +46,11 @@ public class ArrayMetadataBuilder {
     builder.chunkKeyEncoding = arrayMetadata.chunkKeyEncoding;
     builder.fillValue = arrayMetadata.parsedFillValue;
     builder.codecs = arrayMetadata.codecs;
-    builder.attributes = arrayMetadata.attributes;
     builder.dimensionNames = arrayMetadata.dimensionNames;
     builder.storageTransformers = arrayMetadata.storageTransformers;
+    if (withAttributes) {
+      builder.attributes = arrayMetadata.attributes;
+    }
     return builder;
   }
 
@@ -133,8 +140,12 @@ public class ArrayMetadataBuilder {
     return this;
   }
 
-  public ArrayMetadataBuilder withAttributes(Map<String, Object> attributes) {
-    this.attributes = attributes;
+  public ArrayMetadataBuilder withAttributes(Attributes attributes) {
+    if (this.attributes == null) {
+      this.attributes = attributes;
+    } else {
+      this.attributes.putAll(attributes);
+    }
     return this;
   }
 

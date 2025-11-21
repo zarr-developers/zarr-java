@@ -33,7 +33,7 @@ b = zarr.create_array(
     filters=filters,
     serializer=serializer,
     compressors=compressor,
-#     attributes={'test_key': 'test_value'},
+    attributes={'test_key': 'test_value'},
 )
 
 assert a.metadata == b.metadata, f"not equal: \n{a.metadata=}\n{b.metadata=}"

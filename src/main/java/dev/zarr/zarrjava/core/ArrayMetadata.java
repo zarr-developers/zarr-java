@@ -43,6 +43,8 @@ public abstract class ArrayMetadata {
 
     public abstract Object parsedFillValue();
 
+    public @Nonnull abstract Attributes attributes() throws ZarrException;
+
     public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType)
       throws ZarrException {
     if (fillValue == null) {
