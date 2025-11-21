@@ -1,7 +1,9 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
@@ -15,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Function;
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
+import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   public GroupMetadata metadata;
@@ -25,10 +28,17 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   }
 
   public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
-    StoreHandle metadataHandle = storeHandle.resolve(ZGROUP);
-    ByteBuffer metadataBytes = metadataHandle.readNonNull();
-    return new Group(storeHandle, makeObjectMapper()
-        .readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
+    ObjectMapper mapper = makeObjectMapper();
+    GroupMetadata metadata = mapper.readValue(
+        Utils.toArray(storeHandle.resolve(ZGROUP).readNonNull()),
+        GroupMetadata.class
+    );
+    if (storeHandle.resolve(ZATTRS).exists())
+      metadata.attributes = mapper.readValue(
+          Utils.toArray(storeHandle.resolve(ZATTRS).readNonNull()),
+          dev.zarr.zarrjava.core.Attributes.class
+      );
+    return new Group(storeHandle, metadata);
   }
 
   public static Group open(Path path) throws IOException {
@@ -42,9 +52,15 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(groupMetadata));
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(groupMetadata));
     storeHandle.resolve(ZGROUP).set(metadataBytes);
+    if (groupMetadata.attributes != null) {
+      StoreHandle attrsHandle = storeHandle.resolve(ZATTRS);
+      ByteBuffer attrsBytes = ByteBuffer.wrap(
+          objectWriter.writeValueAsBytes(groupMetadata.attributes));
+      attrsHandle.set(attrsBytes);
+    }
     return new Group(storeHandle, groupMetadata);
   }
 
@@ -52,12 +68,24 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
     return create(storeHandle, new GroupMetadata());
   }
 
+  public static Group create(@Nonnull StoreHandle storeHandle, Attributes attributes) throws IOException, ZarrException {
+    return create(storeHandle, new GroupMetadata(attributes));
+  }
+
   public static Group create(Path path) throws IOException, ZarrException {
     return create(new StoreHandle(new FilesystemStore(path)));
   }
 
+  public static Group create(Path path, Attributes attributes) throws IOException, ZarrException {
+    return create(new StoreHandle(new FilesystemStore(path)), attributes);
+  }
+
   public static Group create(String path) throws IOException, ZarrException {
     return create(Paths.get(path));
+  }
+
+  public static Group create(String path, Attributes attributes) throws IOException, ZarrException {
+    return create(Paths.get(path), attributes);
   }
 
   @Nullable
@@ -87,5 +115,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
   @Override
   public String toString() {
     return String.format("<v2.Group {%s}>", storeHandle);
+  }
+
+  @Override
+  public GroupMetadata metadata() {
+    return metadata;
   }
 }

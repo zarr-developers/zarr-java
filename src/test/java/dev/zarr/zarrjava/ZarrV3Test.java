@@ -1,7 +1,9 @@
 package dev.zarr.zarrjava;
 
-import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
-import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.zarr.zarrjava.v3.codec.Codec;
+import dev.zarr.zarrjava.core.Attributes;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import dev.zarr.zarrjava.store.*;
@@ -9,8 +11,7 @@ import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.Node;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
-import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
-import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
+import dev.zarr.zarrjava.v3.codec.core.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,9 +30,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
+import static dev.zarr.zarrjava.core.Node.ZARR_JSON;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrV3Test extends ZarrTest {
@@ -512,7 +515,7 @@ public class ZarrV3Test extends ZarrTest {
     public void testGroup() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTOUTPUT);
 
-        Map<String, Object> attributes = new HashMap<>();
+        Attributes attributes = new Attributes();
         attributes.put("hello", "world");
 
         Group group = Group.create(fsStore.resolve("testgroup"));
@@ -548,27 +551,184 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve("zarr.json")));
     }
 
+
     @Test
     public void testCreateGroup() throws ZarrException, IOException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCreateGroupV3");
         Path storeHandlePath = TESTOUTPUT.resolve("testCreateGroupV3Path");
         String storeHandleString = String.valueOf(TESTOUTPUT.resolve("testCreateGroupV3String"));
-        Map<String, Object> attributes = new HashMap<>();
+        Attributes attributes = new Attributes();
         attributes.put("hello", "world");
 
         Group group = Group.create(storeHandle, new GroupMetadata(attributes));
         Assertions.assertTrue(storeHandle.resolve("zarr.json").exists());
-        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
+        Assertions.assertEquals("world", group.metadata.attributes().get("hello"));
 
         group = Group.create(storeHandlePath, new GroupMetadata(attributes));
         Assertions.assertTrue(Files.exists(storeHandlePath.resolve("zarr.json")));
-        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
+        Assertions.assertEquals("world", group.metadata.attributes().get("hello"));
 
         group = Group.create(storeHandleString, new GroupMetadata(attributes));
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve("zarr.json")));
-        Assertions.assertEquals("world", group.metadata.attributes.get("hello"));
+        Assertions.assertEquals("world", group.metadata.attributes().get("hello"));
     }
 
+    @Test
+    public void testAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV3");
 
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
+            .putAttribute("specific", "attribute")
+            .withAttributes(defaultTestAttributes())
+            .withAttributes(new Attributes() {{
+                put("another", "attribute");
+            }})
 
+            .build();
+
+         Array array = Array.create(storeHandle, arrayMetadata);
+         assertContainsTestAttributes(array.metadata().attributes());
+         Assertions.assertEquals("attribute", array.metadata().attributes().getString("specific"));
+         Assertions.assertEquals("attribute", array.metadata().attributes().getString("another"));
+
+         Array arrayOpened = Array.open(storeHandle);
+         assertContainsTestAttributes(arrayOpened.metadata().attributes());
+         Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("specific"));
+         Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("another"));
+    }
+
+    @Test
+    public void testCodecWithoutConfiguration() throws ZarrException, IOException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecWithoutConfigurationV3");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
+            .withCodecs(CodecBuilder::withBytes)
+            .build()
+        );
+        Assertions.assertTrue(storeHandle.resolve(ZARR_JSON).exists());
+        Codec bytesCodec = array.metadata().codecs[0];
+        Assertions.assertInstanceOf(BytesCodec.class, bytesCodec);
+        Assertions.assertNull(((BytesCodec) bytesCodec).configuration);
+    }
+
+    static Stream<Function<CodecBuilder, CodecBuilder>> codecBuilders() {
+        return Stream.of(
+                CodecBuilder::withBlosc,
+                c -> c.withTranspose(new int[]{1, 0}),
+                CodecBuilder::withBytes,
+                CodecBuilder::withGzip,
+                CodecBuilder::withZstd,
+                c -> c.withSharding(new int[]{2, 2}),
+                CodecBuilder::withCrc32c
+        );
+    }
+
+    static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> chunkKeyEncodingsAndCodecs() {
+        Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> builders = Stream.of(
+                ArrayMetadataBuilder::withDefaultChunkKeyEncoding,
+                ArrayMetadataBuilder::withV2ChunkKeyEncoding
+        );
+
+        return Stream.concat(builders, codecBuilders().map(codecFunc -> b -> b.withCodecs(codecFunc)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("chunkKeyEncodingsAndCodecs")
+    public void testZarrJsonFormat(Function<ArrayMetadataBuilder, ArrayMetadataBuilder> chunkKeyEncodingsAndCodecs) throws ZarrException, IOException {
+        // regression test: ensure that 'name' keyword of named configurations (e.g. codecs) are only written once.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZarrJsonFormatV3").resolve(String.valueOf(chunkKeyEncodingsAndCodecs.hashCode()));
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(6, 6);
+        builder = chunkKeyEncodingsAndCodecs.apply(builder);
+
+        Array.create(storeHandle, builder.build());
+
+        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve(ZARR_JSON).toPath())) {
+            String jsonInString = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            JsonNode JSON = new ObjectMapper().readTree(jsonInString);
+            Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
+        }
+    }
+
+    @Test
+    public void testSetAndUpdateAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV3");
+
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT8)
+            .withChunkShape(5, 5)
+            .withAttributes(new Attributes(b -> b.set("some", "value")))
+            .build();
+
+        Array array = Array.create(storeHandle, arrayMetadata);
+        Assertions.assertEquals("value", array.metadata().attributes().getString("some"));
+        array.setAttributes(defaultTestAttributes());
+        array = Array.open(storeHandle);
+        assertContainsTestAttributes(array.metadata().attributes());
+        Assertions.assertNull(array.metadata().attributes().get("some"));
+
+        // add attribute
+        array = array.updateAttributes(b -> b.set("new_attribute", "new_value"));
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+        array = Array.open(storeHandle);
+        Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
+
+        // delete attribute
+        array = array.updateAttributes(b -> b.delete("new_value"));
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+        array = Array.open(storeHandle);
+        Assertions.assertNull(array.metadata().attributes().get("new_value"));
+
+        assertContainsTestAttributes(array.metadata().attributes());
+    }
+
+    @Test
+    public void testResizeArray() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+            .withShape(10, 10)
+            .withDataType(DataType.UINT32)
+            .withChunkShape(5, 5)
+            .withFillValue(1)
+            .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        array = array.resize(new long[]{20, 15});
+        Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        int[] expectedData = new int[5 * 5];
+        Arrays.fill(expectedData, 1);
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testGroupAttributes() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupAttributesV3");
+
+        Group group = Group.create(storeHandle, new Attributes() {{
+            put("group_attr", "group_value");
+        }});
+
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+
+        group = Group.open(storeHandle);
+        Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+    }
 }

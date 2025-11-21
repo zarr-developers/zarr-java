@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
@@ -17,6 +18,7 @@ import javax.annotation.Nonnull;
 
 public class GzipCodec extends BytesBytesCodec implements Codec {
 
+  @JsonIgnore
   public final String name = "gzip";
   @Nonnull
   public final Configuration configuration;

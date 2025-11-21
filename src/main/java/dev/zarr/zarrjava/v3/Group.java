@@ -1,7 +1,8 @@
 package dev.zarr.zarrjava.v3;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
@@ -10,11 +11,11 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
+import static dev.zarr.zarrjava.v3.Node.makeObjectWriter;
 
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node {
@@ -45,8 +46,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(groupMetadata));
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(groupMetadata));
     storeHandle.resolve(ZARR_JSON)
         .set(metadataBytes);
     return new Group(storeHandle, groupMetadata);
@@ -54,9 +55,9 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
 
   public static Group create(
       @Nonnull StoreHandle storeHandle,
-      @Nonnull Map<String, Object> attributes
+      @Nonnull Attributes attributes
   ) throws IOException, ZarrException {
-    return new Group(storeHandle, new GroupMetadata(attributes));
+    return create(storeHandle, new GroupMetadata(attributes));
   }
 
   public static Group create(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
@@ -94,7 +95,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return Group.create(storeHandle.resolve(key), groupMetadata);
   }
 
-  public Group createGroup(String key, Map<String, Object> attributes)
+  public Group createGroup(String key, Attributes attributes)
       throws IOException, ZarrException {
     return Group.create(storeHandle.resolve(key), new GroupMetadata(attributes));
   }
@@ -115,19 +116,19 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(newGroupMetadata));
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(newGroupMetadata));
     storeHandle.resolve(ZARR_JSON)
         .set(metadataBytes);
     return new Group(storeHandle, newGroupMetadata);
   }
 
-  public Group setAttributes(Map<String, Object> newAttributes) throws ZarrException, IOException {
+  public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
     GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
     return writeMetadata(newGroupMetadata);
   }
 
-  public Group updateAttributes(Function<Map<String, Object>, Map<String, Object>> attributeMapper)
+  public Group updateAttributes(Function<Attributes, Attributes> attributeMapper)
       throws ZarrException, IOException {
     return setAttributes(attributeMapper.apply(metadata.attributes));
   }
@@ -135,5 +136,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   @Override
   public String toString() {
     return String.format("<v3.Group {%s}>", storeHandle);
+  }
+
+  @Override
+  public GroupMetadata metadata() {
+    return metadata;
   }
 }
