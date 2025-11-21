@@ -1,23 +1,28 @@
 package dev.zarr.zarrjava;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
-import dev.zarr.zarrjava.v2.Array;
-import dev.zarr.zarrjava.v2.ArrayMetadata;
-import dev.zarr.zarrjava.v2.DataType;
-import dev.zarr.zarrjava.v2.Group;
-import dev.zarr.zarrjava.v2.Node;
+import dev.zarr.zarrjava.v2.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static dev.zarr.zarrjava.core.Node.ZARRAY;
 
 public class ZarrV2Test extends ZarrTest {
     @ParameterizedTest
@@ -254,5 +259,33 @@ public class ZarrV2Test extends ZarrTest {
 
         Group.create(storeHandleString);
         Assertions.assertTrue(Files.exists(Paths.get(storeHandleString).resolve(".zgroup")));
+    }
+
+
+    static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> compressorBuilder() {
+        return Stream.of(
+                ArrayMetadataBuilder::withBloscCompressor,
+                ArrayMetadataBuilder::withZlibCompressor,
+                b -> b
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("compressorBuilder")
+    public void testZarrJsonFormat(Function<ArrayMetadataBuilder, ArrayMetadataBuilder> compressorBuilder) throws ZarrException, IOException {
+        // regression test: ensure that 'id' keyword of codecs is only written once.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZarrJsonFormatV2").resolve(String.valueOf(compressorBuilder.hashCode()));
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(6, 6);
+        builder = compressorBuilder.apply(builder);
+        Array.create(storeHandle, builder.build());
+
+        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve(ZARRAY).toPath())) {
+            String jsonInString = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            JsonNode JSON = new ObjectMapper().readTree(jsonInString);
+            Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
+        }
     }
 }

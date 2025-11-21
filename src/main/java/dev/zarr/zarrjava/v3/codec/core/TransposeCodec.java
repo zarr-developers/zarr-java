@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
@@ -16,6 +17,7 @@ import static dev.zarr.zarrjava.utils.Utils.isPermutation;
 
 public class TransposeCodec extends ArrayArrayCodec implements Codec{
 
+    @JsonIgnore
     @Nonnull
     public final String name = "transpose";
     @Nonnull

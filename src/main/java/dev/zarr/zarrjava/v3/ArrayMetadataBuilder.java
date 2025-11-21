@@ -73,6 +73,12 @@ public class ArrayMetadataBuilder {
     return this;
   }
 
+    public ArrayMetadataBuilder withDefaultChunkKeyEncoding() {
+        this.chunkKeyEncoding = new DefaultChunkKeyEncoding(
+            new DefaultChunkKeyEncoding.Configuration(Separator.SLASH));
+        return this;
+    }
+
   public ArrayMetadataBuilder withDefaultChunkKeyEncoding(String separator) {
     this.chunkKeyEncoding =
         new DefaultChunkKeyEncoding(
@@ -82,6 +88,12 @@ public class ArrayMetadataBuilder {
 
   public ArrayMetadataBuilder withV2ChunkKeyEncoding(Separator separator) {
     this.chunkKeyEncoding = new V2ChunkKeyEncoding(new V2ChunkKeyEncoding.Configuration(separator));
+    return this;
+  }
+
+  public ArrayMetadataBuilder withV2ChunkKeyEncoding() {
+    this.chunkKeyEncoding = new V2ChunkKeyEncoding(
+        new V2ChunkKeyEncoding.Configuration(Separator.DOT));
     return this;
   }
 

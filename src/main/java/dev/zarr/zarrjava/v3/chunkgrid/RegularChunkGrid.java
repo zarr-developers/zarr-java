@@ -1,12 +1,14 @@
 package dev.zarr.zarrjava.v3.chunkgrid;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nonnull;
 
 
 public class RegularChunkGrid extends ChunkGrid {
 
+  @JsonIgnore
   public final String name = "regular";
   @Nonnull
   public final Configuration configuration;
