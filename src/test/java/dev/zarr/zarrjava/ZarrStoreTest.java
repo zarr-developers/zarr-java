@@ -112,14 +112,15 @@ public class ZarrStoreTest extends ZarrTest {
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData), useParallel);
         group.createGroup("subgroup");
-        group.setAttributes(new Attributes().set("description", "test group"));
+        group.setAttributes(new Attributes(b -> b.set("some", "value")));
         Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
         Assertions.assertEquals(2, nodes.count());
 
         ucar.ma2.Array result = array.read(useParallel);
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
-        Assertions.assertNotNull(group.metadata().attributes);
-        Assertions.assertEquals("test group", group.metadata().attributes.getString("description"));
+        Attributes attrs = group.metadata().attributes;
+        Assertions.assertNotNull(attrs);
+        Assertions.assertEquals("value", attrs.getString("some"));
     }
 
     @ParameterizedTest
@@ -158,5 +159,9 @@ public class ZarrStoreTest extends ZarrTest {
 
         ucar.ma2.Array result = array.read(useParallel);
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        Attributes attrs = group.metadata().attributes;
+        Assertions.assertNotNull(attrs);
+        Assertions.assertEquals("test group", attrs.getString("description"));
+
     }
 }
