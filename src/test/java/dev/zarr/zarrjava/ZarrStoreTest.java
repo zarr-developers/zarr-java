@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.v3.*;
 import org.junit.jupiter.api.Assertions;
@@ -14,6 +14,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
@@ -82,19 +84,79 @@ public class ZarrStoreTest extends ZarrTest {
 
     @ParameterizedTest
     @CsvSource({
-        "DOT", "SLASH"
+        "false,MemoryStore",
+        "false,ConcurrentMemoryStore",
+        "true,ConcurrentMemoryStore",
     })
-    public void testMemoryStore(Separator separator) throws ZarrException, IOException {
-        StoreHandle storeHandle = new MemoryStore(separator).resolve();
+    public void testMemoryStoreV3(boolean useParallel, String storeType) throws ZarrException, IOException {
+        int[] testData = new int[1024 * 1024];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle;
+        switch (storeType) {
+            case "ConcurrentMemoryStore":
+                storeHandle = new ConcurrentMemoryStore().resolve();
+                break;
+            case "MemoryStore":
+                storeHandle = new MemoryStore().resolve();
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown store type: " + storeType);
+        }
+
         Group group = Group.create(storeHandle);
         Array array = group.createArray("array", b -> b
-                .withShape(10, 10)
-                .withDataType(DataType.UINT8)
+                .withShape(1024, 1024)
+                .withDataType(DataType.UINT32)
                 .withChunkShape(5, 5)
         );
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData), useParallel);
         group.createGroup("subgroup");
-        Assertions.assertEquals(2, group.list().count());
-        for(String s: storeHandle.list().toArray(String[]::new))
-            System.out.println(s);
+        group.setAttributes(new Attributes().set("description", "test group"));
+        Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
+        Assertions.assertEquals(2, nodes.count());
+
+        ucar.ma2.Array result = array.read(useParallel);
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        Assertions.assertNotNull(group.metadata().attributes);
+        Assertions.assertEquals("test group", group.metadata().attributes.getString("description"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "false,MemoryStore",
+        "false,ConcurrentMemoryStore",
+        "true,ConcurrentMemoryStore",
+    })
+    public void testMemoryStoreV2(boolean useParallel, String storeType) throws ZarrException, IOException {
+        int[] testData = new int[1024 * 1024];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle;
+        switch (storeType) {
+            case "ConcurrentMemoryStore":
+                storeHandle = new ConcurrentMemoryStore().resolve();
+                break;
+            case "MemoryStore":
+                storeHandle = new MemoryStore().resolve();
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown store type: " + storeType);
+        }
+
+        dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(storeHandle);
+        dev.zarr.zarrjava.v2.Array array = group.createArray("array", b -> b
+                .withShape(1024, 1024)
+                .withDataType(dev.zarr.zarrjava.v2.DataType.UINT32)
+                .withChunks(5, 5)
+        );
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData), useParallel);
+        group.createGroup("subgroup");
+        Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
+        group.setAttributes(new Attributes().set("description", "test group"));
+        Assertions.assertEquals(2, nodes.count());
+
+        ucar.ma2.Array result = array.read(useParallel);
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
     }
 }
