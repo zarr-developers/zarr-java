@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v2;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -19,6 +20,7 @@ import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
+import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
 
 public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
@@ -148,12 +150,12 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
           "Trying to create a new array in " + storeHandle + ". But " + metadataHandle
               + " already exists.");
     }
-    ObjectMapper objectMapper = makeObjectMapper();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectMapper.writeValueAsBytes(arrayMetadata));
+    ObjectWriter objectWriter = makeObjectWriter();
+    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(arrayMetadata));
     if (arrayMetadata.attributes != null) {
       StoreHandle attrsHandle = storeHandle.resolve(ZATTRS);
       ByteBuffer attrsBytes = ByteBuffer.wrap(
-          objectMapper.writeValueAsBytes(arrayMetadata.attributes));
+          objectWriter.writeValueAsBytes(arrayMetadata.attributes));
       attrsHandle.set(attrsBytes);
     }
     metadataHandle.set(metadataBytes);

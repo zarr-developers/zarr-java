@@ -4,13 +4,7 @@ import dev.zarr.zarrjava.utils.Utils;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectResponse;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -57,7 +51,11 @@ public class S3Store implements Store, Store.ListableStore {
   @Override
   public boolean exists(String[] keys) {
     HeadObjectRequest req = HeadObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build();
-    return s3client.headObject(req).sdkHttpResponse().statusCode() == 200;
+    try {
+      return s3client.headObject(req).sdkHttpResponse().statusCode() == 200;
+    } catch (NoSuchKeyException e) {
+      return false;
+    }
   }
 
   @Nullable
@@ -84,7 +82,7 @@ public class S3Store implements Store, Store.ListableStore {
     GetObjectRequest req = GetObjectRequest.builder()
     .bucket(bucketName)
     .key(resolveKeys(keys))
-    .range(String.valueOf(start)+"-"+String.valueOf(end))
+    .range(start +"-"+ end)
     .build();
     return get(req);
   }

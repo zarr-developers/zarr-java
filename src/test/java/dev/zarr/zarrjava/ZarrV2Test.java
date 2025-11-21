@@ -1,6 +1,8 @@
 package dev.zarr.zarrjava;
 
 import dev.zarr.zarrjava.core.Attributes;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.*;
@@ -8,14 +10,21 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static dev.zarr.zarrjava.core.Node.ZARRAY;
 
 public class ZarrV2Test extends ZarrTest {
     @ParameterizedTest
@@ -305,7 +314,7 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
         array = Array.open(storeHandle);
         Assertions.assertEquals("new_value", array.metadata().attributes().getString("new_attribute"));
-        
+
         // delete attribute
         array = array.updateAttributes(b -> b.delete("new_value"));
         Assertions.assertNull(array.metadata().attributes().get("new_value"));
@@ -314,7 +323,7 @@ public class ZarrV2Test extends ZarrTest {
 
         assertContainsTestAttributes(array.metadata().attributes());
     }
-    
+
     @Test
     public void testResizeArray() throws IOException, ZarrException {
         int[] testData = new int[10 * 10];
@@ -330,7 +339,7 @@ public class ZarrV2Test extends ZarrTest {
         ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
         Array array = Array.create(storeHandle, arrayMetadata);
         array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
-        
+
         array = array.resize(new long[]{20, 15});
         Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
 
@@ -355,5 +364,33 @@ public class ZarrV2Test extends ZarrTest {
 
         group = Group.open(storeHandle);
         Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+    }
+
+
+    static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> compressorBuilder() {
+        return Stream.of(
+                ArrayMetadataBuilder::withBloscCompressor,
+                ArrayMetadataBuilder::withZlibCompressor,
+                b -> b
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("compressorBuilder")
+    public void testZarrJsonFormat(Function<ArrayMetadataBuilder, ArrayMetadataBuilder> compressorBuilder) throws ZarrException, IOException {
+        // regression test: ensure that 'id' keyword of codecs is only written once.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZarrJsonFormatV2").resolve(String.valueOf(compressorBuilder.hashCode()));
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(6, 6);
+        builder = compressorBuilder.apply(builder);
+        Array.create(storeHandle, builder.build());
+
+        try (BufferedReader reader = Files.newBufferedReader(storeHandle.resolve(ZARRAY).toPath())) {
+            String jsonInString = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            JsonNode JSON = new ObjectMapper().readTree(jsonInString);
+            Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
+        }
     }
 }

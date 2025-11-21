@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v2.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.ArrayMetadata;
@@ -16,6 +17,7 @@ import java.util.zip.*;
 
 public class ZlibCodec extends BytesBytesCodec implements Codec {
 
+    @JsonIgnore
     public final String id = "zlib";
     public final int level;
 

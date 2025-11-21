@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.utils.CRC32C;
@@ -12,6 +13,7 @@ import java.nio.ByteOrder;
 
 public class Crc32cCodec extends  BytesBytesCodec implements Codec {
 
+  @JsonIgnore
   public final String name = "crc32c";
 
   @JsonCreator
