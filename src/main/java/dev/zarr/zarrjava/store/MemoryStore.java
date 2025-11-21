@@ -5,15 +5,11 @@ import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class MemoryStore implements Store, Store.ListableStore {
-  private final Map<String, byte[]> map = new HashMap<>();
+  private final Map<List<String>, byte[]> map = new HashMap<>();
   Separator separator;
 
   public MemoryStore(Separator separator){
@@ -24,8 +20,15 @@ public class MemoryStore implements Store, Store.ListableStore {
     this(Separator.SLASH);
   }
 
-  String resolveKeys(String[] keys) {
-    return String.join(separator.getValue(), keys);
+  List<String> resolveKeys(String[] keys) {
+    ArrayList<String> resolvedKeys = new ArrayList<>();
+    for(String key:keys){
+      if(key.startsWith("/")){
+        key = key.substring(1);
+      }
+      resolvedKeys.addAll(Arrays.asList(key.split("/")));
+    }
+    return resolvedKeys;
   }
 
   @Override
@@ -67,16 +70,15 @@ public class MemoryStore implements Store, Store.ListableStore {
   }
 
   public Stream<String> list(String[] keys) {
-    String prefix = resolveKeys(keys);
+    List<String> prefix = resolveKeys(keys);
     Set<String> allKeys = new HashSet<>();
 
-    for (String k : map.keySet()) {
-      if (!k.startsWith(prefix)) continue;
-      String current = "";
-      for (String s : k.split(separator.getValue())) {
-        current += s;
-        allKeys.add(current);
-        current += separator.getValue();
+    for (List<String> k : map.keySet()) {
+      if (k.size() <= prefix.size() || ! k.subList(0, prefix.size()).equals(prefix))
+        continue;
+      for (int i = 0; i < k.size(); i++) {
+        List<String> subKey = k.subList(0, i+1);
+        allKeys.add(String.join("/", subKey));
       }
     }
     return allKeys.stream();
