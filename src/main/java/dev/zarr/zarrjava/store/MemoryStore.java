@@ -1,7 +1,5 @@
 package dev.zarr.zarrjava.store;
 
-import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -9,15 +7,10 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public class MemoryStore implements Store, Store.ListableStore {
-  private final Map<List<String>, byte[]> map = new HashMap<>();
-  Separator separator;
+  private final Map<List<String>, byte[]> map = map();
 
-  public MemoryStore(Separator separator){
-    this.separator = separator;
-  }
-
-  public MemoryStore(){
-    this(Separator.SLASH);
+  protected Map<List<String>, byte[]> map(){
+    return new HashMap<>();
   }
 
   List<String> resolveKeys(String[] keys) {
@@ -95,3 +88,4 @@ public class MemoryStore implements Store, Store.ListableStore {
     return String.format("<MemoryStore {%s}>", hashCode());
   }
 }
+
