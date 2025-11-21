@@ -402,8 +402,8 @@ public class ZarrPythonTests extends ZarrTest {
 
     @Test
     public void testGroupReadWriteV2() throws Exception {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
-        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV2", "write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV2", "read");
         Group group = Group.create(storeHandle, new Attributes(b -> b.set("attr", "value")));
         dev.zarr.zarrjava.v2.DataType dataType = dev.zarr.zarrjava.v2.DataType.INT32;
         dev.zarr.zarrjava.v2.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
@@ -429,8 +429,8 @@ public class ZarrPythonTests extends ZarrTest {
 
     @Test
     public void testGroupReadWriteV3() throws Exception {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("group_write");
-        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("group_read");
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV3", "write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("testGroupReadWriteV3", "read");
         dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(storeHandle, new Attributes(b -> b.set("attr", "value")));
         dev.zarr.zarrjava.v3.DataType dataType = DataType.INT32;
         dev.zarr.zarrjava.v3.Array array = group.createGroup("group").createArray("array", arrayMetadataBuilder -> arrayMetadataBuilder
