@@ -8,6 +8,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.function.Function;
@@ -45,11 +46,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
   ) throws IOException {
-    ObjectWriter objectWriter = makeObjectWriter();
-    ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(groupMetadata));
-    storeHandle.resolve(ZARR_JSON)
-        .set(metadataBytes);
-    return new Group(storeHandle, groupMetadata);
+    return new Group(storeHandle, groupMetadata).writeMetadata();
   }
 
   public static Group create(
@@ -80,11 +77,11 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   @Nullable
-  public Node get(String key) throws ZarrException {
+  public Node get(String key) throws ZarrException, IOException{
     StoreHandle keyHandle = storeHandle.resolve(key);
     try {
       return Node.open(keyHandle);
-    } catch (IOException e) {
+    } catch (NoSuchFileException e) {
       return null;
     }
   }
@@ -114,12 +111,17 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return Array.create(storeHandle.resolve(key), arrayMetadataBuilderMapper, false);
   }
 
+  private Group writeMetadata() throws IOException {
+    return writeMetadata(this.metadata);
+  }
+
   private Group writeMetadata(GroupMetadata newGroupMetadata) throws IOException {
     ObjectWriter objectWriter = makeObjectWriter();
     ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(newGroupMetadata));
     storeHandle.resolve(ZARR_JSON)
         .set(metadataBytes);
-    return new Group(storeHandle, newGroupMetadata);
+    this.metadata = newGroupMetadata;
+    return this;
   }
 
   public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
