@@ -28,6 +28,12 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     this.metadata = groupMetadata;
   }
 
+  /**
+   * Opens an existing Zarr group at a specified storage location.
+   *
+   * @param storeHandle the storage location of the Zarr group
+   * @throws IOException if the metadata cannot be read
+   */
   public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
     StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
     ByteBuffer metadataBytes = metadataHandle.readNonNull();
@@ -35,10 +41,22 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
 
+  /**
+   * Opens an existing Zarr group at a specified storage location.
+   *
+   * @param path the storage location of the Zarr group
+   * @throws IOException if the metadata cannot be read
+   */
   public static Group open(Path path) throws IOException {
     return open(new StoreHandle(new FilesystemStore(path)));
   }
 
+  /**
+   * Opens an existing Zarr group at a specified storage location.
+   *
+   * @param path the storage location of the Zarr group
+   * @throws IOException if the metadata cannot be read
+   */
   public static Group open(String path) throws IOException {
     return open(Paths.get(path));
   }
@@ -52,8 +70,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return new Group(new MemoryStore().resolve(), GroupMetadata.defaultValue()).writeMetadata();
   }
 
-    /**
-   * Creates a new Zarr group with the provided metadata in an in-memory store.
+  /**
+   * Creates a new Zarr group with the provided attributes in an in-memory store.
    *
    * @param attributes the attributes of the Zarr group
    * @throws IOException if the metadata cannot be serialized
@@ -63,7 +81,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return new Group(new MemoryStore().resolve(), new GroupMetadata(attributes)).writeMetadata();
   }
 
-    /**
+  /**
    * Creates a new Zarr group with the provided metadata in an in-memory store.
    *
    * @param groupMetadata the metadata of the Zarr group
@@ -85,10 +103,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   /**
-   * Creates a new Zarr group with the provided metadata at a specified storage location.
+   * Creates a new Zarr group with the provided attributes at a specified storage location.
    *
    * @param storeHandle the storage location of the Zarr group
-   * @param attributes attributes of the Zarr group
+   * @param attributes the attributes of the Zarr group
    * @throws IOException if the metadata cannot be serialized
    * @throws ZarrException if the attributes are invalid
    */
@@ -100,7 +118,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
   }
 
   /**
-   * Creates a new Zarr group with the provided metadata at a specified storage location.
+   * Creates a new Zarr group with default metadata at a specified storage location.
    *
    * @param storeHandle the storage location of the Zarr group
    * @throws IOException if the metadata cannot be serialized
@@ -115,6 +133,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
    * @param path the storage location of the Zarr group
    * @param groupMetadata the metadata of the Zarr group
    * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the metadata is invalid
    */
   public static Group create(Path path, GroupMetadata groupMetadata) throws IOException, ZarrException {
     return create(new FilesystemStore(path).resolve(), groupMetadata);
@@ -126,31 +145,42 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
    * @param path the storage location of the Zarr group
    * @param groupMetadata the metadata of the Zarr group
    * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the metadata is invalid
    */
   public static Group create(String path, GroupMetadata groupMetadata) throws IOException, ZarrException {
     return create(Paths.get(path), groupMetadata);
   }
 
   /**
-   * Creates a new Zarr group with the provided metadata at a specified storage location.
+   * Creates a new Zarr group with default metadata at a specified storage location.
    *
    * @param path the storage location of the Zarr group
    * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the metadata is invalid
    */
   public static Group create(Path path) throws IOException, ZarrException {
     return create(new FilesystemStore(path).resolve());
   }
 
   /**
-   * Creates a new Zarr group with the provided metadata at a specified storage location.
+   * Creates a new Zarr group with default metadata at a specified storage location.
    *
    * @param path the storage location of the Zarr group
    * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the metadata is invalid
    */
   public static Group create(String path) throws IOException, ZarrException {
     return create(Paths.get(path));
   }
 
+  /**
+   * Retrieves a node (group or array) at the specified key within the current group.
+   *
+   * @param key the key of the node to retrieve
+   * @return the node at the specified key, or null if it does not exist
+   * @throws ZarrException if the node cannot be opened
+   * @throws IOException if there is an error accessing the storage
+   */
   @Nullable
   public Node get(String key) throws ZarrException, IOException{
     StoreHandle keyHandle = storeHandle.resolve(key);
@@ -189,18 +219,21 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
    * Creates a new subgroup with default metadata at the specified key.
    *
    * @param key the key of the new Zarr group within the current group
+   * @return the created subgroup
    * @throws IOException if the metadata cannot be serialized
    */
-  public Group createGroup(String key) throws IOException {
+  public Group createGroup(String key) throws IOException{
     return Group.create(storeHandle.resolve(key), GroupMetadata.defaultValue());
   }
 
   /**
    * Creates a new array with the provided metadata at the specified key.
    *
-   * @param key           the key of the new Zarr array within the current group
+   * @param key the key of the new Zarr array within the current group
    * @param arrayMetadata the metadata of the Zarr array
+   * @return the created array
    * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the array cannot be created
    */
   public Array createArray(String key, ArrayMetadata arrayMetadata)
           throws IOException, ZarrException {
@@ -233,14 +266,30 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     return this;
   }
 
-  public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
-    GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
-    return writeMetadata(newGroupMetadata);
-  }
-
+  /**
+   * Updates the attributes of the group using a mapper function.
+   *
+   * @param attributeMapper a function that takes the current attributes and returns the updated attributes
+   * @return the updated group
+   * @throws ZarrException if the new attributes are invalid
+   * @throws IOException if the metadata cannot be serialized
+   */
   public Group updateAttributes(Function<Attributes, Attributes> attributeMapper)
       throws ZarrException, IOException {
     return setAttributes(attributeMapper.apply(metadata.attributes));
+  }
+
+  /**
+   * Sets new attributes for the group, replacing any existing attributes.
+   *
+   * @param newAttributes the new attributes to set
+   * @return the updated group
+   * @throws ZarrException if the new attributes are invalid
+   * @throws IOException if the metadata cannot be serialized
+   */
+  public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
+    GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
+    return writeMetadata(newGroupMetadata);
   }
 
   @Override
