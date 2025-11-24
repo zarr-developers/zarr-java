@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 
@@ -48,6 +49,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node{
     public static Group open(String path) throws IOException {
       return open(Paths.get(path));
     }
+
+  public static Group create(@Nonnull GroupMetadata groupMetadata) throws IOException {
+    return new Group(new MemoryStore().resolve(), groupMetadata).writeMetadata();
+  }
 
   public static Group create(
       @Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata
