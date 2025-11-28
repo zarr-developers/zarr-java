@@ -7,16 +7,22 @@ import dev.zarr.zarrjava.v3.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.stream.Stream;
+import java.nio.file.Path;
+import java.util.zip.ZipOutputStream;
 
+import static dev.zarr.zarrjava.Utils.zipFile;
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 public class ZarrStoreTest extends ZarrTest {
@@ -131,5 +137,73 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals("test group", attrs.getString("description"));
 
+    }
+
+    @Test
+    public void testZipStore() throws ZarrException, IOException {
+        Path sourceDir = TESTOUTPUT.resolve("testZipStore");
+        Path targetDir = TESTOUTPUT.resolve("testZipStore.zip");
+        FilesystemStore fsStore = new FilesystemStore(sourceDir);
+        writeTestGroupV3(fsStore, true);
+
+        FileOutputStream fos = new FileOutputStream(targetDir.toFile());
+        ZipOutputStream zipOut = new ZipOutputStream(fos);
+
+        File fileToZip = new File(sourceDir.toUri());
+        zipFile(fileToZip, fileToZip.getName(), zipOut);
+        zipOut.close();
+        fos.close();
+
+        ZipStore zipStore = new ZipStore(targetDir);
+        assertIsTestGroupV3(Group.open(zipStore.resolve()), true);
+    }
+
+    static Stream<Store> localStores() {
+        return Stream.of(
+//                new ConcurrentMemoryStore(),
+                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
+                new ZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("localStores")
+    public void testLocalStores(Store store) throws IOException, ZarrException {
+        boolean useParallel = true;
+        Group group = writeTestGroupV3(store, useParallel);
+        assertIsTestGroupV3(group, useParallel);
+    }
+
+    int[] testData(){
+        int[] testData = new int[1024 * 1024];
+        Arrays.setAll(testData, p -> p);
+        return testData;
+    }
+
+    Group writeTestGroupV3(Store store, boolean useParallel) throws ZarrException, IOException {
+        StoreHandle storeHandle = store.resolve();
+
+        Group group = Group.create(storeHandle);
+        Array array = group.createArray("array", b -> b
+                .withShape(1024, 1024)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+        );
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), useParallel);
+        group.createGroup("subgroup");
+        group.setAttributes(new Attributes(b -> b.set("some", "value")));
+        return group;
+    }
+
+    void assertIsTestGroupV3(Group group, boolean useParallel) throws ZarrException {
+        Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
+        Assertions.assertEquals(2, nodes.count());
+        Array array = (Array) group.get("array");
+        Assertions.assertNotNull(array);
+        ucar.ma2.Array result = array.read(useParallel);
+        Assertions.assertArrayEquals(testData(), (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        Attributes attrs = group.metadata().attributes;
+        Assertions.assertNotNull(attrs);
+        Assertions.assertEquals("value", attrs.getString("some"));
     }
 }
