@@ -4,14 +4,11 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 public class MemoryStore implements Store, Store.ListableStore {
-  private final Map<List<String>, byte[]> map = map();
-
-  protected Map<List<String>, byte[]> map(){
-    return new HashMap<>();
-  }
+  private final Map<List<String>, byte[]> map = new ConcurrentHashMap<>();
 
   List<String> resolveKeys(String[] keys) {
     ArrayList<String> resolvedKeys = new ArrayList<>();

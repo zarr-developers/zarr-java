@@ -83,28 +83,12 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
     @ParameterizedTest
-    @CsvSource({
-        "false,MemoryStore",
-        "false,ConcurrentMemoryStore",
-        "true,ConcurrentMemoryStore",
-    })
-    public void testMemoryStoreV3(boolean useParallel, String storeType) throws ZarrException, IOException {
+    @CsvSource({"false", "true",})
+    public void testMemoryStoreV3(boolean useParallel) throws ZarrException, IOException {
         int[] testData = new int[1024 * 1024];
         Arrays.setAll(testData, p -> p);
 
-        StoreHandle storeHandle;
-        switch (storeType) {
-            case "ConcurrentMemoryStore":
-                storeHandle = new ConcurrentMemoryStore().resolve();
-                break;
-            case "MemoryStore":
-                storeHandle = new MemoryStore().resolve();
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown store type: " + storeType);
-        }
-
-        Group group = Group.create(storeHandle);
+        Group group = Group.create(new MemoryStore().resolve());
         Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
                 .withDataType(DataType.UINT32)
@@ -124,28 +108,12 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
     @ParameterizedTest
-    @CsvSource({
-        "false,MemoryStore",
-        "false,ConcurrentMemoryStore",
-        "true,ConcurrentMemoryStore",
-    })
-    public void testMemoryStoreV2(boolean useParallel, String storeType) throws ZarrException, IOException {
+    @CsvSource({"false", "true",})
+    public void testMemoryStoreV2(boolean useParallel) throws ZarrException, IOException {
         int[] testData = new int[1024 * 1024];
         Arrays.setAll(testData, p -> p);
 
-        StoreHandle storeHandle;
-        switch (storeType) {
-            case "ConcurrentMemoryStore":
-                storeHandle = new ConcurrentMemoryStore().resolve();
-                break;
-            case "MemoryStore":
-                storeHandle = new MemoryStore().resolve();
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown store type: " + storeType);
-        }
-
-        dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(storeHandle);
+        dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(new MemoryStore().resolve());
         dev.zarr.zarrjava.v2.Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
                 .withDataType(dev.zarr.zarrjava.v2.DataType.UINT32)
