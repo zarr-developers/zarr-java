@@ -64,7 +64,12 @@ public abstract class Group extends AbstractNode {
     }
 
     @Nullable
-    public abstract Node get(String key) throws ZarrException, IOException;
+    public abstract Node get(String[] key) throws ZarrException, IOException;
+
+    @Nullable
+    public Node get(String key) throws ZarrException, IOException {
+        return get(new String[]{key});
+    }
 
     public Stream<Node> list() {
         return storeHandle.list()

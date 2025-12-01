@@ -123,7 +123,7 @@ public class ZarrStoreTest extends ZarrTest {
         dev.zarr.zarrjava.v2.Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
                 .withDataType(dev.zarr.zarrjava.v2.DataType.UINT32)
-                .withChunks(5, 5)
+                .withChunks(512, 512)
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData), useParallel);
         group.createGroup("subgroup");
@@ -195,7 +195,7 @@ public class ZarrStoreTest extends ZarrTest {
         return group;
     }
 
-    void assertIsTestGroupV3(Group group, boolean useParallel) throws ZarrException {
+    void assertIsTestGroupV3(Group group, boolean useParallel) throws ZarrException, IOException {
         Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
         Assertions.assertEquals(2, nodes.count());
         Array array = (Array) group.get("array");

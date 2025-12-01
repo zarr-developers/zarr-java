@@ -59,19 +59,18 @@ public class MemoryStore implements Store, Store.ListableStore {
     map.remove(resolveKeys(keys));
   }
 
-  public Stream<String> list(String[] keys) {
-    List<String> prefix = resolveKeys(keys);
-    Set<String> allKeys = new HashSet<>();
+  public Stream<String[]> list(String[] keys) {
+      List<String> prefix = resolveKeys(keys);
+      Set<List<String>> allKeys = new HashSet<>();
 
-    for (List<String> k : map.keySet()) {
-      if (k.size() <= prefix.size() || ! k.subList(0, prefix.size()).equals(prefix))
-        continue;
-      for (int i = 0; i < k.size(); i++) {
-        List<String> subKey = k.subList(0, i+1);
-        allKeys.add(String.join("/", subKey));
+      for (List<String> k : map.keySet()) {
+          if (k.size() <= prefix.size() || ! k.subList(0, prefix.size()).equals(prefix))
+              continue;
+          for (int i = prefix.size(); i < k.size(); i++) {
+              allKeys.add(k.subList(0, i+1));
+          }
       }
-    }
-    return allKeys.stream();
+      return allKeys.stream().map(k -> k.toArray(new String[0]));
   }
 
   @Nonnull
