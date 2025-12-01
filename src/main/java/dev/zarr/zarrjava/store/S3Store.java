@@ -104,7 +104,7 @@ public class S3Store implements Store, Store.ListableStore {
   }
 
   @Override
-  public Stream<String> list(String[] keys) {
+  public Stream<String[]> list(String[] keys) {
     final String fullKey = resolveKeys(keys);
     ListObjectsRequest req = ListObjectsRequest.builder()
     .bucket(bucketName).prefix(fullKey)
@@ -112,7 +112,7 @@ public class S3Store implements Store, Store.ListableStore {
     ListObjectsResponse res = s3client.listObjects(req);
     return res.contents()
         .stream()
-        .map(p -> p.key().substring(fullKey.length() + 1));
+        .map(p -> p.key().substring(fullKey.length() + 1).split("/"));
   }
 
   @Nonnull

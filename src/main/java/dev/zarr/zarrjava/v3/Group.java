@@ -182,7 +182,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
    * @throws IOException if there is an error accessing the storage
    */
   @Nullable
-  public Node get(String key) throws ZarrException, IOException{
+  public Node get(String[] key) throws ZarrException, IOException{
     StoreHandle keyHandle = storeHandle.resolve(key);
     try {
       return Node.open(keyHandle);

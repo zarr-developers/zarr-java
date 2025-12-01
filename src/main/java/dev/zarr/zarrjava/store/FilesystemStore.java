@@ -120,10 +120,16 @@ public class FilesystemStore implements Store, Store.ListableStore {
       throw new RuntimeException(e);
     }
   }
-
-  public Stream<String> list(String[] keys) {
+  public Stream<String[]> list(String[] keys) {
     try {
-      return Files.list(resolveKeys(keys)).map(p -> p.toFile().getName());
+      return Files.list(resolveKeys(keys)).map(path -> {
+        Path relativePath = resolveKeys(keys).relativize(path);
+        String[] parts = new String[relativePath.getNameCount()];
+        for (int i = 0; i < relativePath.getNameCount(); i++) {
+          parts[i] = relativePath.getName(i).toString();
+        }
+        return parts;
+      });
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
