@@ -140,7 +140,7 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
     @Test
-    public void testZipStore() throws ZarrException, IOException {
+    public void testOpenZipStore() throws ZarrException, IOException {
         Path sourceDir = TESTOUTPUT.resolve("testZipStore");
         Path targetDir = TESTOUTPUT.resolve("testZipStore.zip");
         FilesystemStore fsStore = new FilesystemStore(sourceDir);
@@ -150,19 +150,30 @@ public class ZarrStoreTest extends ZarrTest {
         ZipOutputStream zipOut = new ZipOutputStream(fos);
 
         File fileToZip = new File(sourceDir.toUri());
-        zipFile(fileToZip, fileToZip.getName(), zipOut);
+        zipFile(fileToZip, "", zipOut);
         zipOut.close();
         fos.close();
 
-        ZipStore zipStore = new ZipStore(targetDir);
+        BufferedZipStore zipStore = new BufferedZipStore(targetDir);
         assertIsTestGroupV3(Group.open(zipStore.resolve()), true);
+    }
+
+    @Test
+    public void testWriteZipStore() throws ZarrException, IOException {
+        Path targetDir = TESTOUTPUT.resolve("testWriteZipStore.zip");
+        BufferedZipStore zipStore = new BufferedZipStore(targetDir);
+        writeTestGroupV3(zipStore, true);
+        zipStore.flush();
+
+        BufferedZipStore zipStoreRead = new BufferedZipStore(targetDir);
+        assertIsTestGroupV3(Group.open(zipStoreRead.resolve()), true);
     }
 
     static Stream<Store> localStores() {
         return Stream.of(
-//                new ConcurrentMemoryStore(),
+                new MemoryStore(),
                 new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
-                new ZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
+                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
         );
     }
 
@@ -187,7 +198,7 @@ public class ZarrStoreTest extends ZarrTest {
         Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
                 .withDataType(DataType.UINT32)
-                .withChunkShape(5, 5)
+                .withChunkShape(512, 512)
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), useParallel);
         group.createGroup("subgroup");
