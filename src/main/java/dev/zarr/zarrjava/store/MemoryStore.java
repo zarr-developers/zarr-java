@@ -44,7 +44,7 @@ public class MemoryStore implements Store, Store.ListableStore {
     byte[] bytes = map.get(resolveKeys(keys));
     if (bytes == null) return null;
     if (end < 0) end = bytes.length;
-    if (end > Integer.MAX_VALUE) throw new RuntimeException("TODO"); //TODO
+    if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
     return ByteBuffer.wrap(bytes, (int) start, (int) end);
   }
 
