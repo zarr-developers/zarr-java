@@ -4,6 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.*;
 import dev.zarr.zarrjava.v3.*;
+import org.apache.commons.compress.archivers.zip.*;
+
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -16,11 +20,14 @@ import software.amazon.awssdk.services.s3.S3Client;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.stream.Stream;
 import java.nio.file.Path;
+import java.util.zip.ZipEntry;
 
 import static dev.zarr.zarrjava.Utils.unzipFile;
 import static dev.zarr.zarrjava.Utils.zipFile;
+
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 public class ZarrStoreTest extends ZarrTest {
@@ -165,6 +172,70 @@ public class ZarrStoreTest extends ZarrTest {
         unzipFile(path, unzippedPath);
         FilesystemStore fsStore = new FilesystemStore(unzippedPath);
         assertIsTestGroupV3(Group.open(fsStore.resolve()), true);
+    }
+
+    @Test
+    public void testZipStoreWithComment() throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testZipStoreWithComment.zip");
+        String comment = "{\"ome\": { \"version\": \"XX.YY\" }}";
+        BufferedZipStore zipStore = new BufferedZipStore(path, comment);
+        writeTestGroupV3(zipStore, true);
+        zipStore.flush();
+
+        try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(path.toFile())) {
+            String retrievedComment = zipFile.getComment();
+            Assertions.assertEquals(comment, retrievedComment, "ZIP archive comment does not match expected value.");
+        }
+
+        Assertions.assertEquals(comment, new BufferedZipStore(path).getArchiveComment(), "ZIP archive comment from store does not match expected value.");
+    }
+
+    /**
+     * Test that ZipStore meets requirements for underlying store of Zipped OME-Zarr
+     * @see <a href="https://ngff.openmicroscopy.org/rfc/9/index.html">RFC-9: Zipped OME-Zarr</a>
+     *
+     * Features to test:
+     * - ZIP64 format
+     * - No ZIP-level compression
+     * - Option to add archive comments in the ZIP file header
+     * - Prohibit nested or multi-part ZIP archives
+     * - "The root-level zarr.json file SHOULD be the first ZIP file entry and the first entry in the central directory header; other zarr.json files SHOULD follow immediately afterwards, in breadth-first order."
+     */
+    @Test
+    public void testZipStoreRequirements() throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testZipStoreRequirements.zip");
+        BufferedZipStore zipStore = new BufferedZipStore(path);
+        writeTestGroupV3(zipStore, true);
+        zipStore.flush();
+
+        // test for ZIP64
+//        List<FileHeader> fileHeaders = new ZipFile(path.toFile()).getFileHeaders();
+//
+//        HeaderReader headerReader = new HeaderReader();
+//        ZipModel zipModel = headerReader.readAllHeaders(new RandomAccessFile(generatedZipFile,
+//                RandomAccessFileMode.READ.getValue()), buildDefaultConfig());
+//        assertThat(zipModel.getZip64EndOfCentralDirectoryLocator()).isNotNull();
+//        assertThat(zipModel.getZip64EndOfCentralDirectoryRecord()).isNotNull();
+//        assertThat(zipModel.isZip64Format()).isTrue();
+
+        try (ZipFile zip = new ZipFile(path.toFile())) {
+            for (ZipArchiveEntry e : Collections.list(zip.getEntries())) {
+                System.out.println(e.getName());
+                ZipExtraField[] extraFields = e.getExtraFields();
+                System.out.println(extraFields.length);
+                Assertions.assertNotNull(extraFields, "Entry " + e.getName() + " has no extra fields");
+                Assertions.assertTrue(Arrays.stream(extraFields).anyMatch(xf -> xf instanceof Zip64ExtendedInformationExtraField),
+                        "Entry " + e.getName() + " is missing ZIP64 extra field");
+            }
+        }
+        // no compression
+        try (ZipFile zip = new ZipFile(path.toFile())) {
+            for (ZipArchiveEntry e : Collections.list(zip.getEntries())) {
+                Assertions.assertEquals(ZipEntry.STORED, e.getMethod(), "Entry " + e.getName() + " is compressed");
+            }
+        }
+
+
     }
 
     static Stream<Store> localStores() {
