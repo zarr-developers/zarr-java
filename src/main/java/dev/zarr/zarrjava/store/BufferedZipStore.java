@@ -9,9 +9,15 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
+
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.Zip64Mode;
+
+import java.util.zip.CRC32;
+import java.util.zip.ZipEntry; // for STORED constant
 
 
 /** A Store implementation that buffers reads and writes and flushes them to an underlying Store as a zip file.
@@ -20,11 +26,19 @@ public class BufferedZipStore implements Store, Store.ListableStore {
 
     private final StoreHandle underlyingStore;
     private final Store.ListableStore bufferStore;
+    private final String archiveComment;
 
     private void writeBuffer() throws IOException{
         // create zip file bytes from buffer store and write to underlying store
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+        try (ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos)) {
+            // always use zip64
+            zos.setUseZip64(Zip64Mode.Always);
+            // set archive comment if provided
+            if (archiveComment != null) {
+                zos.setComment(archiveComment);
+            }
+
             // iterate all entries provided by bufferStore.list()
             bufferStore.list().forEach(keys -> {
                 try {
@@ -39,17 +53,30 @@ public class BufferedZipStore implements Store, Store.ListableStore {
                         if (!entryName.endsWith("/")) {
                             entryName = entryName + "/";
                         }
-                        zos.putNextEntry(new ZipEntry(entryName));
-                        zos.closeEntry();
+                        ZipArchiveEntry dirEntry = new ZipArchiveEntry(entryName);
+                        dirEntry.setMethod(ZipEntry.STORED);
+                        dirEntry.setSize(0);
+                        dirEntry.setCrc(0);
+                        zos.putArchiveEntry(dirEntry);
+                        zos.closeArchiveEntry();
                     } else {
                         // read bytes from ByteBuffer without modifying original
                         ByteBuffer dup = bb.duplicate();
                         int len = dup.remaining();
                         byte[] bytes = new byte[len];
                         dup.get(bytes);
-                        zos.putNextEntry(new ZipEntry(entryName));
+
+                        // compute CRC and set size for STORED (no compression)
+                        CRC32 crc = new CRC32();
+                        crc.update(bytes, 0, bytes.length);
+                        ZipArchiveEntry fileEntry = new ZipArchiveEntry(entryName);
+                        fileEntry.setMethod(ZipEntry.STORED);
+                        fileEntry.setSize(bytes.length);
+                        fileEntry.setCrc(crc.getValue());
+
+                        zos.putArchiveEntry(fileEntry);
                         zos.write(bytes);
-                        zos.closeEntry();
+                        zos.closeArchiveEntry();
                     }
                 } catch (IOException e) {
                     // wrap checked exception so it can be rethrown from stream for handling below
@@ -76,11 +103,12 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         if (buffer == null) {
             return;
         }
-        try (ZipInputStream zis = new ZipInputStream(new ByteBufferBackedInputStream(buffer))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
+//            this.archiveComment = zis.getComment();
+            ArchiveEntry aentry;
+            while ((aentry = zis.getNextEntry()) != null) {
+                ZipArchiveEntry entry = (ZipArchiveEntry) aentry;
                 if (entry.isDirectory()) {
-                    zis.closeEntry();
                     continue;
                 }
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -89,21 +117,17 @@ public class BufferedZipStore implements Store, Store.ListableStore {
                 while ((read = zis.read(tmp)) != -1) {
                     baos.write(tmp, 0, read);
                 }
-
                 byte[] bytes = baos.toByteArray();
-                System.out.println("Loading entry: " + entry.getName() + " (" + bytes.length + " bytes)");
-
                 bufferStore.set(new String[]{entry.getName()}, ByteBuffer.wrap(bytes));
-
-                zis.closeEntry();
             }
         }
 
     }
 
-    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore) {
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment) {
         this.underlyingStore = underlyingStore;
         this.bufferStore = bufferStore;
+        this.archiveComment = archiveComment;
         try {
             loadBuffer();
         } catch (IOException e) {
@@ -111,25 +135,43 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         }
     }
 
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore) {
+        this(underlyingStore, bufferStore, null);
+    }
+
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, String archiveComment) {
+        this(underlyingStore, new MemoryStore(), archiveComment);
+    }
+
     public BufferedZipStore(@Nonnull StoreHandle underlyingStore) {
-        this(underlyingStore, new MemoryStore());
+        this(underlyingStore, (String) null);
+    }
+
+    public BufferedZipStore(@Nonnull Path underlyingStore, String archiveComment) {
+        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()), archiveComment);
     }
 
     public BufferedZipStore(@Nonnull Path underlyingStore) {
-        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()));
-        System.out.println("Created BufferedZipStore with underlying path: " + this.underlyingStore.toString());
+        this(underlyingStore, null);
+    }
 
+    public BufferedZipStore(@Nonnull String underlyingStorePath, String archiveComment) {
+        this(Paths.get(underlyingStorePath), archiveComment);
     }
 
     public BufferedZipStore(@Nonnull String underlyingStorePath) {
-        this(Paths.get(underlyingStorePath));
+        this(underlyingStorePath, null);
     }
 
     /**
-     *  Flushes the buffer to the underlying store as a zip file.
+     *  Flushes the buffer and archiveComment to the underlying store as a zip file.
      */
     public void flush() throws IOException {
         writeBuffer();
+    }
+
+    public String getArchiveComment() {
+        return archiveComment;
     }
 
     @Override
