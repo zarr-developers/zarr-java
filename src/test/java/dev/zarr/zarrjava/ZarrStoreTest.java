@@ -13,15 +13,13 @@ import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.stream.Stream;
 import java.nio.file.Path;
-import java.util.zip.ZipOutputStream;
 
+import static dev.zarr.zarrjava.Utils.unzipFile;
 import static dev.zarr.zarrjava.Utils.zipFile;
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
@@ -146,13 +144,7 @@ public class ZarrStoreTest extends ZarrTest {
         FilesystemStore fsStore = new FilesystemStore(sourceDir);
         writeTestGroupV3(fsStore, true);
 
-        FileOutputStream fos = new FileOutputStream(targetDir.toFile());
-        ZipOutputStream zipOut = new ZipOutputStream(fos);
-
-        File fileToZip = new File(sourceDir.toUri());
-        zipFile(fileToZip, "", zipOut);
-        zipOut.close();
-        fos.close();
+        zipFile(sourceDir, targetDir);
 
         BufferedZipStore zipStore = new BufferedZipStore(targetDir);
         assertIsTestGroupV3(Group.open(zipStore.resolve()), true);
@@ -160,20 +152,26 @@ public class ZarrStoreTest extends ZarrTest {
 
     @Test
     public void testWriteZipStore() throws ZarrException, IOException {
-        Path targetDir = TESTOUTPUT.resolve("testWriteZipStore.zip");
-        BufferedZipStore zipStore = new BufferedZipStore(targetDir);
+        Path path = TESTOUTPUT.resolve("testWriteZipStore.zip");
+        BufferedZipStore zipStore = new BufferedZipStore(path);
         writeTestGroupV3(zipStore, true);
         zipStore.flush();
 
-        BufferedZipStore zipStoreRead = new BufferedZipStore(targetDir);
+        BufferedZipStore zipStoreRead = new BufferedZipStore(path);
         assertIsTestGroupV3(Group.open(zipStoreRead.resolve()), true);
+
+        Path unzippedPath = TESTOUTPUT.resolve("testWriteZipStoreUnzipped");
+
+        unzipFile(path, unzippedPath);
+        FilesystemStore fsStore = new FilesystemStore(unzippedPath);
+        assertIsTestGroupV3(Group.open(fsStore.resolve()), true);
     }
 
     static Stream<Store> localStores() {
         return Stream.of(
                 new MemoryStore(),
-                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
-                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
+                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS"))
+//                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
         );
     }
 

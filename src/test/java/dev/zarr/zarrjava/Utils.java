@@ -2,11 +2,27 @@ package dev.zarr.zarrjava;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.BufferedOutputStream;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.util.zip.ZipInputStream;
 
 public class Utils {
+
+    static void zipFile(Path sourceDir, Path targetDir) throws IOException {
+        FileOutputStream fos = new FileOutputStream(targetDir.toFile());
+        ZipOutputStream zipOut = new ZipOutputStream(fos);
+
+        File fileToZip = new File(sourceDir.toUri());
+
+        zipFile(fileToZip, "", zipOut);
+        zipOut.close();
+        fos.close();
+    }
 
     static void zipFile(File fileToZip, String fileName, ZipOutputStream zipOut) throws IOException {
         if (fileToZip.isHidden()) {
@@ -35,6 +51,38 @@ public class Utils {
             zipOut.write(bytes, 0, length);
         }
         fis.close();
+    }
+
+    /**
+     * Unzip sourceZip into targetDir.
+     * Protects against Zip Slip by ensuring extracted paths remain inside targetDir.
+     */
+    static void unzipFile(Path sourceZip, Path targetDir) throws IOException {
+        Files.createDirectories(targetDir);
+        try (FileInputStream fis = new FileInputStream(sourceZip.toFile());
+             ZipInputStream zis = new ZipInputStream(fis)) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                Path outPath = targetDir.resolve(entry.getName()).normalize();
+                Path targetDirNorm = targetDir.normalize();
+                if (!outPath.startsWith(targetDirNorm)) {
+                    throw new IOException("Zip entry is outside of the target dir: " + entry.getName());
+                }
+                if (entry.isDirectory() || entry.getName().endsWith("/")) {
+                    Files.createDirectories(outPath);
+                } else {
+                    Files.createDirectories(outPath.getParent());
+                    try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(outPath.toFile()))) {
+                        byte[] buffer = new byte[1024];
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            bos.write(buffer, 0, len);
+                        }
+                    }
+                }
+                zis.closeEntry();
+            }
+        }
     }
 
 }
