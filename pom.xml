@@ -6,7 +6,7 @@
 
     <groupId>dev.zarr</groupId>
     <artifactId>zarr-java</artifactId>
-    <version>0.0.5</version>
+    <version>0.0.9</version>
 
     <name>zarr-java</name>
 
@@ -123,17 +123,6 @@
         </dependency>
     </dependencies>
 
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
-
     <repositories>
         <repository>
             <id>unidata-all</id>
@@ -231,6 +220,16 @@
                     </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.8.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <tokenAuth>true</tokenAuth>
+                </configuration>
             </plugin>
         </plugins>
     </build>
