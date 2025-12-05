@@ -11,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 
 /** A Store implementation that buffers reads and writes and flushes them to an underlying Store as a zip file.
@@ -23,28 +24,50 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     private void writeBuffer() throws IOException{
         // create zip file bytes from buffer store and write to underlying store
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
+            // iterate all entries provided by bufferStore.list()
+            bufferStore.list().forEach(keys -> {
+                try {
+                    if (keys == null || keys.length == 0) {
+                        // skip root entry
+                        return;
+                    }
+                    String entryName = String.join("/", keys);
+                    ByteBuffer bb = bufferStore.get(keys);
+                    if (bb == null) {
+                        // directory entry: ensure trailing slash
+                        if (!entryName.endsWith("/")) {
+                            entryName = entryName + "/";
+                        }
+                        zos.putNextEntry(new ZipEntry(entryName));
+                        zos.closeEntry();
+                    } else {
+                        // read bytes from ByteBuffer without modifying original
+                        ByteBuffer dup = bb.duplicate();
+                        int len = dup.remaining();
+                        byte[] bytes = new byte[len];
+                        dup.get(bytes);
+                        zos.putNextEntry(new ZipEntry(entryName));
+                        zos.write(bytes);
+                        zos.closeEntry();
+                    }
+                } catch (IOException e) {
+                    // wrap checked exception so it can be rethrown from stream for handling below
+                    throw new RuntimeException(e);
+                }
+            });
+            zos.finish();
+        } catch (RuntimeException e) {
+            // unwrap and rethrow IOExceptions thrown inside the lambda
+            if (e.getCause() instanceof IOException) {
+                throw (IOException) e.getCause();
+            }
+            throw e;
+        }
 
-//        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-//            // iterate over bufferStore.list()
-//            for (String entry: bufferStore.list(new String[]{}).toArray(String[]::new)) {
-//                List<String> pathComponents = entry.getKey();
-//                byte[] data = entry.getValue();
-//
-//                // Build the ZIP path (e.g. ["dir", "sub", "file.txt"] → "dir/sub/file.txt")
-//                String path = String.join("/", pathComponents);
-//
-//                ZipEntry zipEntry = new ZipEntry(path);
-//                zos.putNextEntry(zipEntry);
-//
-//                zos.write(data);
-//                zos.closeEntry();
-//            }
-//        }
-
-//        byte[] zipBytes = baos.toByteArray();
-//        return ByteBuffer.wrap(zipBytes);
-//
-//        underlyingStore.set();
+        byte[] zipBytes = baos.toByteArray();
+        // write zip bytes back to underlying store
+        underlyingStore.set(ByteBuffer.wrap(zipBytes));
     }
 
     private void loadBuffer() throws IOException{
