@@ -64,14 +64,14 @@ public abstract class Group extends AbstractNode {
     }
 
     @Nullable
-    public abstract Node get(String key) throws ZarrException;
+    public abstract Node get(String key) throws ZarrException, IOException;
 
     public Stream<Node> list() {
         return storeHandle.list()
             .map(key -> {
                 try {
                     return get(key);
-                } catch (ZarrException e) {
+                } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             })
