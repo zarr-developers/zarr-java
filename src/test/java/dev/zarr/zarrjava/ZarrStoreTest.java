@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -193,49 +194,54 @@ public class ZarrStoreTest extends ZarrTest {
     /**
      * Test that ZipStore meets requirements for underlying store of Zipped OME-Zarr
      * @see <a href="https://ngff.openmicroscopy.org/rfc/9/index.html">RFC-9: Zipped OME-Zarr</a>
-     *
-     * Features to test:
-     * - ZIP64 format
-     * - No ZIP-level compression
-     * - Option to add archive comments in the ZIP file header
-     * - Prohibit nested or multi-part ZIP archives
-     * - "The root-level zarr.json file SHOULD be the first ZIP file entry and the first entry in the central directory header; other zarr.json files SHOULD follow immediately afterwards, in breadth-first order."
      */
     @Test
     public void testZipStoreRequirements() throws ZarrException, IOException {
         Path path = TESTOUTPUT.resolve("testZipStoreRequirements.zip");
         BufferedZipStore zipStore = new BufferedZipStore(path);
-        writeTestGroupV3(zipStore, true);
+
+        Group group = Group.create(zipStore.resolve());
+        Array array = group.createArray("a1", b -> b
+                .withShape(1024, 1024)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(512, 512)
+        );
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), true);
+
+        Group g1 = group.createGroup("g1");
+        g1.createGroup("g1_1").createGroup("g1_1_1");
+        g1.createGroup("g1_2");
+        group.createGroup("g2").createGroup("g2_1");
+        group.createGroup("g3");
+
         zipStore.flush();
 
-        // test for ZIP64
-//        List<FileHeader> fileHeaders = new ZipFile(path.toFile()).getFileHeaders();
-//
-//        HeaderReader headerReader = new HeaderReader();
-//        ZipModel zipModel = headerReader.readAllHeaders(new RandomAccessFile(generatedZipFile,
-//                RandomAccessFileMode.READ.getValue()), buildDefaultConfig());
-//        assertThat(zipModel.getZip64EndOfCentralDirectoryLocator()).isNotNull();
-//        assertThat(zipModel.getZip64EndOfCentralDirectoryRecord()).isNotNull();
-//        assertThat(zipModel.isZip64Format()).isTrue();
+        try (ZipFile zip = new ZipFile(path.toFile())) {
+            ArrayList<ZipArchiveEntry> entries =  Collections.list(zip.getEntries());
 
-        try (ZipFile zip = new ZipFile(path.toFile())) {
-            for (ZipArchiveEntry e : Collections.list(zip.getEntries())) {
-                System.out.println(e.getName());
-                ZipExtraField[] extraFields = e.getExtraFields();
-                System.out.println(extraFields.length);
-                Assertions.assertNotNull(extraFields, "Entry " + e.getName() + " has no extra fields");
-                Assertions.assertTrue(Arrays.stream(extraFields).anyMatch(xf -> xf instanceof Zip64ExtendedInformationExtraField),
-                        "Entry " + e.getName() + " is missing ZIP64 extra field");
-            }
-        }
-        // no compression
-        try (ZipFile zip = new ZipFile(path.toFile())) {
-            for (ZipArchiveEntry e : Collections.list(zip.getEntries())) {
+            // no compression
+            for (ZipArchiveEntry e : entries) {
                 Assertions.assertEquals(ZipEntry.STORED, e.getMethod(), "Entry " + e.getName() + " is compressed");
             }
+
+            // correct order of zarr.json files
+            String[] expectedZarrJsonOrder = new String[]{
+                "zarr.json",
+                "a1/zarr.json",
+                "g1/zarr.json",
+                "g2/zarr.json",
+                "g3/zarr.json",
+                "g1/g1_1/zarr.json",
+                "g1/g1_2/zarr.json",
+                "g2/g2_1/zarr.json",
+                "g1/g1_1/g1_1_1/zarr.json"
+            };
+            String[] actualZarrJsonOrder = entries.stream()
+                .map(ZipArchiveEntry::getName)
+                .limit(expectedZarrJsonOrder.length)
+                .toArray(String[]::new);
+            Assertions.assertArrayEquals(expectedZarrJsonOrder, actualZarrJsonOrder, "zarr.json files are not in the expected breadth-first order");
         }
-
-
     }
 
     static Stream<Store> localStores() {
