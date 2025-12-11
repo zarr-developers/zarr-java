@@ -11,10 +11,7 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 import org.apache.commons.compress.archivers.ArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
-import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
-import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
-import org.apache.commons.compress.archivers.zip.Zip64Mode;
+import org.apache.commons.compress.archivers.zip.*;
 
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry; // for STORED constant
@@ -32,14 +29,11 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         // create zip file bytes from buffer store and write to underlying store
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos)) {
-            // always use zip64
-            zos.setUseZip64(Zip64Mode.Always);
-            // set archive comment if provided
+            zos.setUseZip64(Zip64Mode.AsNeeded);
             if (archiveComment != null) {
                 zos.setComment(archiveComment);
             }
 
-            // iterate all entries provided by bufferStore.list()
             bufferStore.list().forEach(keys -> {
                 try {
                     if (keys == null || keys.length == 0) {
