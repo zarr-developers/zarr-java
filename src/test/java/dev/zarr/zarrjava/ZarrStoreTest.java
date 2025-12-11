@@ -225,7 +225,7 @@ public class ZarrStoreTest extends ZarrTest {
             }
 
             // correct order of zarr.json files
-            String[] expectedZarrJsonOrder = new String[]{
+            String[] expectedFirstEntries = new String[]{
                 "zarr.json",
                 "a1/zarr.json",
                 "g1/zarr.json",
@@ -236,11 +236,12 @@ public class ZarrStoreTest extends ZarrTest {
                 "g2/g2_1/zarr.json",
                 "g1/g1_1/g1_1_1/zarr.json"
             };
-            String[] actualZarrJsonOrder = entries.stream()
+            String[] actualFirstEntries = entries.stream()
                 .map(ZipArchiveEntry::getName)
-                .limit(expectedZarrJsonOrder.length)
+                .limit(expectedFirstEntries.length)
                 .toArray(String[]::new);
-            Assertions.assertArrayEquals(expectedZarrJsonOrder, actualZarrJsonOrder, "zarr.json files are not in the expected breadth-first order");
+
+            Assertions.assertArrayEquals(expectedFirstEntries, actualFirstEntries, "zarr.json files are not in the expected breadth-first order");
         }
     }
 
