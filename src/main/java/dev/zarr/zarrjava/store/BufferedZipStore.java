@@ -33,8 +33,30 @@ public class BufferedZipStore implements Store, Store.ListableStore {
             if (archiveComment != null) {
                 zos.setComment(archiveComment);
             }
+            Stream<String[]> entries = bufferStore.list().sorted(
+                    (a, b) -> {
+                        boolean aIsZarr = a.length > 0 && a[a.length - 1].equals("zarr.json");
+                        boolean bIsZarr = b.length > 0 && b[b.length - 1].equals("zarr.json");
+                        // first all zarr.json files
+                        if (aIsZarr && !bIsZarr) {
+                            return -1;
+                        } else if (!aIsZarr && bIsZarr) {
+                            return 1;
+                        } else if (aIsZarr && bIsZarr) {
+                            // sort zarr.json in BFS order within same depth by lexicographical order
+                            if (a.length != b.length) {
+                                return Integer.compare(a.length, b.length);
+                            } else {
+                                return String.join("/", a).compareTo(String.join("/", b));
+                            }
+                        } else {
+                            // then all other files in lexicographical order
+                            return String.join("/", a).compareTo(String.join("/", b));
+                        }
+                    }
+            );
 
-            bufferStore.list().forEach(keys -> {
+            entries.forEach(keys -> {
                 try {
                     if (keys == null || keys.length == 0) {
                         // skip root entry
