@@ -4,13 +4,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-import org.apache.commons.compress.archivers.ArchiveEntry;
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import org.apache.commons.compress.archivers.zip.*;
 
 import java.util.zip.CRC32;
@@ -270,29 +269,4 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     public String toString() {
         return "BufferedZipStore(" + underlyingStore.toString() + ")";
     }
-
-    static class ByteBufferBackedInputStream extends InputStream {
-        private final ByteBuffer buf;
-
-        public ByteBufferBackedInputStream(ByteBuffer buf) {
-            this.buf = buf;
-        }
-
-        @Override
-        public int read() {
-            return buf.hasRemaining() ? (buf.get() & 0xFF) : -1;
-        }
-
-        @Override
-        public int read(byte[] bytes, int off, int len) {
-            if (!buf.hasRemaining()) {
-                return -1;
-            }
-
-            int toRead = Math.min(len, buf.remaining());
-            buf.get(bytes, off, toRead);
-            return toRead;
-        }
-    }
-
 }
