@@ -113,42 +113,30 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         underlyingStore.set(ByteBuffer.wrap(zipBytes));
     }
 
-    // Source - https://stackoverflow.com/a/9918966
-    // Retrieved 2025-12-12, License - CC BY-SA 3.0
-    private static String getZipCommentFromBuffer (byte[] buffer, int len) {
-        byte[] magicDirEnd = {0x50, 0x4b, 0x05, 0x06};
-        int buffLen = Math.min(buffer.length, len);
-
+    // adopted from https://stackoverflow.com/a/9918966
+    @Nullable
+    private String getZipCommentFromBuffer(byte[] bufArray) throws IOException {
+        // End of Central Directory (EOCD) record magic number
+        byte[]  EOCD = {0x50, 0x4b, 0x05, 0x06};
+        int buffLen = bufArray.length;
         // Check the buffer from the end
-        for (int i = buffLen - magicDirEnd.length - 22; i >= 0; i--) {
-            boolean isMagicStart = true;
-
-            for (int k = 0; k < magicDirEnd.length; k++) {
-                if (buffer[i + k] != magicDirEnd[k]) {
-                    isMagicStart = false;
-                    break;
+        search:
+        for (int i = buffLen - EOCD.length - 22; i >= 0; i--) {
+            for (int k = 0; k < EOCD.length; k++) {
+                if (bufArray[i + k] != EOCD[k]) {
+                    continue search;
                 }
             }
-
-            if (isMagicStart) {
-                // Magic Start found!
-                int commentLen = buffer[i + 20] + buffer[i + 21] * 256;
-                int realLen = buffLen - i - 22;
-                System.out.println ("ZIP comment found at buffer position "
-                        + (i + 22) + " with len = " + commentLen + ", good!");
-
-                if (commentLen != realLen) {
-                    System.out.println ("WARNING! ZIP comment size mismatch: "
-                            + "directory says len is " + commentLen
-                            + ", but file ends after " + realLen + " bytes!");
-                }
-
-                String comment = new String (buffer, i + 22, Math.min(commentLen, realLen));
-                return comment;
+            // End of Central Directory found!
+            int commentLen = bufArray[i + 20] + bufArray[i + 21] * 256;
+            int realLen = buffLen - i - 22;
+            if (commentLen != realLen) {
+                throw new IOException("ZIP comment size mismatch: "
+                        + "directory says len is " + commentLen
+                        + ", but file ends after " + realLen + " bytes!");
             }
+            return new String(bufArray, i + 22, commentLen);
         }
-
-        System.out.println ("ERROR! ZIP comment NOT found!");
         return null;
     }
 
@@ -158,8 +146,6 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         if (buffer == null) {
             return;
         }
-
-        // read archive comment
         byte[] bufArray;
         if (buffer.hasArray()) {
             bufArray = buffer.array();
@@ -167,11 +153,10 @@ public class BufferedZipStore implements Store, Store.ListableStore {
             bufArray = new byte[buffer.remaining()];
             buffer.duplicate().get(bufArray);
         }
-        this.archiveComment = getZipCommentFromBuffer(bufArray, bufArray.length);
+        this.archiveComment = getZipCommentFromBuffer(bufArray);
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
-            ArchiveEntry aentry;
-            while ((aentry = zis.getNextEntry()) != null) {
-                ZipArchiveEntry entry = (ZipArchiveEntry) aentry;
+            ZipArchiveEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
                     continue;
                 }
@@ -185,7 +170,6 @@ public class BufferedZipStore implements Store, Store.ListableStore {
                 bufferStore.set(new String[]{entry.getName()}, ByteBuffer.wrap(bytes));
             }
         }
-
     }
 
     public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment) {
