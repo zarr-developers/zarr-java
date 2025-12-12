@@ -23,7 +23,7 @@ public class BufferedZipStore implements Store, Store.ListableStore {
 
     private final StoreHandle underlyingStore;
     private final Store.ListableStore bufferStore;
-    private final String archiveComment;
+    private String archiveComment;
 
     private void writeBuffer() throws IOException{
         // create zip file bytes from buffer store and write to underlying store
@@ -113,14 +113,62 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         underlyingStore.set(ByteBuffer.wrap(zipBytes));
     }
 
+    // Source - https://stackoverflow.com/a/9918966
+    // Retrieved 2025-12-12, License - CC BY-SA 3.0
+    private static String getZipCommentFromBuffer (byte[] buffer, int len) {
+        byte[] magicDirEnd = {0x50, 0x4b, 0x05, 0x06};
+        int buffLen = Math.min(buffer.length, len);
+
+        // Check the buffer from the end
+        for (int i = buffLen - magicDirEnd.length - 22; i >= 0; i--) {
+            boolean isMagicStart = true;
+
+            for (int k = 0; k < magicDirEnd.length; k++) {
+                if (buffer[i + k] != magicDirEnd[k]) {
+                    isMagicStart = false;
+                    break;
+                }
+            }
+
+            if (isMagicStart) {
+                // Magic Start found!
+                int commentLen = buffer[i + 20] + buffer[i + 21] * 256;
+                int realLen = buffLen - i - 22;
+                System.out.println ("ZIP comment found at buffer position "
+                        + (i + 22) + " with len = " + commentLen + ", good!");
+
+                if (commentLen != realLen) {
+                    System.out.println ("WARNING! ZIP comment size mismatch: "
+                            + "directory says len is " + commentLen
+                            + ", but file ends after " + realLen + " bytes!");
+                }
+
+                String comment = new String (buffer, i + 22, Math.min(commentLen, realLen));
+                return comment;
+            }
+        }
+
+        System.out.println ("ERROR! ZIP comment NOT found!");
+        return null;
+    }
+
     private void loadBuffer() throws IOException{
         // read zip file bytes from underlying store and populate buffer store
         ByteBuffer buffer = underlyingStore.read();
         if (buffer == null) {
             return;
         }
+
+        // read archive comment
+        byte[] bufArray;
+        if (buffer.hasArray()) {
+            bufArray = buffer.array();
+        } else {
+            bufArray = new byte[buffer.remaining()];
+            buffer.duplicate().get(bufArray);
+        }
+        this.archiveComment = getZipCommentFromBuffer(bufArray, bufArray.length);
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
-//            this.archiveComment = zis.getComment();
             ArchiveEntry aentry;
             while ((aentry = zis.getNextEntry()) != null) {
                 ZipArchiveEntry entry = (ZipArchiveEntry) aentry;
