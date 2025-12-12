@@ -25,6 +25,7 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     private final StoreHandle underlyingStore;
     private final Store.ListableStore bufferStore;
     private String archiveComment;
+    private boolean flushOnWrite;
 
     private void writeBuffer() throws IOException{
         // create zip file bytes from buffer store and write to underlying store
@@ -147,15 +148,20 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         }
     }
 
-    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment) {
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment, boolean flushOnWrite) {
         this.underlyingStore = underlyingStore;
         this.bufferStore = bufferStore;
         this.archiveComment = archiveComment;
+        this.flushOnWrite = flushOnWrite;
         try {
             loadBuffer();
         } catch (IOException e) {
             throw new RuntimeException("Failed to load buffer from underlying store", e);
         }
+    }
+
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment) {
+        this(underlyingStore, bufferStore, archiveComment, true);
     }
 
     public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore) {
@@ -185,6 +191,35 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     public BufferedZipStore(@Nonnull String underlyingStorePath) {
         this(underlyingStorePath, null);
     }
+
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, boolean flushOnWrite) {
+        this(underlyingStore, bufferStore, null, flushOnWrite);
+    }
+
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, String archiveComment, boolean flushOnWrite) {
+        this(underlyingStore, new MemoryStore(), archiveComment, flushOnWrite);
+    }
+
+    public BufferedZipStore(@Nonnull StoreHandle underlyingStore, boolean flushOnWrite) {
+        this(underlyingStore, (String) null, flushOnWrite);
+    }
+
+    public BufferedZipStore(@Nonnull Path underlyingStore, String archiveComment, boolean flushOnWrite) {
+        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()), archiveComment, flushOnWrite);
+    }
+
+    public BufferedZipStore(@Nonnull Path underlyingStore, boolean flushOnWrite) {
+        this(underlyingStore, null, flushOnWrite);
+    }
+
+    public BufferedZipStore(@Nonnull String underlyingStorePath, String archiveComment, boolean flushOnWrite) {
+        this(Paths.get(underlyingStorePath), archiveComment, flushOnWrite);
+    }
+
+    public BufferedZipStore(@Nonnull String underlyingStorePath, boolean flushOnWrite) {
+        this(underlyingStorePath, null, flushOnWrite);
+    }
+
 
     /**
      *  Flushes the buffer and archiveComment to the underlying store as a zip file.
@@ -228,11 +263,25 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     @Override
     public void set(String[] keys, ByteBuffer bytes) {
         bufferStore.set(keys, bytes);
+        if (flushOnWrite) {
+            try {
+                writeBuffer();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to flush buffer to underlying store after set operation", e);
+            }
+        }
     }
 
     @Override
     public void delete(String[] keys) {
         bufferStore.delete(keys);
+        if (flushOnWrite) {
+            try {
+                writeBuffer();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to flush buffer to underlying store after delete operation", e);
+            }
+        }
     }
 
     @Nonnull
