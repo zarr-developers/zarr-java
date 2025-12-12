@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
@@ -71,6 +72,18 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
     public static Array open(String path) throws IOException, ZarrException {
       return open(Paths.get(path));
     }
+
+  /**
+   * Creates a new Zarr array with the provided metadata in an in-memory store
+   *
+   * @param arrayMetadata the metadata of the Zarr array
+   * @throws IOException if the metadata cannot be serialized
+   * @throws ZarrException if the Zarr array cannot be created
+   */
+  public static Array create(ArrayMetadata arrayMetadata)
+      throws IOException, ZarrException {
+    return Array.create(new MemoryStore().resolve(), arrayMetadata);
+  }
 
   /**
    * Creates a new Zarr array with the provided metadata at a specified storage location. This

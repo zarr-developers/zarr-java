@@ -56,7 +56,7 @@ public class StoreHandle {
     return store.exists(keys);
   }
 
-  public Stream<String> list() {
+  public Stream<String[]> list() {
     if (!(store instanceof Store.ListableStore)) {
       throw new UnsupportedOperationException("The underlying store does not support listing.");
     }
