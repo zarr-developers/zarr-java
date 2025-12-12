@@ -3,7 +3,7 @@ package dev.zarr.zarrjava;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.*;
-import dev.zarr.zarrjava.v3.*;
+import dev.zarr.zarrjava.core.*;
 import org.apache.commons.compress.archivers.zip.*;
 
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
@@ -39,7 +39,7 @@ public class ZarrStoreTest extends ZarrTest {
 
         GroupMetadata groupMetadata = objectMapper.readValue(
             Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
-            GroupMetadata.class
+                dev.zarr.zarrjava.v3.GroupMetadata.class
         );
 
         String groupMetadataString = objectMapper.writeValueAsString(groupMetadata);
@@ -48,7 +48,7 @@ public class ZarrStoreTest extends ZarrTest {
 
         ArrayMetadata arrayMetadata = objectMapper.readValue(Files.readAllBytes(TESTDATA.resolve(
                 "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
-            ArrayMetadata.class);
+                dev.zarr.zarrjava.v3.ArrayMetadata.class);
 
         String arrayMetadataString = objectMapper.writeValueAsString(arrayMetadata);
         Assertions.assertTrue(arrayMetadataString.contains("\"zarr_format\":3"));
@@ -100,10 +100,10 @@ public class ZarrStoreTest extends ZarrTest {
         int[] testData = new int[1024 * 1024];
         Arrays.setAll(testData, p -> p);
 
-        Group group = Group.create(new MemoryStore().resolve());
+        dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(new MemoryStore().resolve());
         Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
-                .withDataType(DataType.UINT32)
+                .withDataType(dev.zarr.zarrjava.v3.DataType.UINT32)
                 .withChunkShape(5, 5)
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData), useParallel);
@@ -200,15 +200,15 @@ public class ZarrStoreTest extends ZarrTest {
         Path path = TESTOUTPUT.resolve("testZipStoreRequirements.zip");
         BufferedZipStore zipStore = new BufferedZipStore(path);
 
-        Group group = Group.create(zipStore.resolve());
+        dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(zipStore.resolve());
         Array array = group.createArray("a1", b -> b
                 .withShape(1024, 1024)
-                .withDataType(DataType.UINT32)
+                .withDataType(dev.zarr.zarrjava.v3.DataType.UINT32)
                 .withChunkShape(512, 512)
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), true);
 
-        Group g1 = group.createGroup("g1");
+        dev.zarr.zarrjava.v3.Group g1 = group.createGroup("g1");
         g1.createGroup("g1_1").createGroup("g1_1_1");
         g1.createGroup("g1_2");
         group.createGroup("g2").createGroup("g2_1");
@@ -245,6 +245,25 @@ public class ZarrStoreTest extends ZarrTest {
         }
     }
 
+
+    @Test
+    public void testZipStoreV2() throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testZipStoreV2.zip");
+        BufferedZipStore zipStore = new BufferedZipStore(path);
+        writeTestGroupV2(zipStore, true);
+        zipStore.flush();
+
+        BufferedZipStore zipStoreRead = new BufferedZipStore(path);
+        assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(zipStoreRead.resolve()), true);
+
+        Path unzippedPath = TESTOUTPUT.resolve("testZipStoreV2Unzipped");
+
+        unzipFile(path, unzippedPath);
+        FilesystemStore fsStore = new FilesystemStore(unzippedPath);
+        assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(fsStore.resolve()), true);
+    }
+
+
     static Stream<Store> localStores() {
         return Stream.of(
                 new MemoryStore(),
@@ -261,6 +280,7 @@ public class ZarrStoreTest extends ZarrTest {
         assertIsTestGroupV3(group, useParallel);
     }
 
+
     int[] testData(){
         int[] testData = new int[1024 * 1024];
         Arrays.setAll(testData, p -> p);
@@ -270,10 +290,10 @@ public class ZarrStoreTest extends ZarrTest {
     Group writeTestGroupV3(Store store, boolean useParallel) throws ZarrException, IOException {
         StoreHandle storeHandle = store.resolve();
 
-        Group group = Group.create(storeHandle);
-        Array array = group.createArray("array", b -> b
+        dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(storeHandle);
+        dev.zarr.zarrjava.v3.Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
-                .withDataType(DataType.UINT32)
+                .withDataType(dev.zarr.zarrjava.v3.DataType.UINT32)
                 .withChunkShape(512, 512)
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), useParallel);
@@ -289,7 +309,35 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertNotNull(array);
         ucar.ma2.Array result = array.read(useParallel);
         Assertions.assertArrayEquals(testData(), (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
-        Attributes attrs = group.metadata().attributes;
+        Attributes attrs = group.metadata().attributes();
+        Assertions.assertNotNull(attrs);
+        Assertions.assertEquals("value", attrs.getString("some"));
+    }
+
+
+    dev.zarr.zarrjava.v2.Group writeTestGroupV2(Store store, boolean useParallel) throws ZarrException, IOException {
+        StoreHandle storeHandle = store.resolve();
+
+        dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(storeHandle);
+        dev.zarr.zarrjava.v2.Array array = group.createArray("array", b -> b
+                .withShape(1024, 1024)
+                .withDataType(dev.zarr.zarrjava.v2.DataType.UINT32)
+                .withChunks(512, 512)
+        );
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), useParallel);
+        group.createGroup("subgroup");
+        group.setAttributes(new Attributes().set("some", "value"));
+        return group;
+    }
+
+    void assertIsTestGroupV2(dev.zarr.zarrjava.core.Group group, boolean useParallel) throws ZarrException, IOException {
+        Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
+        Assertions.assertEquals(2, nodes.count());
+        dev.zarr.zarrjava.v2.Array array = (dev.zarr.zarrjava.v2.Array) group.get("array");
+        Assertions.assertNotNull(array);
+        ucar.ma2.Array result = array.read(useParallel);
+        Assertions.assertArrayEquals(testData(), (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        Attributes attrs = group.metadata().attributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals("value", attrs.getString("some"));
     }
