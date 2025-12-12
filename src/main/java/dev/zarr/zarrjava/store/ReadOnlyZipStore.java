@@ -15,6 +15,11 @@ import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.utils.ZipUtils.getZipCommentFromBuffer;
 
+
+/** A Store implementation that provides read-only access to a zip archive stored in an underlying Store.
+ * Compared to BufferedZipStore, this implementation reads directly from the zip archive without parsing
+ * its contents into a buffer store first making it more efficient for read-only access to large zip archives.
+ */
 public class ReadOnlyZipStore implements Store, Store.ListableStore {
 
     private final StoreHandle underlyingStore;
@@ -69,21 +74,24 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
             ZipArchiveEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
-                if (entry.isDirectory() || !entry.getName().equals(resolveKeys(keys))) {
+                String entryName = entry.getName();
+
+                if (entryName.startsWith("/")) {
+                    entryName = entryName.substring(1);
+                }
+                if (entry.isDirectory() || !entryName.equals(resolveKeys(keys))) {
                     continue;
                 }
+
+                if (zis.skip(start) != start) {
+                    throw new IOException("Failed to skip to start position " + start + " in zip entry " + entryName);
+                }
+
+                long bytesToRead;
+                if (end != -1) bytesToRead = end - start;
+                else bytesToRead = Long.MAX_VALUE;
+
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                if (end == -1) {
-                    end = entry.getSize();
-                }
-                if (start > end) {
-                    throw new IllegalArgumentException("Start position can not be larger than end position. Got start=" + start + ", end=" + end);
-                }
-                if (start < 0 || end > entry.getSize()) {
-                    throw new IllegalArgumentException("Start and end positions must be within the bounds of the zip entry size. Entry size=" + entry.getSize() + ", got start=" + start + ", end=" + end);
-                }
-                zis.skip(start);
-                long bytesToRead = end - start;
                 byte[] bufferArray = new byte[8192];
                 int len;
                 while (bytesToRead > 0 && (len = zis.read(bufferArray, 0, (int) Math.min(bufferArray.length, bytesToRead))) != -1) {
@@ -144,11 +152,15 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
             ZipArchiveEntry entry;
             String prefix = resolveKeys(keys);
             while ((entry = zis.getNextEntry()) != null) {
-                String entryKey = entry.getName();
-                if (!entryKey.startsWith(prefix) || entryKey.equals(prefix)) {
+                String entryName = entry.getName();
+                if (entryName.startsWith("/")) {
+                    entryName = entryName.substring(1);
+                }
+
+                if (!entryName.startsWith(prefix) || entryName.equals(prefix)) {
                     continue;
                 }
-                String[] entryKeys = resolveEntryKeys(entryKey.substring(prefix.length()));
+                String[] entryKeys = resolveEntryKeys(entryName.substring(prefix.length()));
                 builder.add(entryKeys);
             }
         } catch (IOException e) {
