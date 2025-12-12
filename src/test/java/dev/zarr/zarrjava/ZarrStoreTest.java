@@ -156,32 +156,37 @@ public class ZarrStoreTest extends ZarrTest {
 
         BufferedZipStore zipStore = new BufferedZipStore(targetDir);
         assertIsTestGroupV3(Group.open(zipStore.resolve()), true);
+
+        ReadOnlyZipStore readOnlyZipStore = new ReadOnlyZipStore(targetDir);
+        assertIsTestGroupV3(Group.open(readOnlyZipStore.resolve()), true);
     }
 
-    @Test
-    public void testWriteZipStore() throws ZarrException, IOException {
-        Path path = TESTOUTPUT.resolve("testWriteZipStore.zip");
-        BufferedZipStore zipStore = new BufferedZipStore(path);
+    @ParameterizedTest
+    @CsvSource({"false", "true",})
+    public void testWriteZipStore(boolean flushOnWrite) throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testWriteZipStore" + (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
+        BufferedZipStore zipStore = new BufferedZipStore(path, flushOnWrite);
         writeTestGroupV3(zipStore, true);
-        zipStore.flush();
+        if(!flushOnWrite) zipStore.flush();
 
         BufferedZipStore zipStoreRead = new BufferedZipStore(path);
         assertIsTestGroupV3(Group.open(zipStoreRead.resolve()), true);
 
-        Path unzippedPath = TESTOUTPUT.resolve("testWriteZipStoreUnzipped");
+        Path unzippedPath = TESTOUTPUT.resolve("testWriteZipStoreUnzipped" + (flushOnWrite ? "Flush" : "NoFlush"));
 
         unzipFile(path, unzippedPath);
         FilesystemStore fsStore = new FilesystemStore(unzippedPath);
         assertIsTestGroupV3(Group.open(fsStore.resolve()), true);
     }
 
-    @Test
-    public void testZipStoreWithComment() throws ZarrException, IOException {
-        Path path = TESTOUTPUT.resolve("testZipStoreWithComment.zip");
+    @ParameterizedTest
+    @CsvSource({"false", "true",})
+    public void testZipStoreWithComment(boolean flushOnWrite) throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testZipStoreWithComment"+ (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
         String comment = "{\"ome\": { \"version\": \"XX.YY\" }}";
-        BufferedZipStore zipStore = new BufferedZipStore(path, comment);
+        BufferedZipStore zipStore = new BufferedZipStore(path, comment, flushOnWrite);
         writeTestGroupV3(zipStore, true);
-        zipStore.flush();
+        if(!flushOnWrite) zipStore.flush();
 
         try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(path.toFile())) {
             String retrievedComment = zipFile.getComment();
@@ -246,12 +251,13 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
 
-    @Test
-    public void testZipStoreV2() throws ZarrException, IOException {
-        Path path = TESTOUTPUT.resolve("testZipStoreV2.zip");
-        BufferedZipStore zipStore = new BufferedZipStore(path);
+    @ParameterizedTest
+    @CsvSource({"false", "true",})
+    public void testZipStoreV2(boolean flushOnWrite) throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testZipStoreV2" + (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
+        BufferedZipStore zipStore = new BufferedZipStore(path, flushOnWrite);
         writeTestGroupV2(zipStore, true);
-        zipStore.flush();
+        if(!flushOnWrite) zipStore.flush();
 
         BufferedZipStore zipStoreRead = new BufferedZipStore(path);
         assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(zipStoreRead.resolve()), true);
@@ -280,8 +286,8 @@ public class ZarrStoreTest extends ZarrTest {
     static Stream<Store> localStores() {
         return Stream.of(
                 new MemoryStore(),
-                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS"))
-//                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
+                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
+                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
         );
     }
 
