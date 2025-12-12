@@ -15,6 +15,8 @@ import org.apache.commons.compress.archivers.zip.*;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry; // for STORED constant
 
+import static dev.zarr.zarrjava.utils.ZipUtils.getZipCommentFromBuffer;
+
 
 /** A Store implementation that buffers reads and writes and flushes them to an underlying Store as a zip file.
  */
@@ -112,32 +114,6 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         underlyingStore.set(ByteBuffer.wrap(zipBytes));
     }
 
-    // adopted from https://stackoverflow.com/a/9918966
-    @Nullable
-    private String getZipCommentFromBuffer(byte[] bufArray) throws IOException {
-        // End of Central Directory (EOCD) record magic number
-        byte[]  EOCD = {0x50, 0x4b, 0x05, 0x06};
-        int buffLen = bufArray.length;
-        // Check the buffer from the end
-        search:
-        for (int i = buffLen - EOCD.length - 22; i >= 0; i--) {
-            for (int k = 0; k < EOCD.length; k++) {
-                if (bufArray[i + k] != EOCD[k]) {
-                    continue search;
-                }
-            }
-            // End of Central Directory found!
-            int commentLen = bufArray[i + 20] + bufArray[i + 21] * 256;
-            int realLen = buffLen - i - 22;
-            if (commentLen != realLen) {
-                throw new IOException("ZIP comment size mismatch: "
-                        + "directory says len is " + commentLen
-                        + ", but file ends after " + realLen + " bytes!");
-            }
-            return new String(bufArray, i + 22, commentLen);
-        }
-        return null;
-    }
 
     private void loadBuffer() throws IOException{
         // read zip file bytes from underlying store and populate buffer store

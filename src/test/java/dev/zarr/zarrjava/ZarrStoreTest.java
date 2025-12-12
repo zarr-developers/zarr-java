@@ -263,6 +263,19 @@ public class ZarrStoreTest extends ZarrTest {
         assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(fsStore.resolve()), true);
     }
 
+    @Test
+    public void testReadOnlyZipStore() throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testReadOnlyZipStore.zip");
+        String archiveComment = "This is a test ZIP archive comment.";
+        BufferedZipStore zipStore = new BufferedZipStore(path, archiveComment);
+        writeTestGroupV3(zipStore, true);
+        zipStore.flush();
+
+        ReadOnlyZipStore readOnlyZipStore = new ReadOnlyZipStore(path);
+        Assertions.assertEquals(archiveComment, readOnlyZipStore.getArchiveComment(), "ZIP archive comment from ReadOnlyZipStore does not match expected value.");
+        assertIsTestGroupV3(Group.open(readOnlyZipStore.resolve()), true);
+    }
+
 
     static Stream<Store> localStores() {
         return Stream.of(
