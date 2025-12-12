@@ -287,7 +287,7 @@ public class ZarrStoreTest extends ZarrTest {
         return Stream.of(
                 new MemoryStore(),
                 new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
-                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"))
+                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"), true)
         );
     }
 

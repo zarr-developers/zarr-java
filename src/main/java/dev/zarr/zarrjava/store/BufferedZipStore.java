@@ -161,7 +161,7 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     }
 
     public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment) {
-        this(underlyingStore, bufferStore, archiveComment, true);
+        this(underlyingStore, bufferStore, archiveComment, false);
     }
 
     public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore) {
