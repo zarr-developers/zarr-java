@@ -87,6 +87,24 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
     @Test
+    public void testS3StoreGet() throws IOException, ZarrException {
+        S3Store s3Store = new S3Store(S3Client.builder()
+                .region(Region.of("eu-west-1"))
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .build(), "static.webknossos.org", "data");
+        String[] keys = new String[]{"zarr_v3", "l4_sample", "color", "1", "zarr.json"};
+
+        ByteBuffer buffer = s3Store.get(keys);
+        ByteBuffer bufferWithStart = s3Store.get(keys, 10);
+        Assertions.assertEquals(10, buffer.remaining()-bufferWithStart.remaining());
+
+        ByteBuffer bufferWithStartAndEnd = s3Store.get(keys, 0, 10);
+        Assertions.assertEquals(10, bufferWithStartAndEnd.remaining());
+
+    }
+
+
+    @Test
     public void testHttpStore() throws IOException, ZarrException {
         HttpStore httpStore = new dev.zarr.zarrjava.store.HttpStore("https://static.webknossos.org/data/zarr_v3/l4_sample");
         Array array = Array.open(httpStore.resolve("color", "1"));

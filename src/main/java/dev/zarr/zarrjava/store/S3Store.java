@@ -71,7 +71,7 @@ public class S3Store implements Store, Store.ListableStore {
     GetObjectRequest req = GetObjectRequest.builder()
     .bucket(bucketName)
     .key(resolveKeys(keys))
-    .range(String.valueOf(start))
+    .range(String.format("bytes=%d-", start))
     .build();
     return get(req);
   }
@@ -82,7 +82,7 @@ public class S3Store implements Store, Store.ListableStore {
     GetObjectRequest req = GetObjectRequest.builder()
     .bucket(bucketName)
     .key(resolveKeys(keys))
-    .range(start +"-"+ end)
+    .range(String.format("bytes=%d-%d", start, end-1)) // S3 range is inclusive
     .build();
     return get(req);
   }
