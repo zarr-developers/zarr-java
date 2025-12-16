@@ -19,9 +19,13 @@ public class V2ChunkKeyEncoding extends ChunkKeyEncoding {
 
   @JsonCreator
   public V2ChunkKeyEncoding(
-      @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration
+      @JsonProperty(value = "configuration") Configuration configuration
   ) {
-    this.configuration = configuration;
+      if (configuration == null) {
+        this.configuration = new Configuration(Separator.DOT);
+      } else {
+        this.configuration = configuration;
+      }
   }
 
   @Override
