@@ -153,6 +153,9 @@ public class FilesystemStore implements Store, Store.ListableStore {
     public InputStream getInputStream(String[] keys, long start, long end) {
         Path keyPath = resolveKeys(keys);
         try {
+            if (!Files.exists(keyPath)) {
+                return null;
+            }
             InputStream inputStream = Files.newInputStream(keyPath);
             if (start > 0) {
                 long skipped = inputStream.skip(start);
@@ -170,6 +173,7 @@ public class FilesystemStore implements Store, Store.ListableStore {
             throw new RuntimeException(e);
         }
     }
+
     public long getSize(String[] keys) {
         try {
             return Files.size(resolveKeys(keys));

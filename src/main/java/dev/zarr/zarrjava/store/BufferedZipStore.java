@@ -8,27 +8,45 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.stream.Stream;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import org.apache.commons.compress.archivers.zip.*;
 
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry; // for STORED constant
 
-import static dev.zarr.zarrjava.utils.ZipUtils.getZipCommentFromBuffer;
-
 
 /** A Store implementation that buffers reads and writes and flushes them to an underlying Store as a zip file.
  */
-public class BufferedZipStore implements Store, Store.ListableStore {
+public class BufferedZipStore extends ZipStore {
 
-    private final StoreHandle underlyingStore;
     private final Store.ListableStore bufferStore;
     private String archiveComment;
-    private boolean flushOnWrite;
+    private final boolean flushOnWrite;
 
-    private void writeBuffer() throws IOException{
+    private final Comparator<String[]> zipEntryComparator = (a, b) -> {
+        boolean aIsZarr = a.length > 0 && a[a.length - 1].equals("zarr.json");
+        boolean bIsZarr = b.length > 0 && b[b.length - 1].equals("zarr.json");
+        // first all zarr.json files
+        if (aIsZarr && !bIsZarr) {
+            return -1;
+        } else if (!aIsZarr && bIsZarr) {
+            return 1;
+        } else if (aIsZarr && bIsZarr) {
+            // sort zarr.json in BFS order within same depth by lexicographical order
+            if (a.length != b.length) {
+                return Integer.compare(a.length, b.length);
+            } else {
+                return String.join("/", a).compareTo(String.join("/", b));
+            }
+        } else {
+            // then all other files in lexicographical order
+            return String.join("/", a).compareTo(String.join("/", b));
+        }
+    };
+
+    private void writeBuffer() throws IOException {
         // create zip file bytes from buffer store and write to underlying store
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try (ZipArchiveOutputStream zos = new ZipArchiveOutputStream(baos)) {
@@ -36,30 +54,7 @@ public class BufferedZipStore implements Store, Store.ListableStore {
             if (archiveComment != null) {
                 zos.setComment(archiveComment);
             }
-            Stream<String[]> entries = bufferStore.list().sorted(
-                    (a, b) -> {
-                        boolean aIsZarr = a.length > 0 && a[a.length - 1].equals("zarr.json");
-                        boolean bIsZarr = b.length > 0 && b[b.length - 1].equals("zarr.json");
-                        // first all zarr.json files
-                        if (aIsZarr && !bIsZarr) {
-                            return -1;
-                        } else if (!aIsZarr && bIsZarr) {
-                            return 1;
-                        } else if (aIsZarr && bIsZarr) {
-                            // sort zarr.json in BFS order within same depth by lexicographical order
-                            if (a.length != b.length) {
-                                return Integer.compare(a.length, b.length);
-                            } else {
-                                return String.join("/", a).compareTo(String.join("/", b));
-                            }
-                        } else {
-                            // then all other files in lexicographical order
-                            return String.join("/", a).compareTo(String.join("/", b));
-                        }
-                    }
-            );
-
-            entries.forEach(keys -> {
+            bufferStore.list().sorted(zipEntryComparator).forEach(keys -> {
                 try {
                     if (keys == null || keys.length == 0) {
                         // skip root entry
@@ -116,22 +111,32 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         underlyingStore.set(ByteBuffer.wrap(zipBytes));
     }
 
+    public void setArchiveComment(@Nullable String archiveComment) throws IOException {
+        this.archiveComment = archiveComment;
+        if (flushOnWrite) {
+            writeBuffer();
+        }
+    }
 
-    private void loadBuffer() throws IOException{
-        // read zip file bytes from underlying store and populate buffer store
-        ByteBuffer buffer = underlyingStore.read();
-        if (buffer == null) {
+    public void deleteArchiveComment() throws IOException {
+        this.setArchiveComment(null);
+    }
+
+    /**
+     * Loads the buffer from the underlying store zip file.
+     */
+    private void loadBuffer() throws IOException {
+        String loadedArchiveComment = super.getArchiveComment();
+        if (loadedArchiveComment != null && this.archiveComment == null) {
+            // don't overwrite existing archiveComment
+            this.archiveComment = loadedArchiveComment;
+        }
+
+        InputStream inputStream = underlyingStore.getInputStream();
+        if (inputStream == null) {
             return;
         }
-        byte[] bufArray;
-        if (buffer.hasArray()) {
-            bufArray = buffer.array();
-        } else {
-            bufArray = new byte[buffer.remaining()];
-            buffer.duplicate().get(bufArray);
-        }
-        this.archiveComment = getZipCommentFromBuffer(bufArray);
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
             ZipArchiveEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 if (entry.isDirectory()) {
@@ -150,7 +155,7 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     }
 
     public BufferedZipStore(@Nonnull StoreHandle underlyingStore, @Nonnull Store.ListableStore bufferStore, @Nullable String archiveComment, boolean flushOnWrite) {
-        this.underlyingStore = underlyingStore;
+        super(underlyingStore);
         this.bufferStore = bufferStore;
         this.archiveComment = archiveComment;
         this.flushOnWrite = flushOnWrite;
@@ -229,6 +234,7 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         writeBuffer();
     }
 
+    @Override
     public String getArchiveComment() {
         return archiveComment;
     }

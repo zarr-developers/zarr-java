@@ -15,16 +15,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-import static dev.zarr.zarrjava.utils.ZipUtils.getZipCommentFromBuffer;
-
 
 /** A Store implementation that provides read-only access to a zip archive stored in an underlying Store.
  * Compared to BufferedZipStore, this implementation reads directly from the zip archive without parsing
  * its contents into a buffer store first making it more efficient for read-only access to large zip archives.
  */
-public class ReadOnlyZipStore implements Store, Store.ListableStore {
-
-    private final StoreHandle underlyingStore;
+public class ReadOnlyZipStore extends ZipStore {
 
     String resolveKeys(String[] keys) {
         return String.join("/", keys);
@@ -51,42 +47,6 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
         return get(keys, start, -1);
     }
 
-    public String getArchiveComment() throws IOException {
-        // Attempt to read from the end of the file to find the EOCD record.
-        // We try a small chunk first (1KB) which covers most short comments (or no comment),
-        // then the maximum possible EOCD size (approx 65KB).
-        int[] readSizes = {1024, 65535 + 22};
-
-        for (int size : readSizes) {
-            ByteBuffer buffer;
-            long fileSize = underlyingStore.getSize();
-
-            if (fileSize < size){
-                buffer = underlyingStore.read();
-            }
-            else {
-                buffer = underlyingStore.read(fileSize - size);
-            }
-
-            if (buffer == null) {
-                return null;
-            }
-
-            byte[] bufArray;
-            if (buffer.hasArray()) {
-                bufArray = buffer.array();
-            } else {
-                bufArray = new byte[buffer.remaining()];
-                buffer.duplicate().get(bufArray);
-            }
-
-            String comment = getZipCommentFromBuffer(bufArray);
-            if (comment != null) {
-                return comment;
-            }
-        }
-        return null;
-    }
     @Nullable
     @Override
     public ByteBuffer get(String[] keys, long start, long end) {
@@ -153,7 +113,7 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
     }
 
     public ReadOnlyZipStore(@Nonnull StoreHandle underlyingStore) {
-        this.underlyingStore = underlyingStore;
+        super(underlyingStore);
     }
 
     public ReadOnlyZipStore(@Nonnull Path underlyingStore) {
