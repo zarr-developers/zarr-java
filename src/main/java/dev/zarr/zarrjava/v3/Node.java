@@ -12,6 +12,7 @@ import dev.zarr.zarrjava.v3.codec.CodecRegistry;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
