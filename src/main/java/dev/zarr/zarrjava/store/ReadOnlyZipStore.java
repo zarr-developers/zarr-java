@@ -3,11 +3,13 @@ package dev.zarr.zarrjava.store;
 import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -83,7 +85,8 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
                     continue;
                 }
 
-                if (zis.skip(start) != start) {
+                long skipResult = zis.skip(start);
+                if (skipResult != start) {
                     throw new IOException("Failed to skip to start position " + start + " in zip entry " + entryName);
                 }
 
@@ -167,5 +170,39 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
             return null;
         }
         return builder.build();
+    }
+
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        InputStream baseStream = underlyingStore.getInputStream();
+
+        try {
+            ZipArchiveInputStream zis = new ZipArchiveInputStream(baseStream);
+            ZipArchiveEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+
+                if (entryName.startsWith("/")) {
+                    entryName = entryName.substring(1);
+                }
+                if (entry.isDirectory() || !entryName.equals(resolveKeys(keys))) {
+                    continue;
+                }
+
+                long skipResult = zis.skip(start);
+                if (skipResult != start) {
+                    throw new IOException("Failed to skip to start position " + start + " in zip entry " + entryName);
+                }
+
+                long bytesToRead;
+                if (end != -1) bytesToRead = end - start;
+                else bytesToRead = Long.MAX_VALUE;
+
+                return new BoundedInputStream(zis, bytesToRead);
+            }
+            return null;
+        } catch (IOException e) {
+        }
+        return null;
     }
 }

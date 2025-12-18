@@ -18,6 +18,8 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -103,6 +105,55 @@ public class ZarrStoreTest extends ZarrTest {
 
     }
 
+    static Stream<StoreHandle> inputStreamStores() throws IOException {
+        String[] s3StoreKeys = new String[]{"zarr_v3", "l4_sample", "color", "1", "zarr.json"};
+        StoreHandle s3StoreHandle = new S3Store(S3Client.builder()
+                .region(Region.of("eu-west-1"))
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .build(), "static.webknossos.org", "data")
+                .resolve(s3StoreKeys);
+
+        byte[] testData = new byte[100];
+        for (int i = 0; i < testData.length; i++) {
+            testData[i] = (byte) i;
+        }
+
+        StoreHandle memoryStoreHandle = new MemoryStore().resolve();
+        memoryStoreHandle.set(ByteBuffer.wrap(testData));
+
+        StoreHandle fsStoreHandle = new FilesystemStore(TESTOUTPUT.resolve("testInputStreamFS")).resolve("testfile");
+        fsStoreHandle.set(ByteBuffer.wrap(testData));
+
+        zipFile(TESTOUTPUT.resolve("testInputStreamFS"), TESTOUTPUT.resolve("testInputStreamZIP.zip"));
+        StoreHandle bufferedZipStoreHandle = new BufferedZipStore(TESTOUTPUT.resolve("testInputStreamZIP.zip"), true)
+                .resolve("testfile");
+
+        StoreHandle readOnlyZipStoreHandle = new ReadOnlyZipStore(TESTOUTPUT.resolve("testInputStreamZIP.zip"))
+                .resolve("testfile");
+
+        StoreHandle httpStoreHandle = new HttpStore("https://static.webknossos.org/data/zarr_v3/l4_sample")
+                .resolve("color", "1", "zarr.json");
+        return Stream.of(
+                memoryStoreHandle,
+                s3StoreHandle,
+                fsStoreHandle,
+                bufferedZipStoreHandle,
+                readOnlyZipStoreHandle,
+                httpStoreHandle
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("inputStreamStores")
+    public void testStoreInputStream(StoreHandle storeHandle) throws IOException, ZarrException {
+        InputStream is = storeHandle.getInputStream(10, 20);
+        byte[] buffer = new byte[10];
+        int bytesRead = is.read(buffer);
+        Assertions.assertEquals(10, bytesRead);
+        byte[] expectedBuffer = new byte[10];
+        storeHandle.read(10, 20).get(expectedBuffer);
+        Assertions.assertArrayEquals(expectedBuffer, buffer);
+    }
 
     @Test
     public void testHttpStore() throws IOException, ZarrException {
@@ -115,8 +166,7 @@ public class ZarrStoreTest extends ZarrTest {
     @ParameterizedTest
     @CsvSource({"false", "true",})
     public void testMemoryStoreV3(boolean useParallel) throws ZarrException, IOException {
-        int[] testData = new int[1024 * 1024];
-        Arrays.setAll(testData, p -> p);
+        int[] testData = testData();
 
         dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(new MemoryStore().resolve());
         Array array = group.createArray("array", b -> b
@@ -140,8 +190,7 @@ public class ZarrStoreTest extends ZarrTest {
     @ParameterizedTest
     @CsvSource({"false", "true",})
     public void testMemoryStoreV2(boolean useParallel) throws ZarrException, IOException {
-        int[] testData = new int[1024 * 1024];
-        Arrays.setAll(testData, p -> p);
+        int[] testData = testData();
 
         dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(new MemoryStore().resolve());
         dev.zarr.zarrjava.v2.Array array = group.createArray("array", b -> b

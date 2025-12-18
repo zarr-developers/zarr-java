@@ -1,6 +1,8 @@
 package dev.zarr.zarrjava.store;
 
 import dev.zarr.zarrjava.utils.Utils;
+
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -42,6 +44,14 @@ public class StoreHandle {
   @Nullable
   public ByteBuffer read(long start, long end) {
     return store.get(keys, start, end);
+  }
+
+  public InputStream getInputStream(int start, int end) {
+    return store.getInputStream(keys, start, end);
+  }
+
+  public InputStream getInputStream() {
+    return store.getInputStream(keys);
   }
 
   public void set(ByteBuffer bytes) {

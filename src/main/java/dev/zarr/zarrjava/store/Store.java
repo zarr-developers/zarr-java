@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava.store;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -41,5 +42,11 @@ public interface Store {
     default Stream<String[]> list() {
         return list(new String[]{});
     }
+  }
+
+  InputStream getInputStream(String[] keys, long start, long end);
+
+  default InputStream getInputStream(String[] keys) {
+    return getInputStream(keys, 0, -1);
   }
 }

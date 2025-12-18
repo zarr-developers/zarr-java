@@ -5,7 +5,10 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import com.squareup.okhttp.ResponseBody;
+
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -101,6 +104,34 @@ public class HttpStore implements Store {
 
   @Override
   public String toString() {
-    return uri;
+      return uri;
   }
+
+    @Override
+    @Nullable
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        if (start < 0) {
+            throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
+        }
+        Request request = new Request.Builder().url(resolveKeys(keys)).header(
+                "Range", String.format("Bytes=%d-%d", start, end - 1)).build();
+        Call call = httpClient.newCall(request);
+        try {
+            Response response = call.execute();
+            ResponseBody body = response.body();
+            if (body == null) return null;
+            InputStream stream = body.byteStream();
+
+            // Ensure closing the stream also closes the response
+            return new FilterInputStream(stream) {
+                @Override
+                public void close() throws IOException {
+                    super.close();
+                    body.close();
+                }
+            };
+        } catch (IOException e) {
+            return null;
+        }
+    }
 }

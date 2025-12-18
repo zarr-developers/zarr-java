@@ -122,6 +122,17 @@ public class S3Store implements Store, Store.ListableStore {
   }
 
   @Override
+  public InputStream getInputStream(String[] keys, long start, long end) {
+    GetObjectRequest req = GetObjectRequest.builder()
+    .bucket(bucketName)
+    .key(resolveKeys(keys))
+    .range(String.format("bytes=%d-%d", start, end-1)) // S3 range is inclusive
+    .build();
+    ResponseInputStream<GetObjectResponse> responseInputStream = s3client.getObject(req);
+    return responseInputStream;
+  }
+
+  @Override
   public String toString() {
     return "s3://" + bucketName + "/" + prefix;
   }

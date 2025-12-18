@@ -4,6 +4,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -288,6 +289,11 @@ public class BufferedZipStore implements Store, Store.ListableStore {
     @Override
     public StoreHandle resolve(String... keys) {
         return new StoreHandle(this, keys);
+    }
+
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        return bufferStore.getInputStream(keys, start, end);
     }
 
     @Override

@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.store;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,7 +46,7 @@ public class MemoryStore implements Store, Store.ListableStore {
     if (bytes == null) return null;
     if (end < 0) end = bytes.length;
     if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
-    return ByteBuffer.wrap(bytes, (int) start, (int) end);
+    return ByteBuffer.wrap(bytes, (int) start, (int) (end - start));
   }
 
 
@@ -83,5 +84,14 @@ public class MemoryStore implements Store, Store.ListableStore {
   public String toString() {
     return String.format("<MemoryStore {%s}>", hashCode());
   }
+
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        byte[] bytes = map.get(resolveKeys(keys));
+        if (bytes == null) return null;
+        if (end < 0) end = bytes.length;
+        if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
+        return new java.io.ByteArrayInputStream(bytes, (int) start, (int)(end - start));
+    }
 }
 

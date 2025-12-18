@@ -1,7 +1,10 @@
 package dev.zarr.zarrjava.store;
 
 import dev.zarr.zarrjava.utils.Utils;
+import org.apache.commons.io.input.BoundedInputStream;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
@@ -146,4 +149,25 @@ public class FilesystemStore implements Store, Store.ListableStore {
     return this.path.toUri().toString().replaceAll("\\/$", "");
   }
 
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        Path keyPath = resolveKeys(keys);
+        try {
+            InputStream inputStream = Files.newInputStream(keyPath);
+            if (start > 0) {
+                long skipped = inputStream.skip(start);
+                if (skipped < start) {
+                    throw new IOException("Unable to skip to the desired start position.");
+                }
+            }
+            if (end != -1) {
+                long bytesToRead = end - start;
+                return new BoundedInputStream(inputStream, bytesToRead);
+            } else {
+                return inputStream;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
