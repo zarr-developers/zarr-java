@@ -52,28 +52,49 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
     }
 
     public String getArchiveComment() throws IOException {
-        ByteBuffer buffer = underlyingStore.read();
-        if (buffer == null) {
-            return null;
-        }
-        byte[] bufArray;
-        if (buffer.hasArray()) {
-            bufArray = buffer.array();
-        } else {
-            bufArray = new byte[buffer.remaining()];
-            buffer.duplicate().get(bufArray);
-        }
-        return getZipCommentFromBuffer(bufArray);
-    }
+        // Attempt to read from the end of the file to find the EOCD record.
+        // We try a small chunk first (1KB) which covers most short comments (or no comment),
+        // then the maximum possible EOCD size (approx 65KB).
+        int[] readSizes = {1024, 65535 + 22};
 
+        for (int size : readSizes) {
+            ByteBuffer buffer;
+            long fileSize = underlyingStore.getSize();
+
+            if (fileSize < size){
+                buffer = underlyingStore.read();
+            }
+            else {
+                buffer = underlyingStore.read(fileSize - size);
+            }
+
+            if (buffer == null) {
+                return null;
+            }
+
+            byte[] bufArray;
+            if (buffer.hasArray()) {
+                bufArray = buffer.array();
+            } else {
+                bufArray = new byte[buffer.remaining()];
+                buffer.duplicate().get(bufArray);
+            }
+
+            String comment = getZipCommentFromBuffer(bufArray);
+            if (comment != null) {
+                return comment;
+            }
+        }
+        return null;
+    }
     @Nullable
     @Override
     public ByteBuffer get(String[] keys, long start, long end) {
-        ByteBuffer buffer = underlyingStore.read();
-        if (buffer == null) {
+        InputStream inputStream = underlyingStore.getInputStream();
+        if (inputStream == null) {
             return null;
         }
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
             ZipArchiveEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 String entryName = entry.getName();
@@ -147,11 +168,11 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
     public Stream<String[]> list(String[] keys) {
         Stream.Builder<String[]> builder = Stream.builder();
 
-        ByteBuffer buffer = underlyingStore.read();
-        if (buffer == null) {
+        InputStream inputStream = underlyingStore.getInputStream();
+        if (inputStream == null) {
             return builder.build();
         }
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(new ByteBufferBackedInputStream(buffer))) {
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
             ZipArchiveEntry entry;
             String prefix = resolveKeys(keys);
             while ((entry = zis.getNextEntry()) != null) {
@@ -166,9 +187,7 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
                 String[] entryKeys = resolveEntryKeys(entryName.substring(prefix.length()));
                 builder.add(entryKeys);
             }
-        } catch (IOException e) {
-            return null;
-        }
+        } catch (IOException ignored) {}
         return builder.build();
     }
 
@@ -201,8 +220,42 @@ public class ReadOnlyZipStore implements Store, Store.ListableStore {
                 return new BoundedInputStream(zis, bytesToRead);
             }
             return null;
-        } catch (IOException e) {
-        }
+        } catch (IOException ignored) {}
         return null;
+    }
+
+    @Override
+    public long getSize(String[] keys) {
+        InputStream inputStream = underlyingStore.getInputStream();
+        if (inputStream == null) {
+            throw new RuntimeException(new IOException("Underlying store input stream is null"));
+        }
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
+            ZipArchiveEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+
+                if (entryName.startsWith("/")) {
+                    entryName = entryName.substring(1);
+                }
+                if (entry.isDirectory() || !entryName.equals(resolveKeys(keys))) {
+                    continue;
+                }
+                long size = entry.getSize();
+                if (size < 0) {
+                    // read the entire entry to determine size
+                    size = 0;
+                    byte[] bufferArray = new byte[8192];
+                    int len;
+                    while ((len = zis.read(bufferArray)) != -1) {
+                        size += len;
+                    }
+                }
+                return size;
+            }
+            throw new RuntimeException(new java.io.FileNotFoundException("Key not found: " + resolveKeys(keys)));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
