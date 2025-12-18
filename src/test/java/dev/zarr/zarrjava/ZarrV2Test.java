@@ -406,8 +406,6 @@ public class ZarrV2Test extends ZarrTest {
         );
         group.createGroup("subgroup");
         Assertions.assertEquals(2, group.list().count());
-        for(String s: storeHandle.list().toArray(String[]::new))
-            System.out.println(s);
     }
 
 }

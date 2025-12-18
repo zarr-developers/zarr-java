@@ -1,6 +1,8 @@
 package dev.zarr.zarrjava.store;
 
 import dev.zarr.zarrjava.utils.Utils;
+
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -44,6 +46,14 @@ public class StoreHandle {
     return store.get(keys, start, end);
   }
 
+  public InputStream getInputStream(int start, int end) {
+    return store.getInputStream(keys, start, end);
+  }
+
+  public InputStream getInputStream() {
+    return store.getInputStream(keys);
+  }
+
   public void set(ByteBuffer bytes) {
     store.set(keys, bytes);
   }
@@ -56,11 +66,15 @@ public class StoreHandle {
     return store.exists(keys);
   }
 
-  public Stream<String> list() {
+  public Stream<String[]> list() {
     if (!(store instanceof Store.ListableStore)) {
       throw new UnsupportedOperationException("The underlying store does not support listing.");
     }
     return ((Store.ListableStore) store).list(keys);
+  }
+
+  public long getSize() {
+    return store.getSize(keys);
   }
 
   @Override

@@ -1,7 +1,10 @@
 package dev.zarr.zarrjava.store;
 
 import dev.zarr.zarrjava.utils.Utils;
+import org.apache.commons.io.input.BoundedInputStream;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
@@ -120,10 +123,16 @@ public class FilesystemStore implements Store, Store.ListableStore {
       throw new RuntimeException(e);
     }
   }
-
-  public Stream<String> list(String[] keys) {
+  public Stream<String[]> list(String[] keys) {
     try {
-      return Files.list(resolveKeys(keys)).map(p -> p.toFile().getName());
+      return Files.list(resolveKeys(keys)).map(path -> {
+        Path relativePath = resolveKeys(keys).relativize(path);
+        String[] parts = new String[relativePath.getNameCount()];
+        for (int i = 0; i < relativePath.getNameCount(); i++) {
+          parts[i] = relativePath.getName(i).toString();
+        }
+        return parts;
+      });
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -140,4 +149,36 @@ public class FilesystemStore implements Store, Store.ListableStore {
     return this.path.toUri().toString().replaceAll("\\/$", "");
   }
 
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        Path keyPath = resolveKeys(keys);
+        try {
+            if (!Files.exists(keyPath)) {
+                return null;
+            }
+            InputStream inputStream = Files.newInputStream(keyPath);
+            if (start > 0) {
+                long skipped = inputStream.skip(start);
+                if (skipped < start) {
+                    throw new IOException("Unable to skip to the desired start position.");
+                }
+            }
+            if (end != -1) {
+                long bytesToRead = end - start;
+                return new BoundedInputStream(inputStream, bytesToRead);
+            } else {
+                return inputStream;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public long getSize(String[] keys) {
+        try {
+            return Files.size(resolveKeys(keys));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
