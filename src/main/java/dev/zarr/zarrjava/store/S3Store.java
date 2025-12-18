@@ -133,6 +133,19 @@ public class S3Store implements Store, Store.ListableStore {
   }
 
   @Override
+  public long getSize(String[] keys) {
+    HeadObjectRequest req = HeadObjectRequest.builder()
+            .bucket(bucketName)
+            .key(resolveKeys(keys))
+            .build();
+    try {
+      return s3client.headObject(req).contentLength();
+    } catch (NoSuchKeyException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
   public String toString() {
     return "s3://" + bucketName + "/" + prefix;
   }

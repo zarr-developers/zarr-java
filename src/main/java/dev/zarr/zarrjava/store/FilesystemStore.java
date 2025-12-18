@@ -170,4 +170,11 @@ public class FilesystemStore implements Store, Store.ListableStore {
             throw new RuntimeException(e);
         }
     }
+    public long getSize(String[] keys) {
+        try {
+            return Files.size(resolveKeys(keys));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

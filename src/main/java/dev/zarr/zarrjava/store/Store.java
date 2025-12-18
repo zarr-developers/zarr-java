@@ -49,4 +49,6 @@ public interface Store {
   default InputStream getInputStream(String[] keys) {
     return getInputStream(keys, 0, -1);
   }
+
+  long getSize(String[] keys);
 }

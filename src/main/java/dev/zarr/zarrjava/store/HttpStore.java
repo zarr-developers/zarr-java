@@ -134,4 +134,30 @@ public class HttpStore implements Store {
             return null;
         }
     }
+    @Override
+    public long getSize(String[] keys) {
+        // Explicitly request "identity" encoding to prevent OkHttp from adding "gzip"
+        // and subsequently stripping the Content-Length header.
+        Request request = new Request.Builder()
+                .head()
+                .url(resolveKeys(keys))
+                .header("Accept-Encoding", "identity")
+                .build();
+
+        Call call = httpClient.newCall(request);
+        try {
+            Response response = call.execute();
+            if (!response.isSuccessful()) {
+                throw new IOException("Failed to get size: " + response.code());
+            }
+
+            String contentLength = response.header("Content-Length");
+            if (contentLength != null) {
+                return Long.parseLong(contentLength);
+            }
+            return -1;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

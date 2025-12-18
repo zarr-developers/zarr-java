@@ -155,6 +155,14 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertArrayEquals(expectedBuffer, buffer);
     }
 
+    @ParameterizedTest
+    @MethodSource("inputStreamStores")
+    public void testStoreGetSize(StoreHandle storeHandle) throws IOException, ZarrException {
+        long size = storeHandle.getSize();
+        long actual_size = storeHandle.read().remaining();
+        Assertions.assertEquals(actual_size, size);
+    }
+
     @Test
     public void testHttpStore() throws IOException, ZarrException {
         HttpStore httpStore = new dev.zarr.zarrjava.store.HttpStore("https://static.webknossos.org/data/zarr_v3/l4_sample");

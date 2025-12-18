@@ -296,6 +296,10 @@ public class BufferedZipStore implements Store, Store.ListableStore {
         return bufferStore.getInputStream(keys, start, end);
     }
 
+    public long getSize(String[] keys) {
+        return bufferStore.getSize(keys);
+    }
+
     @Override
     public String toString() {
         return "BufferedZipStore(" + underlyingStore.toString() + ")";

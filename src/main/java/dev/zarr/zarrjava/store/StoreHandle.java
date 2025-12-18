@@ -73,6 +73,10 @@ public class StoreHandle {
     return ((Store.ListableStore) store).list(keys);
   }
 
+  public long getSize() {
+    return store.getSize(keys);
+  }
+
   @Override
   public String toString() {
     return store + "/" + String.join("/", keys);

@@ -93,5 +93,13 @@ public class MemoryStore implements Store, Store.ListableStore {
         if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
         return new java.io.ByteArrayInputStream(bytes, (int) start, (int)(end - start));
     }
-}
 
+    @Override
+    public long getSize(String[] keys) {
+        byte[] bytes = map.get(resolveKeys(keys));
+        if (bytes == null) {
+            throw new RuntimeException(new java.io.FileNotFoundException("Key not found: " + String.join("/", keys)));
+        }
+        return bytes.length;
+    }
+}
