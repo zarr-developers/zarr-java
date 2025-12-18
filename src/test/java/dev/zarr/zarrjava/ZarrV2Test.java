@@ -4,6 +4,7 @@ import dev.zarr.zarrjava.core.Attributes;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.*;
 import org.junit.jupiter.api.Assertions;
@@ -393,4 +394,20 @@ public class ZarrV2Test extends ZarrTest {
             Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
         }
     }
+
+    @Test
+    public void testMemoryStore() throws ZarrException, IOException {
+        StoreHandle storeHandle = new MemoryStore().resolve();
+        Group group = Group.create(storeHandle);
+        Array array = group.createArray("array", b -> b
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(5, 5)
+        );
+        group.createGroup("subgroup");
+        Assertions.assertEquals(2, group.list().count());
+        for(String s: storeHandle.list().toArray(String[]::new))
+            System.out.println(s);
+    }
+
 }

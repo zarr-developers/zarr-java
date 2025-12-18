@@ -388,7 +388,7 @@ public class ZarrV3Test extends ZarrTest {
         int[] testData = new int[512 * 512 * 512];
         Arrays.setAll(testData, p -> p);
 
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testParallelRead");
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testParallelRead", useParallel ? "parallel" : "serial");
         ArrayMetadata metadata = Array.metadataBuilder()
             .withShape(512, 512, 512)
             .withDataType(DataType.UINT32)
@@ -402,7 +402,6 @@ public class ZarrV3Test extends ZarrTest {
         ucar.ma2.Array result = readArray.read(useParallel);
 
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
-        clearTestoutputFolder();
     }
 
     @Test
