@@ -73,14 +73,14 @@ public abstract class Group extends AbstractNode {
 
     public Stream<Node> list() {
         return storeHandle.list()
-            .map(key -> {
-                try {
-                    return get(key);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            })
-            .filter(Objects::nonNull);
+                .map(key -> {
+                    try {
+                        return get(key);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .filter(Objects::nonNull);
     }
 
     public Node[] listAsArray() {

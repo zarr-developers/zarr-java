@@ -9,6 +9,11 @@ import org.apache.commons.compress.archivers.zip.*;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import java.net.URI;
+import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.HttpStore;
+import dev.zarr.zarrjava.store.MemoryStore;
+import dev.zarr.zarrjava.store.S3Store;
+import dev.zarr.zarrjava.v3.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,6 +27,7 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.net.URI;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,15 +82,15 @@ public class ZarrStoreTest extends ZarrTest {
 
     static StoreHandle createS3StoreHandle() {
         S3Store s3Store = new S3Store(S3Client.builder()
-            .endpointOverride(URI.create("https://uk1s3.embassy.ebi.ac.uk"))
-            .region(Region.US_EAST_1) // required, but ignored
-            .serviceConfiguration(
-                S3Configuration.builder()
-                    .pathStyleAccessEnabled(true) // required
-                    .build()
-            )
-            .credentialsProvider(AnonymousCredentialsProvider.create())
-            .build(), "idr", "zarr/v0.5/idr0033A");
+                .endpointOverride(URI.create("https://uk1s3.embassy.ebi.ac.uk"))
+                .region(Region.US_EAST_1) // required, but ignored
+                .serviceConfiguration(
+                        S3Configuration.builder()
+                                .pathStyleAccessEnabled(true) // required
+                                .build()
+                )
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .build(), "idr", "zarr/v0.5/idr0033A");
         return s3Store.resolve("BR00109990_C2.zarr", "0", "0");
     }
 
@@ -93,11 +99,11 @@ public class ZarrStoreTest extends ZarrTest {
         StoreHandle s3StoreHandle = createS3StoreHandle();
         Array arrayV3 = Array.open(s3StoreHandle);
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayV3.metadata().shape);
-        Assertions.assertEquals(574, arrayV3.read(new long[]{0,0,0}, new int[]{1,1,1}).getInt(0));
+        Assertions.assertEquals(574, arrayV3.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
 
         dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3StoreHandle);
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayCore.metadata().shape);
-        Assertions.assertEquals(574, arrayCore.read(new long[]{0,0,0}, new int[]{1,1,1}).getInt(0));
+        Assertions.assertEquals(574, arrayCore.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
     }
 
     @Test

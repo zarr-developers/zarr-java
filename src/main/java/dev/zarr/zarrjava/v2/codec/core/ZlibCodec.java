@@ -5,15 +5,17 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.ArrayMetadata;
+import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
-import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.zip.*;
+import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.InflaterInputStream;
 
 public class ZlibCodec extends BytesBytesCodec implements Codec {
 
@@ -24,7 +26,7 @@ public class ZlibCodec extends BytesBytesCodec implements Codec {
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ZlibCodec(
-        @JsonProperty(value = "level", defaultValue = "1") int level) throws ZarrException {
+            @JsonProperty(value = "level", defaultValue = "1") int level) throws ZarrException {
         if (level < 0 || level > 9) {
             throw new ZarrException("'level' needs to be between 0 and 9.");
         }
@@ -35,7 +37,7 @@ public class ZlibCodec extends BytesBytesCodec implements Codec {
     @Override
     public ByteBuffer decode(ByteBuffer chunkBytes) throws ZarrException {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream(); InflaterInputStream inputStream = new InflaterInputStream(
-            new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
+                new ByteArrayInputStream(Utils.toArray(chunkBytes)))) {
             Utils.copyStream(inputStream, outputStream);
             inputStream.close();
             return ByteBuffer.wrap(outputStream.toByteArray());

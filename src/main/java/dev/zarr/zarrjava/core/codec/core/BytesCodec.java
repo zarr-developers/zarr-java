@@ -73,9 +73,10 @@ public abstract class BytesCodec extends ArrayBytesCodec {
             return bb;
         }
 
-    // All other primitive types (byte, short, int, long, char)
-    return chunkArray.getDataAsByteBuffer(order);
-}
+        // All other primitive types (byte, short, int, long, char)
+        return chunkArray.getDataAsByteBuffer(order);
+    }
+
     public enum Endian {
         LITTLE("little"),
         BIG("big");
@@ -83,6 +84,10 @@ public abstract class BytesCodec extends ArrayBytesCodec {
 
         Endian(String endian) {
             this.endian = endian;
+        }
+
+        public static Endian nativeOrder() {
+            return ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? LITTLE : BIG;
         }
 
         @JsonValue
@@ -99,10 +104,6 @@ public abstract class BytesCodec extends ArrayBytesCodec {
                 default:
                     throw new RuntimeException("Unreachable");
             }
-        }
-
-        public static Endian nativeOrder() {
-            return ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? LITTLE : BIG;
         }
     }
 

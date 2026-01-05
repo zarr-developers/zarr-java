@@ -8,27 +8,27 @@ import javax.annotation.Nullable;
 
 public interface Store {
 
-  boolean exists(String[] keys);
+    boolean exists(String[] keys);
 
-  @Nullable
-  ByteBuffer get(String[] keys);
+    @Nullable
+    ByteBuffer get(String[] keys);
 
-  @Nullable
-  ByteBuffer get(String[] keys, long start);
+    @Nullable
+    ByteBuffer get(String[] keys, long start);
 
-  @Nullable
-  ByteBuffer get(String[] keys, long start, long end);
+    @Nullable
+    ByteBuffer get(String[] keys, long start, long end);
 
-  void set(String[] keys, ByteBuffer bytes);
+    void set(String[] keys, ByteBuffer bytes);
 
-  void delete(String[] keys);
+    void delete(String[] keys);
 
-  @Nonnull
-  StoreHandle resolve(String... keys);
+    @Nonnull
+    StoreHandle resolve(String... keys);
 
-  interface ListableStore extends Store {
+    interface ListableStore extends Store {
 
-  /**
+      /**
    * Lists all keys in the store that match the given prefix keys. Keys are represented as arrays of strings,
    * where each string is a segment of the key path.
    * Keys that are exactly equal to the prefix are not included in the results.

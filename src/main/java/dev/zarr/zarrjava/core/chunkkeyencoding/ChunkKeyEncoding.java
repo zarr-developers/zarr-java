@@ -2,6 +2,6 @@ package dev.zarr.zarrjava.core.chunkkeyencoding;
 
 public interface ChunkKeyEncoding {
 
-  String[] encodeChunkKey(long[] chunkCoords);
+    String[] encodeChunkKey(long[] chunkCoords);
 
 }

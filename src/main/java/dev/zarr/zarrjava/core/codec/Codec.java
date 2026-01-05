@@ -8,7 +8,7 @@ public interface Codec {
 
     ArrayMetadata.CoreArrayMetadata resolveArrayMetadata() throws ZarrException;
 
-    default long computeEncodedSize(long inputByteLength, ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException{
+    default long computeEncodedSize(long inputByteLength, ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         throw new ZarrException("Not implemented for " + this.getClass());
     }
 }

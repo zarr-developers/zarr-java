@@ -3,7 +3,7 @@ package dev.zarr.zarrjava.core.codec;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.ArrayMetadata;
 
-public abstract class AbstractCodec implements Codec{
+public abstract class AbstractCodec implements Codec {
     protected ArrayMetadata.CoreArrayMetadata arrayMetadata;
 
     public ArrayMetadata.CoreArrayMetadata resolveArrayMetadata() throws ZarrException {
@@ -13,7 +13,7 @@ public abstract class AbstractCodec implements Codec{
         return this.arrayMetadata;
     }
 
-    public void setCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException{
+    public void setCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         this.arrayMetadata = arrayMetadata;
     }
 }

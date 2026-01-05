@@ -1,10 +1,9 @@
-import sys
-from pathlib import Path
-
 import numpy as np
-
+import sys
 import zarr
+from pathlib import Path
 from zarr.storage import LocalStore
+
 from parse_codecs import parse_codecs_zarr_python
 
 codec_string = sys.argv[1]
@@ -17,7 +16,6 @@ if dtype == 'bool':
     testdata = np.arange(16 * 16 * 16, dtype='uint8').reshape(16, 16, 16) % 2 == 0
 else:
     testdata = np.arange(16 * 16 * 16, dtype=dtype).reshape(16, 16, 16)
-
 
 a = zarr.create_array(
     LocalStore(store_path),

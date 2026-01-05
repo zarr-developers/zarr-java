@@ -17,13 +17,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.stream.Stream;
 
 
@@ -66,19 +67,13 @@ public class ZarrPythonTests extends ZarrTest {
         }
     }
 
-    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
-        int exitCode = runCommand(Stream.concat(Stream.of("uv", "run", PYTHON_TEST_PATH.resolve(scriptName)
-            .toString()), Arrays.stream(args)).toArray(String[]::new));
-        assert exitCode == 0;
-    }
-
-        static ucar.ma2.Array testdata(dev.zarr.zarrjava.core.DataType dt){
+    static ucar.ma2.Array testdata(dev.zarr.zarrjava.core.DataType dt) {
         ucar.ma2.DataType ma2Type = dt.getMA2DataType();
-        ucar.ma2.Array array =  ucar.ma2.Array.factory(ma2Type, new int[]{16, 16, 16});
+        ucar.ma2.Array array = ucar.ma2.Array.factory(ma2Type, new int[]{16, 16, 16});
         for (int i = 0; i < array.getSize(); i++) {
             switch (ma2Type) {
                 case BOOLEAN:
-                    array.setBoolean(i, i%2 == 0);
+                    array.setBoolean(i, i % 2 == 0);
                     break;
                 case BYTE:
                 case UBYTE:
@@ -151,45 +146,79 @@ public class ZarrPythonTests extends ZarrTest {
 
     static Stream<Object[]> compressorAndDataTypeProviderV3() {
         Stream<Object[]> datatypeTests = Stream.of(
-            DataType.BOOL,
-            DataType.INT8,
-            DataType.UINT8,
-            DataType.INT16,
-            DataType.UINT16,
-            DataType.INT32,
-            DataType.UINT32,
-            DataType.INT64,
-            DataType.UINT64,
-            DataType.FLOAT32,
-            DataType.FLOAT64
+                DataType.BOOL,
+                DataType.INT8,
+                DataType.UINT8,
+                DataType.INT16,
+                DataType.UINT16,
+                DataType.INT32,
+                DataType.UINT32,
+                DataType.INT64,
+                DataType.UINT64,
+                DataType.FLOAT32,
+                DataType.FLOAT64
         ).flatMap(dt -> Stream.of(
-            new Object[]{"sharding", "end", dt},
-            new Object[]{"blosc", "blosclz_shuffle_3", dt}
+                new Object[]{"sharding", "end", dt},
+                new Object[]{"blosc", "blosclz_shuffle_3", dt}
         ));
 
         Stream<Object[]> codecsTests = Stream.of(
-            new Object[]{"blosc", "blosclz_noshuffle_0", DataType.INT32},
-            new Object[]{"blosc", "lz4_shuffle_6", DataType.INT32},
-            new Object[]{"blosc", "lz4hc_bitshuffle_3", DataType.INT32},
-            new Object[]{"blosc", "zlib_shuffle_5", DataType.INT32},
-            new Object[]{"blosc", "zstd_bitshuffle_9", DataType.INT32},
-            new Object[]{"gzip", "0", DataType.INT32},
-            new Object[]{"gzip", "5", DataType.INT32},
-            new Object[]{"zstd", "0_true", DataType.INT32},
-            new Object[]{"zstd", "5_true", DataType.INT32},
-            new Object[]{"zstd", "0_false", DataType.INT32},
-            new Object[]{"zstd", "5_false", DataType.INT32},
-            new Object[]{"bytes", "BIG", DataType.INT32},
-            new Object[]{"bytes", "LITTLE", DataType.INT32},
-            new Object[]{"transpose", "_", DataType.INT32},
-            new Object[]{"sharding", "start", DataType.INT32},
-            new Object[]{"sharding_nested", "_", DataType.INT32},
-            new Object[]{"crc32c", "_", DataType.INT32}
+                new Object[]{"blosc", "blosclz_noshuffle_0", DataType.INT32},
+                new Object[]{"blosc", "lz4_shuffle_6", DataType.INT32},
+                new Object[]{"blosc", "lz4hc_bitshuffle_3", DataType.INT32},
+                new Object[]{"blosc", "zlib_shuffle_5", DataType.INT32},
+                new Object[]{"blosc", "zstd_bitshuffle_9", DataType.INT32},
+                new Object[]{"gzip", "0", DataType.INT32},
+                new Object[]{"gzip", "5", DataType.INT32},
+                new Object[]{"zstd", "0_true", DataType.INT32},
+                new Object[]{"zstd", "5_true", DataType.INT32},
+                new Object[]{"zstd", "0_false", DataType.INT32},
+                new Object[]{"zstd", "5_false", DataType.INT32},
+                new Object[]{"bytes", "BIG", DataType.INT32},
+                new Object[]{"bytes", "LITTLE", DataType.INT32},
+                new Object[]{"transpose", "_", DataType.INT32},
+                new Object[]{"sharding", "start", DataType.INT32},
+                new Object[]{"sharding_nested", "_", DataType.INT32},
+                new Object[]{"crc32c", "_", DataType.INT32}
         );
 
         return Stream.concat(datatypeTests, codecsTests);
     }
 
+    static Stream<Object[]> compressorAndDataTypeProviderV2() {
+        Stream<Object[]> datatypeTests = Stream.of(
+                dev.zarr.zarrjava.v2.DataType.BOOL,
+                dev.zarr.zarrjava.v2.DataType.INT8,
+                dev.zarr.zarrjava.v2.DataType.UINT8,
+                dev.zarr.zarrjava.v2.DataType.INT16,
+                dev.zarr.zarrjava.v2.DataType.UINT16,
+                dev.zarr.zarrjava.v2.DataType.INT32,
+                dev.zarr.zarrjava.v2.DataType.UINT32,
+                dev.zarr.zarrjava.v2.DataType.INT64,
+                dev.zarr.zarrjava.v2.DataType.UINT64,
+                dev.zarr.zarrjava.v2.DataType.FLOAT32,
+                dev.zarr.zarrjava.v2.DataType.FLOAT64
+        ).flatMap(dt -> Stream.of(
+                new Object[]{"zlib", "0", dt},
+                new Object[]{"blosc", "blosclz_shuffle_3", dt}
+        ));
+
+        Stream<Object[]> bloscTests = Stream.of(
+                new Object[]{"blosc", "blosclz_noshuffle_0", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"blosc", "lz4_shuffle_6", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"blosc", "lz4hc_bitshuffle_3", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"blosc", "zlib_shuffle_5", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"blosc", "zstd_bitshuffle_9", dev.zarr.zarrjava.v2.DataType.INT32}
+        );
+
+        return Stream.concat(datatypeTests, bloscTests);
+    }
+
+    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
+        int exitCode = runCommand(Stream.concat(Stream.of("uv", "run", PYTHON_TEST_PATH.resolve(scriptName)
+                .toString()), Arrays.stream(args)).toArray(String[]::new));
+        assert exitCode == 0;
+    }
 
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV3")
@@ -215,11 +244,11 @@ public class ZarrPythonTests extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testWriteV3", codec, codecParam, dataType.name());
 
         ArrayMetadataBuilder builder = Array.metadataBuilder()
-            .withShape(16, 16, 16)
-            .withDataType(dataType)
-            .withChunkShape(2, 4, 8)
-            .withFillValue(0)
-            .withAttributes(attributes);
+                .withShape(16, 16, 16)
+                .withDataType(dataType)
+                .withChunkShape(2, 4, 8)
+                .withFillValue(0)
+                .withAttributes(attributes);
 
         switch (codec) {
             case "blosc":
@@ -273,36 +302,6 @@ public class ZarrPythonTests extends ZarrTest {
         run_python_script("zarr_python_read.py", codec, codecParam, dataType.name().toLowerCase(), storeHandle.toPath().toString());
     }
 
-
-    static Stream<Object[]> compressorAndDataTypeProviderV2() {
-        Stream<Object[]> datatypeTests = Stream.of(
-            dev.zarr.zarrjava.v2.DataType.BOOL,
-            dev.zarr.zarrjava.v2.DataType.INT8,
-            dev.zarr.zarrjava.v2.DataType.UINT8,
-            dev.zarr.zarrjava.v2.DataType.INT16,
-            dev.zarr.zarrjava.v2.DataType.UINT16,
-            dev.zarr.zarrjava.v2.DataType.INT32,
-            dev.zarr.zarrjava.v2.DataType.UINT32,
-            dev.zarr.zarrjava.v2.DataType.INT64,
-            dev.zarr.zarrjava.v2.DataType.UINT64,
-            dev.zarr.zarrjava.v2.DataType.FLOAT32,
-            dev.zarr.zarrjava.v2.DataType.FLOAT64
-        ).flatMap(dt -> Stream.of(
-            new Object[]{"zlib", "0", dt},
-            new Object[]{"blosc", "blosclz_shuffle_3", dt}
-        ));
-
-        Stream <Object[]> bloscTests = Stream.of(
-            new Object[]{"blosc", "blosclz_noshuffle_0", dev.zarr.zarrjava.v2.DataType.INT32},
-            new Object[]{"blosc", "lz4_shuffle_6", dev.zarr.zarrjava.v2.DataType.INT32},
-            new Object[]{"blosc", "lz4hc_bitshuffle_3", dev.zarr.zarrjava.v2.DataType.INT32},
-            new Object[]{"blosc", "zlib_shuffle_5", dev.zarr.zarrjava.v2.DataType.INT32},
-            new Object[]{"blosc", "zstd_bitshuffle_9", dev.zarr.zarrjava.v2.DataType.INT32}
-        );
-
-        return Stream.concat(datatypeTests, bloscTests);
-    }
-
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV2")
     public void testReadV2(String compressor, String compressorParam, dev.zarr.zarrjava.v2.DataType dt) throws IOException, ZarrException, InterruptedException {
@@ -329,11 +328,11 @@ public class ZarrPythonTests extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecsWriteV2", compressor, compressorParam, dt.name());
 
         dev.zarr.zarrjava.v2.ArrayMetadataBuilder builder = dev.zarr.zarrjava.v2.Array.metadataBuilder()
-            .withShape(16, 16, 16)
-            .withDataType(dt)
-            .withChunks(2, 4, 8)
-            .withAttributes(attributes)
-            .withFillValue(0);
+                .withShape(16, 16, 16)
+                .withDataType(dt)
+                .withChunks(2, 4, 8)
+                .withAttributes(attributes)
+                .withFillValue(0);
 
         switch (compressor) {
             case "blosc":
@@ -391,11 +390,11 @@ public class ZarrPythonTests extends ZarrTest {
 
         //decompress in python
         int exitCode = ZarrPythonTests.runCommand(
-            "uv",
-            "run",
-            PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
-            compressedDataPath,
-            Integer.toString(number)
+                "uv",
+                "run",
+                PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
+                compressedDataPath,
+                Integer.toString(number)
         );
         assert exitCode == 0;
     }
@@ -410,7 +409,7 @@ public class ZarrPythonTests extends ZarrTest {
                 .withShape(16, 16, 16)
                 .withDataType(dataType)
                 .withChunks(2, 4, 8)
-            );
+        );
 
         array.write(testdata(dataType));
 
@@ -437,7 +436,7 @@ public class ZarrPythonTests extends ZarrTest {
                 .withShape(16, 16, 16)
                 .withDataType(dataType)
                 .withChunkShape(2, 4, 8)
-            );
+        );
 
         array.write(testdata(dataType));
 

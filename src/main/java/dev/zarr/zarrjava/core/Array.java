@@ -1,12 +1,12 @@
 package dev.zarr.zarrjava.core;
 
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
-import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import ucar.ma2.InvalidRangeException;
 
 import javax.annotation.Nonnull;
@@ -21,7 +21,6 @@ import java.util.stream.Stream;
 public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
-    public abstract ArrayMetadata metadata();
 
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);
@@ -47,7 +46,8 @@ public abstract class Array extends AbstractNode {
             throw new ZarrException("No Zarr array found at the specified location.");
         }
     }
-     /**
+
+    /**
      * Opens an existing Zarr array at a specified storage location. Automatically detects the Zarr version.
      *
      * @param path the storage location of the Zarr array
@@ -68,6 +68,8 @@ public abstract class Array extends AbstractNode {
     public static Array open(String path) throws IOException, ZarrException {
         return open(Paths.get(path));
     }
+
+    public abstract ArrayMetadata metadata();
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array
@@ -94,32 +96,32 @@ public abstract class Array extends AbstractNode {
             chunkStream = chunkStream.parallel();
         }
         chunkStream.forEach(
-            chunkCoords -> {
-                try {
-                    final IndexingUtils.ChunkProjection chunkProjection =
-                        IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                            shape
-                        );
+                chunkCoords -> {
+                    try {
+                        final IndexingUtils.ChunkProjection chunkProjection =
+                                IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
+                                        shape
+                                );
 
-                    ucar.ma2.Array chunkArray;
-                    if (IndexingUtils.isFullChunk(chunkProjection.chunkOffset, chunkProjection.shape,
-                        chunkShape
-                    )) {
-                        chunkArray = array.sectionNoReduce(chunkProjection.outOffset,
-                            chunkProjection.shape,
-                            null
-                        );
-                    } else {
-                        chunkArray = readChunk(chunkCoords);
-                        MultiArrayUtils.copyRegion(array, chunkProjection.outOffset, chunkArray,
-                            chunkProjection.chunkOffset, chunkProjection.shape
-                        );
+                        ucar.ma2.Array chunkArray;
+                        if (IndexingUtils.isFullChunk(chunkProjection.chunkOffset, chunkProjection.shape,
+                                chunkShape
+                        )) {
+                            chunkArray = array.sectionNoReduce(chunkProjection.outOffset,
+                                    chunkProjection.shape,
+                                    null
+                            );
+                        } else {
+                            chunkArray = readChunk(chunkCoords);
+                            MultiArrayUtils.copyRegion(array, chunkProjection.outOffset, chunkArray,
+                                    chunkProjection.chunkOffset, chunkProjection.shape
+                            );
+                        }
+                        writeChunk(chunkCoords, chunkArray);
+                    } catch (ZarrException | InvalidRangeException e) {
+                        throw new RuntimeException(e);
                     }
-                    writeChunk(chunkCoords, chunkArray);
-                } catch (ZarrException | InvalidRangeException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+                });
 
     }
 
@@ -246,7 +248,7 @@ public abstract class Array extends AbstractNode {
         final int[] chunkShape = metadata().chunkShape();
         for (int dimIdx = 0; dimIdx < metadata().ndim(); dimIdx++) {
             if (chunkCoords[dimIdx] < 0
-                || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape[dimIdx]) {
+                    || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape[dimIdx]) {
                 return false;
             }
         }
@@ -282,47 +284,47 @@ public abstract class Array extends AbstractNode {
         }
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
-            shape);
+                shape);
         Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
         chunkStream.forEach(
-            chunkCoords -> {
-                try {
-                    final IndexingUtils.ChunkProjection chunkProjection =
-                        IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                            shape
-                        );
+                chunkCoords -> {
+                    try {
+                        final IndexingUtils.ChunkProjection chunkProjection =
+                                IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
+                                        shape
+                                );
 
-                    if (chunkIsInArray(chunkCoords)) {
-                        MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
-                            chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
-                            chunkProjection.shape
-                        );
-                    }
+                        if (chunkIsInArray(chunkCoords)) {
+                            MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
+                                    chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
+                                    chunkProjection.shape
+                            );
+                        }
 
-                    final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
-                    final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-                    if (!chunkHandle.exists()) {
-                        return;
-                    }
-                    if (codecPipeline.supportsPartialDecode()) {
-                        final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
-                            Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
-                        MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
-                            chunkProjection.outOffset, chunkProjection.shape
-                        );
-                    } else {
-                        MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
-                            outputArray, chunkProjection.outOffset, chunkProjection.shape
-                        );
-                    }
+                        final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
+                        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+                        if (!chunkHandle.exists()) {
+                            return;
+                        }
+                        if (codecPipeline.supportsPartialDecode()) {
+                            final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
+                                    Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
+                            MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
+                                    chunkProjection.outOffset, chunkProjection.shape
+                            );
+                        } else {
+                            MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
+                                    outputArray, chunkProjection.outOffset, chunkProjection.shape
+                            );
+                        }
 
-                } catch (ZarrException e) {
-                    throw new RuntimeException(e);
-                }
-            });
+                    } catch (ZarrException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
         return outputArray;
     }
 

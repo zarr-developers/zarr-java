@@ -14,7 +14,7 @@ public class Attributes extends HashMap<String, Object> {
         super();
     }
 
-    public Attributes (Function<Attributes, Attributes> attributeMapper) {
+    public Attributes(Function<Attributes, Attributes> attributeMapper) {
         super();
         attributeMapper.apply(this);
     }
@@ -24,12 +24,12 @@ public class Attributes extends HashMap<String, Object> {
         super(attributes);
     }
 
-    public Attributes set(String s, Object o){
+    public Attributes set(String s, Object o) {
         this.put(s, o);
         return this;
     }
 
-    public Attributes delete(String s){
+    public Attributes delete(String s) {
         this.remove(s);
         return this;
     }
@@ -96,43 +96,43 @@ public class Attributes extends HashMap<String, Object> {
     }
 
     public <T> T[] getArray(String key, Class<T> clazz) throws ZarrException {
-    Object value = this.get(key);
-    if (value instanceof Object[] && (((Object[]) value).length == 0 || clazz.isInstance(((Object[]) value)[0]) )) {
-        return (T[]) value;
-    }
-    if (value instanceof List) {
-        List<?> list = (List<?>) value;
-        @SuppressWarnings("unchecked")
-        T[] array = (T[]) java.lang.reflect.Array.newInstance(clazz, list.size());
-        for (int i = 0; i < list.size(); i++) {
-            Object elem = list.get(i);
-            if (clazz.isInstance(elem)) {
-                array[i] = clazz.cast(elem);
-            } else {
-                // Try to find a constructor that takes the element's class
-                java.lang.reflect.Constructor<?> matched = null;
-                for (java.lang.reflect.Constructor<?> c : clazz.getConstructors()) {
-                    Class<?>[] params = c.getParameterTypes();
-                    if (params.length == 1 && params[0].isAssignableFrom(elem.getClass())) {
-                        matched = c;
-                        break;
-                    }
-                }
-                if (matched != null) {
-                    try {
-                        array[i] = (T) matched.newInstance(elem);
-                    } catch (Exception e) {
-                        throw new ZarrException("Failed to convert element at index " + i + " to type " + clazz.getName(), e);
-                    }
+        Object value = this.get(key);
+        if (value instanceof Object[] && (((Object[]) value).length == 0 || clazz.isInstance(((Object[]) value)[0]))) {
+            return (T[]) value;
+        }
+        if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            @SuppressWarnings("unchecked")
+            T[] array = (T[]) java.lang.reflect.Array.newInstance(clazz, list.size());
+            for (int i = 0; i < list.size(); i++) {
+                Object elem = list.get(i);
+                if (clazz.isInstance(elem)) {
+                    array[i] = clazz.cast(elem);
                 } else {
-                    throw new IllegalArgumentException("Element at index " + i + " is not of type " + clazz.getName() + " and no suitable constructor found for conversion of type " + elem.getClass().getName());
+                    // Try to find a constructor that takes the element's class
+                    java.lang.reflect.Constructor<?> matched = null;
+                    for (java.lang.reflect.Constructor<?> c : clazz.getConstructors()) {
+                        Class<?>[] params = c.getParameterTypes();
+                        if (params.length == 1 && params[0].isAssignableFrom(elem.getClass())) {
+                            matched = c;
+                            break;
+                        }
+                    }
+                    if (matched != null) {
+                        try {
+                            array[i] = (T) matched.newInstance(elem);
+                        } catch (Exception e) {
+                            throw new ZarrException("Failed to convert element at index " + i + " to type " + clazz.getName(), e);
+                        }
+                    } else {
+                        throw new IllegalArgumentException("Element at index " + i + " is not of type " + clazz.getName() + " and no suitable constructor found for conversion of type " + elem.getClass().getName());
+                    }
                 }
             }
+            return array;
         }
-        return array;
+        throw new IllegalArgumentException("Value for key " + key + " is not a List or array of type " + clazz.getName());
     }
-    throw new IllegalArgumentException("Value for key " + key + " is not a List or array of type " + clazz.getName());
-}
 
     public int[] getIntArray(String key) {
         Object value = this.get(key);
