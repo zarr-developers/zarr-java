@@ -37,8 +37,10 @@ build/
 
 ### Custom ###
 /testdata/l4_sample
+/testdata/l4_sample.zip
 /testoutput
 /.python-version
 /main.py
 /pyproject.toml
 /uv.lock
+**/__pycache__
