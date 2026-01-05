@@ -62,15 +62,6 @@ public class TransposeCodec extends ArrayArrayCodec implements Codec {
         return inputByteLength;
     }
 
-    public static final class Configuration {
-        public final int[] order;
-
-        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-        public Configuration(@JsonProperty(value = "order") int[] order) {
-            this.order = order;
-        }
-    }
-
     @Override
     public ArrayMetadata.CoreArrayMetadata resolveArrayMetadata() throws ZarrException {
         super.resolveArrayMetadata();
@@ -89,5 +80,14 @@ public class TransposeCodec extends ArrayArrayCodec implements Codec {
                 arrayMetadata.dataType,
                 arrayMetadata.parsedFillValue
         );
+    }
+
+    public static final class Configuration {
+        public final int[] order;
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public Configuration(@JsonProperty(value = "order") int[] order) {
+            this.order = order;
+        }
     }
 }

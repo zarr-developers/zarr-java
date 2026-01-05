@@ -22,8 +22,6 @@ public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
 
-    public abstract ArrayMetadata metadata();
-
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);
     }
@@ -70,6 +68,8 @@ public abstract class Array extends AbstractNode {
     public static Array open(String path) throws IOException, ZarrException {
         return open(Paths.get(path));
     }
+
+    public abstract ArrayMetadata metadata();
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at a specified offset. The shape of the Zarr array

@@ -11,9 +11,9 @@ import java.util.Arrays;
 
 public class CodecPipeline {
 
+    public final CoreArrayMetadata arrayMetadata;
     @Nonnull
     final Codec[] codecs;
-    public final CoreArrayMetadata arrayMetadata;
 
     public CodecPipeline(@Nonnull Codec[] codecs, CoreArrayMetadata arrayMetadata) throws ZarrException {
         this.arrayMetadata = arrayMetadata;

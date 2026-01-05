@@ -129,6 +129,9 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         this.storageTransformers = storageTransformers;
     }
 
+    public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
+        return Arrays.stream(codecs).filter(codec -> codec instanceof ShardingIndexedCodec).findFirst();
+    }
 
     public ucar.ma2.Array allocateFillValueChunk() {
         return coreArrayMetadata.allocateFillValueChunk();
@@ -151,10 +154,6 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
             throw new ZarrException("Array attributes have not been set.");
         }
         return attributes;
-    }
-
-    public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
-        return Arrays.stream(codecs).filter(codec -> codec instanceof ShardingIndexedCodec).findFirst();
     }
 
     public int[] chunkShape() {

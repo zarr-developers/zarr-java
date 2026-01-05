@@ -29,23 +29,6 @@ public abstract class ArrayMetadata {
         this.parsedFillValue = parseFillValue(fillValue, dataType);
     }
 
-    public int ndim() {
-        return shape.length;
-    }
-
-    public abstract int[] chunkShape();
-
-    public abstract DataType dataType();
-
-    public abstract Array allocateFillValueChunk();
-
-    public abstract ChunkKeyEncoding chunkKeyEncoding();
-
-    public abstract Object parsedFillValue();
-
-    public @Nonnull
-    abstract Attributes attributes() throws ZarrException;
-
     public static Object parseFillValue(Object fillValue, @Nonnull DataType dataType)
             throws ZarrException {
         if (fillValue == null) {
@@ -150,6 +133,23 @@ public abstract class ArrayMetadata {
         }
         throw new ZarrException("Invalid fill value '" + fillValue + "'.");
     }
+
+    public int ndim() {
+        return shape.length;
+    }
+
+    public abstract int[] chunkShape();
+
+    public abstract DataType dataType();
+
+    public abstract Array allocateFillValueChunk();
+
+    public abstract ChunkKeyEncoding chunkKeyEncoding();
+
+    public abstract Object parsedFillValue();
+
+    public @Nonnull
+    abstract Attributes attributes() throws ZarrException;
 
     public static final class CoreArrayMetadata {
 

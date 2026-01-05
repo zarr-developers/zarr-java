@@ -25,10 +25,6 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
 
     private final ArrayMetadata metadata;
 
-    public ArrayMetadata metadata() {
-        return metadata;
-    }
-
     protected Array(StoreHandle storeHandle, ArrayMetadata arrayMetadata) throws ZarrException {
         super(storeHandle);
         this.metadata = arrayMetadata;
@@ -194,6 +190,10 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
     @Nonnull
     public static ArrayMetadataBuilder metadataBuilder(ArrayMetadata existingMetadata) {
         return ArrayMetadataBuilder.fromArrayMetadata(existingMetadata);
+    }
+
+    public ArrayMetadata metadata() {
+        return metadata;
     }
 
     private Array writeMetadata(ArrayMetadata newArrayMetadata) throws ZarrException, IOException {

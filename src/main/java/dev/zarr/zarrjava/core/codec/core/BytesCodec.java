@@ -86,6 +86,10 @@ public abstract class BytesCodec extends ArrayBytesCodec {
             this.endian = endian;
         }
 
+        public static Endian nativeOrder() {
+            return ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? LITTLE : BIG;
+        }
+
         @JsonValue
         public String getValue() {
             return endian;
@@ -100,10 +104,6 @@ public abstract class BytesCodec extends ArrayBytesCodec {
                 default:
                     throw new RuntimeException("Unreachable");
             }
-        }
-
-        public static Endian nativeOrder() {
-            return ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN ? LITTLE : BIG;
         }
     }
 
