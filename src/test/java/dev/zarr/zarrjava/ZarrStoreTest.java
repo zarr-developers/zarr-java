@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.core.*;
 import dev.zarr.zarrjava.store.*;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
@@ -342,13 +342,13 @@ public class ZarrStoreTest extends ZarrTest {
         if (!flushOnWrite) zipStore.flush();
 
         BufferedZipStore zipStoreRead = new BufferedZipStore(path);
-        assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(zipStoreRead.resolve()), true);
+        assertIsTestGroupV2(Group.open(zipStoreRead.resolve()), true);
 
         Path unzippedPath = TESTOUTPUT.resolve("testZipStoreV2Unzipped");
 
         unzipFile(path, unzippedPath);
         FilesystemStore fsStore = new FilesystemStore(unzippedPath);
-        assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(fsStore.resolve()), true);
+        assertIsTestGroupV2(Group.open(fsStore.resolve()), true);
     }
 
     @Test
@@ -395,7 +395,7 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
     void assertIsTestGroupV3(Group group, boolean useParallel) throws ZarrException, IOException {
-        Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
+        Stream<Node> nodes = group.list();
         Assertions.assertEquals(2, nodes.count());
         Array array = (Array) group.get("array");
         Assertions.assertNotNull(array);
@@ -422,10 +422,10 @@ public class ZarrStoreTest extends ZarrTest {
         return group;
     }
 
-    void assertIsTestGroupV2(dev.zarr.zarrjava.core.Group group, boolean useParallel) throws ZarrException, IOException {
-        Stream<dev.zarr.zarrjava.core.Node> nodes = group.list();
+    void assertIsTestGroupV2(Group group, boolean useParallel) throws ZarrException, IOException {
+        Stream<Node> nodes = group.list();
         Assertions.assertEquals(2, nodes.count());
-        dev.zarr.zarrjava.v2.Array array = (dev.zarr.zarrjava.v2.Array) group.get("array");
+        Array array = (Array) group.get("array");
         Assertions.assertNotNull(array);
         ucar.ma2.Array result = array.read(useParallel);
         Assertions.assertArrayEquals(testData(), (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
