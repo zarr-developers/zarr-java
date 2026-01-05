@@ -13,9 +13,9 @@ import javax.annotation.Nullable;
 public class StoreHandle {
 
   @Nonnull
-  final Store store;
+  public final Store store;
   @Nonnull
-  final String[] keys;
+  public final String[] keys;
 
   public StoreHandle(@Nonnull Store store, @Nonnull String... keys) {
     this.store = store;

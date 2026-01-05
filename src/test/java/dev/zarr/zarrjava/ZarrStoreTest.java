@@ -74,8 +74,7 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
     }
 
-    @Test
-    public void testS3Store() throws IOException, ZarrException {
+    static StoreHandle createS3StoreHandle() {
         S3Store s3Store = new S3Store(S3Client.builder()
             .endpointOverride(URI.create("https://uk1s3.embassy.ebi.ac.uk"))
             .region(Region.US_EAST_1) // required, but ignored
@@ -86,40 +85,36 @@ public class ZarrStoreTest extends ZarrTest {
             )
             .credentialsProvider(AnonymousCredentialsProvider.create())
             .build(), "idr", "zarr/v0.5/idr0033A");
+        return s3Store.resolve("BR00109990_C2.zarr", "0", "0");
+    }
 
-        Array arrayV3 = Array.open(s3Store.resolve("BR00109990_C2.zarr", "0", "0"));
+    @Test
+    public void testS3Store() throws IOException, ZarrException {
+        StoreHandle s3StoreHandle = createS3StoreHandle();
+        Array arrayV3 = Array.open(s3StoreHandle);
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayV3.metadata().shape);
         Assertions.assertEquals(574, arrayV3.read(new long[]{0,0,0}, new int[]{1,1,1}).getInt(0));
 
-        dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3Store.resolve("BR00109990_C2.zarr", "0", "0"));
+        dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3StoreHandle);
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayCore.metadata().shape);
         Assertions.assertEquals(574, arrayCore.read(new long[]{0,0,0}, new int[]{1,1,1}).getInt(0));
     }
 
     @Test
-    public void testS3StoreGet() throws IOException, ZarrException {
-        S3Store s3Store = new S3Store(S3Client.builder()
-                .region(Region.of("eu-west-1"))
-                .credentialsProvider(AnonymousCredentialsProvider.create())
-                .build(), "static.webknossos.org", "data");
-        String[] keys = new String[]{"zarr_v3", "l4_sample", "color", "1", "zarr.json"};
-
-        ByteBuffer buffer = s3Store.get(keys);
-        ByteBuffer bufferWithStart = s3Store.get(keys, 10);
+    public void testS3StoreGet() throws ZarrException {
+        StoreHandle s3StoreHandle = createS3StoreHandle().resolve("zarr.json");
+        S3Store s3Store = (S3Store) s3StoreHandle.store;
+        ByteBuffer buffer = s3Store.get(s3StoreHandle.keys);
+        ByteBuffer bufferWithStart = s3Store.get(s3StoreHandle.keys, 10);
         Assertions.assertEquals(10, buffer.remaining()-bufferWithStart.remaining());
 
-        ByteBuffer bufferWithStartAndEnd = s3Store.get(keys, 0, 10);
+        ByteBuffer bufferWithStartAndEnd = s3Store.get(s3StoreHandle.keys, 0, 10);
         Assertions.assertEquals(10, bufferWithStartAndEnd.remaining());
 
     }
 
     static Stream<StoreHandle> inputStreamStores() throws IOException {
-        String[] s3StoreKeys = new String[]{"zarr_v3", "l4_sample", "color", "1", "zarr.json"};
-        StoreHandle s3StoreHandle = new S3Store(S3Client.builder()
-                .region(Region.of("eu-west-1"))
-                .credentialsProvider(AnonymousCredentialsProvider.create())
-                .build(), "static.webknossos.org", "data")
-                .resolve(s3StoreKeys);
+        StoreHandle s3StoreHandle = createS3StoreHandle().resolve("zarr.json");
 
         byte[] testData = new byte[100];
         for (int i = 0; i < testData.length; i++) {
@@ -153,7 +148,7 @@ public class ZarrStoreTest extends ZarrTest {
 
     @ParameterizedTest
     @MethodSource("inputStreamStores")
-    public void testStoreInputStream(StoreHandle storeHandle) throws IOException, ZarrException {
+    public void testStoreInputStream(StoreHandle storeHandle) throws IOException {
         InputStream is = storeHandle.getInputStream(10, 20);
         byte[] buffer = new byte[10];
         int bytesRead = is.read(buffer);
@@ -165,7 +160,7 @@ public class ZarrStoreTest extends ZarrTest {
 
     @ParameterizedTest
     @MethodSource("inputStreamStores")
-    public void testStoreGetSize(StoreHandle storeHandle) throws IOException, ZarrException {
+    public void testStoreGetSize(StoreHandle storeHandle) {
         long size = storeHandle.getSize();
         long actual_size = storeHandle.read().remaining();
         Assertions.assertEquals(actual_size, size);
