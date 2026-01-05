@@ -21,8 +21,14 @@ public class Main implements Callable<Integer> {
             Path path = Paths.get(arrayPath);
             // Attempt to open the array. This should throw if the array is invalid or
             // cannot be opened.
-            Array.open(path);
-            // If we get here, it means we successfully opened the array.
+            Array array = Array.open(path);
+
+            // Read the entire array
+            ucar.ma2.Array data = array.read();
+
+            // Print the array values using ucar.ma2.Array's string representation.
+            System.out.println(data.toString());
+
             return 0;
         } catch (Exception e) {
             System.err.println("Failed to open array at " + arrayPath);
