@@ -194,10 +194,10 @@
                 <version>3.5.0</version>
                 <executions>
                     <execution>
-                    <id>attach-javadoc</id>
-                    <goals>
-                        <goal>jar</goal>
-                    </goals>
+                        <id>attach-javadoc</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
                     </execution>
                 </executions>
                 <configuration>
@@ -210,14 +210,14 @@
                 <version>1.6</version>
                 <executions>
                     <execution>
-                    <id>sign-artifacts</id>
-                    <phase>verify</phase>
-                    <goals>
-                        <goal>sign</goal>
-                    </goals>
-                    <configuration>
-                        <keyname>9F88D86AD9A0D91E</keyname>
-                    </configuration>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                        <configuration>
+                            <keyname>9F88D86AD9A0D91E</keyname>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
