@@ -1,0 +1,29 @@
+name: Zarr Conformance Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 0'
+
+jobs:
+  conformance-tests:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build
+        run: mvn package -DskipTests
+
+      - name: Run Conformance Tests
+        uses: Bisaloo/zarr-conformance-tests@v0.0.1
+        with:
+          zarr-cli: "java -jar target/zarr-java-0.0.9.jar"
