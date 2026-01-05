@@ -20,11 +20,13 @@ public class V2ChunkKeyEncoding extends ChunkKeyEncoding {
     @JsonCreator
     public V2ChunkKeyEncoding(
             @JsonProperty(value = "configuration") Configuration configuration
-    ) {if (configuration == null) {
-        this.configuration = new Configuration(Separator.DOT);
-      } else {
-        this.configuration = configuration;
-    }}
+    ) {
+        if (configuration == null) {
+            this.configuration = new Configuration(Separator.DOT);
+        } else {
+            this.configuration = configuration;
+        }
+    }
 
     @Override
     public String[] encodeChunkKey(long[] chunkCoords) {

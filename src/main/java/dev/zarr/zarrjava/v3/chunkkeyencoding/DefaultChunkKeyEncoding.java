@@ -20,11 +20,13 @@ public class DefaultChunkKeyEncoding extends ChunkKeyEncoding {
     @JsonCreator
     public DefaultChunkKeyEncoding(
             @JsonProperty(value = "configuration") Configuration configuration
-    ) {if (configuration == null) {
-        this.configuration = new Configuration(Separator.SLASH);
-      } else {
-        this.configuration = configuration;
-    }}
+    ) {
+        if (configuration == null) {
+            this.configuration = new Configuration(Separator.SLASH);
+        } else {
+            this.configuration = configuration;
+        }
+    }
 
 
     @Override
