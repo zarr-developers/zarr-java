@@ -1,15 +1,13 @@
-import sys
-from pathlib import Path
-
 import numpy as np
-
+import sys
 import zarr
+from pathlib import Path
 from zarr.storage import LocalStore
 
 store_path_read = Path(sys.argv[1])
 store_path_write = Path(sys.argv[2])
 zarr_format = int(sys.argv[3])
-assert zarr_format in (2,3), f"unexpected zarr format: {zarr_format}"
+assert zarr_format in (2, 3), f"unexpected zarr format: {zarr_format}"
 
 expected_data = np.arange(16 * 16 * 16, dtype='int32').reshape(16, 16, 16)
 

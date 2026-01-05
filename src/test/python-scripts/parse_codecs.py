@@ -1,3 +1,4 @@
+import numcodecs
 import zarr
 from zarr.codecs.blosc import BloscCodec
 from zarr.codecs.bytes import BytesCodec
@@ -6,7 +7,7 @@ from zarr.codecs.gzip import GzipCodec
 from zarr.codecs.sharding import ShardingCodec, ShardingCodecIndexLocation
 from zarr.codecs.transpose import TransposeCodec
 from zarr.codecs.zstd import ZstdCodec
-import numcodecs
+
 
 def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version: int = 3):
     compressor = None
@@ -40,11 +41,11 @@ def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version:
         filters = [TransposeCodec(order=(1, 0, 2))]
     elif codec_string == "sharding" and zarr_version == 3:
         serializer = ShardingCodec(chunk_shape=(2, 2, 4), codecs=(BytesCodec(endian="little"),),
-                                              index_location=ShardingCodecIndexLocation.start if param_string == "start"
-                                              else ShardingCodecIndexLocation.end)
+                                   index_location=ShardingCodecIndexLocation.start if param_string == "start"
+                                   else ShardingCodecIndexLocation.end)
     elif codec_string == "sharding_nested" and zarr_version == 3:
         serializer = ShardingCodec(chunk_shape=(2, 2, 4), codecs=(ShardingCodec(chunk_shape=(2, 1, 2),
-                                              codecs=[BytesCodec(endian="little")]),))
+                                                                                codecs=[BytesCodec(endian="little")]),))
     elif codec_string == "crc32c" and zarr_version == 3:
         compressor = Crc32cCodec()
     else:

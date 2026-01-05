@@ -23,12 +23,12 @@ public class ZarrTest {
         if (Files.exists(TESTOUTPUT)) {
             try (Stream<Path> walk = Files.walk(TESTOUTPUT)) {
                 walk.sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(file -> {
-                        if (!file.delete()) {
-                            throw new RuntimeException("Failed to delete file: " + file.getAbsolutePath());
-                        }
-                    });
+                        .map(Path::toFile)
+                        .forEach(file -> {
+                            if (!file.delete()) {
+                                throw new RuntimeException("Failed to delete file: " + file.getAbsolutePath());
+                            }
+                        });
             }
         }
         Files.createDirectory(TESTOUTPUT);
@@ -70,12 +70,12 @@ public class ZarrTest {
                 put("element", "value");
             }});
             put("array_of_attributes", new Attributes[]{
-                new Attributes() {{
-                    put("a", 1);
-                }},
-                new Attributes() {{
-                    put("b", 2);
-                }}
+                    new Attributes() {{
+                        put("a", 1);
+                    }},
+                    new Attributes() {{
+                        put("b", 2);
+                    }}
             });
         }};
     }
@@ -100,15 +100,15 @@ public class ZarrTest {
         Assertions.assertArrayEquals(new boolean[]{true, false, true}, attributes.getBooleanArray("boolean_array"));
         Assertions.assertEquals("value", attributes.getAttributes("nested").getString("element"));
         Assertions.assertArrayEquals(
-            new Attributes[]{
-                new Attributes() {{
-                    put("a", 1);
-                }},
-                new Attributes() {{
-                    put("b", 2);
-                }}
-            },
-            attributes.getArray("array_of_attributes", Attributes.class)
+                new Attributes[]{
+                        new Attributes() {{
+                            put("a", 1);
+                        }},
+                        new Attributes() {{
+                            put("b", 2);
+                        }}
+                },
+                attributes.getArray("array_of_attributes", Attributes.class)
         );
     }
 

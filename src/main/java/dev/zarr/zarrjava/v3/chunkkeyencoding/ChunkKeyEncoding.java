@@ -6,12 +6,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "name")
 @JsonSubTypes({
-    @JsonSubTypes.Type(value = DefaultChunkKeyEncoding.class, name = "default"),
-    @JsonSubTypes.Type(value = V2ChunkKeyEncoding.class, name = "v2")
+        @JsonSubTypes.Type(value = DefaultChunkKeyEncoding.class, name = "default"),
+        @JsonSubTypes.Type(value = V2ChunkKeyEncoding.class, name = "v2")
 })
 public abstract class ChunkKeyEncoding implements dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding {
 
 
-  public abstract String[] encodeChunkKey(long[] chunkCoords);
+    public abstract String[] encodeChunkKey(long[] chunkCoords);
 
 }

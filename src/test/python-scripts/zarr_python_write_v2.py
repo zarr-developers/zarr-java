@@ -1,11 +1,9 @@
-import sys
-from pathlib import Path
-
 import numpy as np
-
+import sys
 import zarr
-
+from pathlib import Path
 from zarr.storage import LocalStore
+
 from parse_codecs import parse_codecs_zarr_python
 
 codec_string = sys.argv[1]
