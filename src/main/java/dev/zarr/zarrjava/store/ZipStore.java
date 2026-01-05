@@ -16,14 +16,14 @@ public abstract class ZipStore implements Store, Store.ListableStore {
         // Attempt to read from the end of the file to find the EOCD record.
         // We try a small chunk first (1KB) which covers most short comments (or no comment),
         // then the maximum possible EOCD size (approx 65KB).
-        if (!underlyingStore.exists()) {
+        long fileSize = underlyingStore.getSize();
+        if (fileSize < 22) {
             return null;
         }
         int[] readSizes = {1024, 65535 + 22};
 
         for (int size : readSizes) {
             ByteBuffer buffer;
-            long fileSize = underlyingStore.getSize();
 
             if (fileSize < size){
                 buffer = underlyingStore.read();
@@ -47,6 +47,9 @@ public abstract class ZipStore implements Store, Store.ListableStore {
             String comment = getZipCommentFromBuffer(bufArray);
             if (comment != null) {
                 return comment;
+            }
+            if (fileSize < size){
+                break;
             }
         }
         return null;

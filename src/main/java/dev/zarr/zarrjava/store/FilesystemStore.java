@@ -177,6 +177,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
     public long getSize(String[] keys) {
         try {
             return Files.size(resolveKeys(keys));
+        } catch (NoSuchFileException e) {
+            return -1;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -141,7 +141,7 @@ public class S3Store implements Store, Store.ListableStore {
     try {
       return s3client.headObject(req).contentLength();
     } catch (NoSuchKeyException e) {
-      throw new RuntimeException(e);
+        return -1;
     }
   }
 

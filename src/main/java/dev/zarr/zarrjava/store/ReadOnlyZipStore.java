@@ -213,7 +213,7 @@ public class ReadOnlyZipStore extends ZipStore {
                 }
                 return size;
             }
-            throw new RuntimeException(new java.io.FileNotFoundException("Key not found: " + resolveKeys(keys)));
+            return -1; // file not found
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

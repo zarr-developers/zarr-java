@@ -50,5 +50,11 @@ public interface Store {
     return getInputStream(keys, 0, -1);
   }
 
+/**
+ * Gets the size in bytes of the data stored at the given keys.
+ *
+ * @param keys The keys identifying the data.
+ * @return The size in bytes of the data stored at the given keys. -1 if the keys do not exist.
+  */
   long getSize(String[] keys);
 }

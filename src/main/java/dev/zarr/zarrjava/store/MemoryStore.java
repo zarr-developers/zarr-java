@@ -98,7 +98,7 @@ public class MemoryStore implements Store, Store.ListableStore {
     public long getSize(String[] keys) {
         byte[] bytes = map.get(resolveKeys(keys));
         if (bytes == null) {
-            throw new RuntimeException(new java.io.FileNotFoundException("Key not found: " + String.join("/", keys)));
+            return -1;
         }
         return bytes.length;
     }

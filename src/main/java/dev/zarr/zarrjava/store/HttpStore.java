@@ -148,7 +148,7 @@ public class HttpStore implements Store {
         try {
             Response response = call.execute();
             if (!response.isSuccessful()) {
-                throw new IOException("Failed to get size: " + response.code());
+                return -1;
             }
 
             String contentLength = response.header("Content-Length");
