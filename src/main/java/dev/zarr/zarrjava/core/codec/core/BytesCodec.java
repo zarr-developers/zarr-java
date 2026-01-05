@@ -73,9 +73,10 @@ public abstract class BytesCodec extends ArrayBytesCodec {
             return bb;
         }
 
-    // All other primitive types (byte, short, int, long, char)
-    return chunkArray.getDataAsByteBuffer(order);
-}
+        // All other primitive types (byte, short, int, long, char)
+        return chunkArray.getDataAsByteBuffer(order);
+    }
+
     public enum Endian {
         LITTLE("little"),
         BIG("big");

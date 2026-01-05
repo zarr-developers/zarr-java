@@ -6,9 +6,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.codec.Codec;
-import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.v3.ArrayMetadata;
+import dev.zarr.zarrjava.v3.codec.Codec;
 
 import javax.annotation.Nonnull;
 import java.nio.ByteBuffer;

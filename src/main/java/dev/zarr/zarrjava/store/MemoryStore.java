@@ -8,81 +8,81 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 public class MemoryStore implements Store, Store.ListableStore {
-  private final Map<List<String>, byte[]> map = new ConcurrentHashMap<>();
+    private final Map<List<String>, byte[]> map = new ConcurrentHashMap<>();
 
-  List<String> resolveKeys(String[] keys) {
-    ArrayList<String> resolvedKeys = new ArrayList<>();
-    for(String key:keys){
-      if(key.startsWith("/")){
-        key = key.substring(1);
-      }
-      resolvedKeys.addAll(Arrays.asList(key.split("/")));
+    List<String> resolveKeys(String[] keys) {
+        ArrayList<String> resolvedKeys = new ArrayList<>();
+        for (String key : keys) {
+            if (key.startsWith("/")) {
+                key = key.substring(1);
+            }
+            resolvedKeys.addAll(Arrays.asList(key.split("/")));
+        }
+        return resolvedKeys;
     }
-    return resolvedKeys;
-  }
 
-  @Override
-  public boolean exists(String[] keys) {
-    return map.containsKey(resolveKeys(keys));
-  }
-
-  @Nullable
-  @Override
-  public ByteBuffer get(String[] keys) {
-      return get(keys, 0);
-  }
-
-  @Nullable
-  @Override
-  public ByteBuffer get(String[] keys, long start) {
-    return get(keys, start, -1);
-  }
-
-  @Nullable
-  @Override
-  public ByteBuffer get(String[] keys, long start, long end) {
-    byte[] bytes = map.get(resolveKeys(keys));
-    if (bytes == null) return null;
-    if (end < 0) end = bytes.length;
-    if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
-    return ByteBuffer.wrap(bytes, (int) start, (int) end);
-  }
-
-
-  @Override
-  public void set(String[] keys, ByteBuffer bytes) {
-    map.put(resolveKeys(keys), bytes.array());
-  }
-
-  @Override
-  public void delete(String[] keys) {
-    map.remove(resolveKeys(keys));
-  }
-
-  public Stream<String> list(String[] keys) {
-    List<String> prefix = resolveKeys(keys);
-    Set<String> allKeys = new HashSet<>();
-
-    for (List<String> k : map.keySet()) {
-      if (k.size() <= prefix.size() || ! k.subList(0, prefix.size()).equals(prefix))
-        continue;
-      for (int i = 0; i < k.size(); i++) {
-        List<String> subKey = k.subList(0, i+1);
-        allKeys.add(String.join("/", subKey));
-      }
+    @Override
+    public boolean exists(String[] keys) {
+        return map.containsKey(resolveKeys(keys));
     }
-    return allKeys.stream();
-  }
 
-  @Nonnull
-  @Override
-  public StoreHandle resolve(String... keys) {
-    return new StoreHandle(this, keys);
-  }
+    @Nullable
+    @Override
+    public ByteBuffer get(String[] keys) {
+        return get(keys, 0);
+    }
 
-  @Override
-  public String toString() {
-    return String.format("<MemoryStore {%s}>", hashCode());
-  }
+    @Nullable
+    @Override
+    public ByteBuffer get(String[] keys, long start) {
+        return get(keys, start, -1);
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer get(String[] keys, long start, long end) {
+        byte[] bytes = map.get(resolveKeys(keys));
+        if (bytes == null) return null;
+        if (end < 0) end = bytes.length;
+        if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
+        return ByteBuffer.wrap(bytes, (int) start, (int) end);
+    }
+
+
+    @Override
+    public void set(String[] keys, ByteBuffer bytes) {
+        map.put(resolveKeys(keys), bytes.array());
+    }
+
+    @Override
+    public void delete(String[] keys) {
+        map.remove(resolveKeys(keys));
+    }
+
+    public Stream<String> list(String[] keys) {
+        List<String> prefix = resolveKeys(keys);
+        Set<String> allKeys = new HashSet<>();
+
+        for (List<String> k : map.keySet()) {
+            if (k.size() <= prefix.size() || !k.subList(0, prefix.size()).equals(prefix))
+                continue;
+            for (int i = 0; i < k.size(); i++) {
+                List<String> subKey = k.subList(0, i + 1);
+                allKeys.add(String.join("/", subKey));
+            }
+        }
+        return allKeys.stream();
+    }
+
+    @Nonnull
+    @Override
+    public StoreHandle resolve(String... keys) {
+        return new StoreHandle(this, keys);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("<MemoryStore {%s}>", hashCode());
+    }
 }
 

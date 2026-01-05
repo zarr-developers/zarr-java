@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.codec.Codec;
-import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.core.codec.ArrayArrayCodec;
+import dev.zarr.zarrjava.v3.ArrayMetadata;
+import dev.zarr.zarrjava.v3.codec.Codec;
 import ucar.ma2.Array;
 
 import javax.annotation.Nonnull;
@@ -15,7 +15,7 @@ import java.util.Arrays;
 import static dev.zarr.zarrjava.utils.Utils.inversePermutation;
 import static dev.zarr.zarrjava.utils.Utils.isPermutation;
 
-public class TransposeCodec extends ArrayArrayCodec implements Codec{
+public class TransposeCodec extends ArrayArrayCodec implements Codec {
 
     @JsonIgnore
     @Nonnull
@@ -33,7 +33,7 @@ public class TransposeCodec extends ArrayArrayCodec implements Codec{
 
     @Override
     public Array decode(Array chunkArray) throws ZarrException {
-        if (!isPermutation(configuration.order)){
+        if (!isPermutation(configuration.order)) {
             throw new ZarrException("Order is no permutation array");
         }
         if (arrayMetadata.ndim() != configuration.order.length) {
@@ -44,10 +44,9 @@ public class TransposeCodec extends ArrayArrayCodec implements Codec{
     }
 
 
-
     @Override
     public Array encode(Array chunkArray) throws ZarrException {
-        if (!isPermutation(configuration.order)){
+        if (!isPermutation(configuration.order)) {
             throw new ZarrException("Order is no permutation array");
         }
         if (arrayMetadata.ndim() != configuration.order.length) {
@@ -82,7 +81,7 @@ public class TransposeCodec extends ArrayArrayCodec implements Codec{
 
         //only chunk shape gets transformed, the outer shape stays the same
         long[] transposedArrayShape = new long[arrayMetadata.ndim()];
-        Arrays.setAll(transposedArrayShape, i -> arrayMetadata.shape[i]/arrayMetadata.chunkShape[i]*transposedArrayShape[i]);
+        Arrays.setAll(transposedArrayShape, i -> arrayMetadata.shape[i] / arrayMetadata.chunkShape[i] * transposedArrayShape[i]);
 
         return new ArrayMetadata.CoreArrayMetadata(
                 transposedArrayShape,

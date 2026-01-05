@@ -10,24 +10,24 @@ import java.util.stream.Stream;
 
 public class V2ChunkKeyEncoding implements ChunkKeyEncoding {
 
-  public final String name = "v2";
-  @Nonnull
-  public final Separator separator;
+    public final String name = "v2";
+    @Nonnull
+    public final Separator separator;
 
-  public V2ChunkKeyEncoding(
-      @Nonnull Separator separator
-  ) {
-    this.separator = separator;
-  }
-
-  @Override
-  public String[] encodeChunkKey(long[] chunkCoords) {
-    Stream<String> keys = Arrays.stream(chunkCoords)
-        .mapToObj(Long::toString);
-    if (separator == Separator.SLASH) {
-      return keys.toArray(String[]::new);
+    public V2ChunkKeyEncoding(
+            @Nonnull Separator separator
+    ) {
+        this.separator = separator;
     }
-    return new String[]{keys.collect(Collectors.joining(this.separator.getValue()))};
-  }
+
+    @Override
+    public String[] encodeChunkKey(long[] chunkCoords) {
+        Stream<String> keys = Arrays.stream(chunkCoords)
+                .mapToObj(Long::toString);
+        if (separator == Separator.SLASH) {
+            return keys.toArray(String[]::new);
+        }
+        return new String[]{keys.collect(Collectors.joining(this.separator.getValue()))};
+    }
 }
 
