@@ -12,6 +12,33 @@ public abstract class ZipStore implements Store, Store.ListableStore {
         this.underlyingStore = underlyingStore;
     }
 
+    // adopted from https://stackoverflow.com/a/9918966
+    @Nullable
+    public static String getZipCommentFromBuffer(byte[] bufArray) throws IOException {
+        // End of Central Directory (EOCD) record magic number
+        byte[] EOCD = {0x50, 0x4b, 0x05, 0x06};
+        int buffLen = bufArray.length;
+        // Check the buffer from the end
+        search:
+        for (int i = buffLen - EOCD.length - 22; i >= 0; i--) {
+            for (int k = 0; k < EOCD.length; k++) {
+                if (bufArray[i + k] != EOCD[k]) {
+                    continue search;
+                }
+            }
+            // End of Central Directory found!
+            int commentLen = bufArray[i + 20] + bufArray[i + 21] * 256;
+            int realLen = buffLen - i - 22;
+            if (commentLen != realLen) {
+                throw new IOException("ZIP comment size mismatch: "
+                        + "directory says len is " + commentLen
+                        + ", but file ends after " + realLen + " bytes!");
+            }
+            return new String(bufArray, i + 22, commentLen);
+        }
+        return null;
+    }
+
     public String getArchiveComment() throws IOException {
         // Attempt to read from the end of the file to find the EOCD record.
         // We try a small chunk first (1KB) which covers most short comments (or no comment),
@@ -25,10 +52,9 @@ public abstract class ZipStore implements Store, Store.ListableStore {
         for (int size : readSizes) {
             ByteBuffer buffer;
 
-            if (fileSize < size){
+            if (fileSize < size) {
                 buffer = underlyingStore.read();
-            }
-            else {
+            } else {
                 buffer = underlyingStore.read(fileSize - size);
             }
 
@@ -48,36 +74,9 @@ public abstract class ZipStore implements Store, Store.ListableStore {
             if (comment != null) {
                 return comment;
             }
-            if (fileSize < size){
+            if (fileSize < size) {
                 break;
             }
-        }
-        return null;
-    }
-
-    // adopted from https://stackoverflow.com/a/9918966
-    @Nullable
-    public static String getZipCommentFromBuffer(byte[] bufArray) throws IOException {
-        // End of Central Directory (EOCD) record magic number
-        byte[]  EOCD = {0x50, 0x4b, 0x05, 0x06};
-        int buffLen = bufArray.length;
-        // Check the buffer from the end
-        search:
-        for (int i = buffLen - EOCD.length - 22; i >= 0; i--) {
-            for (int k = 0; k < EOCD.length; k++) {
-                if (bufArray[i + k] != EOCD[k]) {
-                    continue search;
-                }
-            }
-            // End of Central Directory found!
-            int commentLen = bufArray[i + 20] + bufArray[i + 21] * 256;
-            int realLen = buffLen - i - 22;
-            if (commentLen != realLen) {
-                throw new IOException("ZIP comment size mismatch: "
-                        + "directory says len is " + commentLen
-                        + ", but file ends after " + realLen + " bytes!");
-            }
-            return new String(bufArray, i + 22, commentLen);
         }
         return null;
     }

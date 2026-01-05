@@ -3,22 +3,13 @@ package dev.zarr.zarrjava;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.*;
-import dev.zarr.zarrjava.core.*;
-import org.apache.commons.compress.archivers.zip.*;
-
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
-import java.net.URI;
-import dev.zarr.zarrjava.store.FilesystemStore;
-import dev.zarr.zarrjava.store.HttpStore;
-import dev.zarr.zarrjava.store.MemoryStore;
-import dev.zarr.zarrjava.store.S3Store;
-import dev.zarr.zarrjava.v3.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -26,60 +17,21 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Stream;
-import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 
 import static dev.zarr.zarrjava.Utils.unzipFile;
 import static dev.zarr.zarrjava.Utils.zipFile;
-
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 public class ZarrStoreTest extends ZarrTest {
-    @Test
-    public void testFileSystemStores() throws IOException, ZarrException {
-        FilesystemStore fsStore = new FilesystemStore(TESTDATA);
-        ObjectMapper objectMapper = makeObjectMapper();
-
-        GroupMetadata groupMetadata = objectMapper.readValue(
-            Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
-                dev.zarr.zarrjava.v3.GroupMetadata.class
-        );
-
-        String groupMetadataString = objectMapper.writeValueAsString(groupMetadata);
-        Assertions.assertTrue(groupMetadataString.contains("\"zarr_format\":3"));
-        Assertions.assertTrue(groupMetadataString.contains("\"node_type\":\"group\""));
-
-        ArrayMetadata arrayMetadata = objectMapper.readValue(Files.readAllBytes(TESTDATA.resolve(
-                "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
-                dev.zarr.zarrjava.v3.ArrayMetadata.class);
-
-        String arrayMetadataString = objectMapper.writeValueAsString(arrayMetadata);
-        Assertions.assertTrue(arrayMetadataString.contains("\"zarr_format\":3"));
-        Assertions.assertTrue(arrayMetadataString.contains("\"node_type\":\"array\""));
-        Assertions.assertTrue(arrayMetadataString.contains("\"shape\":[1,4096,4096,2048]"));
-
-        Assertions.assertInstanceOf(Array.class, Array.open(fsStore.resolve("l4_sample", "color", "1")));
-
-        Node[] subNodes = Group.open(fsStore.resolve("l4_sample")).list().toArray(Node[]::new);
-        Assertions.assertEquals(2, subNodes.length);
-        Assertions.assertInstanceOf(Group.class, subNodes[0]);
-
-        Array[] colorSubNodes = ((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).list().toArray(Array[]::new);
-
-        Assertions.assertEquals(5, colorSubNodes.length);
-        Assertions.assertInstanceOf(Array.class, colorSubNodes[0]);
-
-        Array array = (Array) ((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).get("1");
-        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
-    }
-
     static StoreHandle createS3StoreHandle() {
         S3Store s3Store = new S3Store(S3Client.builder()
                 .endpointOverride(URI.create("https://uk1s3.embassy.ebi.ac.uk"))
@@ -92,31 +44,6 @@ public class ZarrStoreTest extends ZarrTest {
                 .credentialsProvider(AnonymousCredentialsProvider.create())
                 .build(), "idr", "zarr/v0.5/idr0033A");
         return s3Store.resolve("BR00109990_C2.zarr", "0", "0");
-    }
-
-    @Test
-    public void testS3Store() throws IOException, ZarrException {
-        StoreHandle s3StoreHandle = createS3StoreHandle();
-        Array arrayV3 = Array.open(s3StoreHandle);
-        Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayV3.metadata().shape);
-        Assertions.assertEquals(574, arrayV3.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
-
-        dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3StoreHandle);
-        Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayCore.metadata().shape);
-        Assertions.assertEquals(574, arrayCore.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
-    }
-
-    @Test
-    public void testS3StoreGet() throws ZarrException {
-        StoreHandle s3StoreHandle = createS3StoreHandle().resolve("zarr.json");
-        S3Store s3Store = (S3Store) s3StoreHandle.store;
-        ByteBuffer buffer = s3Store.get(s3StoreHandle.keys);
-        ByteBuffer bufferWithStart = s3Store.get(s3StoreHandle.keys, 10);
-        Assertions.assertEquals(10, buffer.remaining()-bufferWithStart.remaining());
-
-        ByteBuffer bufferWithStartAndEnd = s3Store.get(s3StoreHandle.keys, 0, 10);
-        Assertions.assertEquals(10, bufferWithStartAndEnd.remaining());
-
     }
 
     static Stream<StoreHandle> inputStreamStores() throws IOException {
@@ -150,6 +77,77 @@ public class ZarrStoreTest extends ZarrTest {
                 readOnlyZipStoreHandle,
                 httpStoreHandle
         );
+    }
+
+    static Stream<Store> localStores() {
+        return Stream.of(
+                new MemoryStore(),
+                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
+                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"), true)
+        );
+    }
+
+    @Test
+    public void testFileSystemStores() throws IOException, ZarrException {
+        FilesystemStore fsStore = new FilesystemStore(TESTDATA);
+        ObjectMapper objectMapper = makeObjectMapper();
+
+        GroupMetadata groupMetadata = objectMapper.readValue(
+                Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
+                dev.zarr.zarrjava.v3.GroupMetadata.class
+        );
+
+        String groupMetadataString = objectMapper.writeValueAsString(groupMetadata);
+        Assertions.assertTrue(groupMetadataString.contains("\"zarr_format\":3"));
+        Assertions.assertTrue(groupMetadataString.contains("\"node_type\":\"group\""));
+
+        ArrayMetadata arrayMetadata = objectMapper.readValue(Files.readAllBytes(TESTDATA.resolve(
+                        "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
+                dev.zarr.zarrjava.v3.ArrayMetadata.class);
+
+        String arrayMetadataString = objectMapper.writeValueAsString(arrayMetadata);
+        Assertions.assertTrue(arrayMetadataString.contains("\"zarr_format\":3"));
+        Assertions.assertTrue(arrayMetadataString.contains("\"node_type\":\"array\""));
+        Assertions.assertTrue(arrayMetadataString.contains("\"shape\":[1,4096,4096,2048]"));
+
+        Assertions.assertInstanceOf(Array.class, Array.open(fsStore.resolve("l4_sample", "color", "1")));
+
+        Node[] subNodes = Group.open(fsStore.resolve("l4_sample")).list().toArray(Node[]::new);
+        Assertions.assertEquals(2, subNodes.length);
+        Assertions.assertInstanceOf(Group.class, subNodes[0]);
+
+        Array[] colorSubNodes = ((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).list().toArray(Array[]::new);
+
+        Assertions.assertEquals(5, colorSubNodes.length);
+        Assertions.assertInstanceOf(Array.class, colorSubNodes[0]);
+
+        Array array = (Array) ((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).get("1");
+        Assertions.assertArrayEquals(new long[]{1, 4096, 4096, 2048}, array.metadata().shape);
+    }
+
+    @Test
+    public void testS3Store() throws IOException, ZarrException {
+        StoreHandle s3StoreHandle = createS3StoreHandle();
+        Array arrayV3 = Array.open(s3StoreHandle);
+        Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayV3.metadata().shape);
+        Assertions.assertEquals(574, arrayV3.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
+
+        dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3StoreHandle);
+        Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayCore.metadata().shape);
+        Assertions.assertEquals(574, arrayCore.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
+    }
+
+    @Test
+    public void testS3StoreGet() throws ZarrException {
+        StoreHandle s3StoreHandle = createS3StoreHandle().resolve("zarr.json");
+        S3Store s3Store = (S3Store) s3StoreHandle.store;
+        ByteBuffer buffer = s3Store.get(s3StoreHandle.keys);
+        ByteBuffer bufferWithStart = s3Store.get(s3StoreHandle.keys, 10);
+        Assertions.assertEquals(10, buffer.remaining() - bufferWithStart.remaining());
+
+        ByteBuffer bufferWithStartAndEnd = s3Store.get(s3StoreHandle.keys, 0, 10);
+        Assertions.assertEquals(10, bufferWithStartAndEnd.remaining());
+
     }
 
     @ParameterizedTest
@@ -251,7 +249,7 @@ public class ZarrStoreTest extends ZarrTest {
         Path path = TESTOUTPUT.resolve("testWriteZipStore" + (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
         BufferedZipStore zipStore = new BufferedZipStore(path, flushOnWrite);
         writeTestGroupV3(zipStore, true);
-        if(!flushOnWrite) zipStore.flush();
+        if (!flushOnWrite) zipStore.flush();
 
         BufferedZipStore zipStoreRead = new BufferedZipStore(path);
         assertIsTestGroupV3(Group.open(zipStoreRead.resolve()), true);
@@ -266,11 +264,11 @@ public class ZarrStoreTest extends ZarrTest {
     @ParameterizedTest
     @CsvSource({"false", "true",})
     public void testZipStoreWithComment(boolean flushOnWrite) throws ZarrException, IOException {
-        Path path = TESTOUTPUT.resolve("testZipStoreWithComment"+ (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
+        Path path = TESTOUTPUT.resolve("testZipStoreWithComment" + (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
         String comment = "{\"ome\": { \"version\": \"XX.YY\" }}";
         BufferedZipStore zipStore = new BufferedZipStore(path, comment, flushOnWrite);
         writeTestGroupV3(zipStore, true);
-        if(!flushOnWrite) zipStore.flush();
+        if (!flushOnWrite) zipStore.flush();
 
         try (java.util.zip.ZipFile zipFile = new java.util.zip.ZipFile(path.toFile())) {
             String retrievedComment = zipFile.getComment();
@@ -282,6 +280,7 @@ public class ZarrStoreTest extends ZarrTest {
 
     /**
      * Test that ZipStore meets requirements for underlying store of Zipped OME-Zarr
+     *
      * @see <a href="https://ngff.openmicroscopy.org/rfc/9/index.html">RFC-9: Zipped OME-Zarr</a>
      */
     @Test
@@ -306,7 +305,7 @@ public class ZarrStoreTest extends ZarrTest {
         zipStore.flush();
 
         try (ZipFile zip = new ZipFile(path.toFile())) {
-            ArrayList<ZipArchiveEntry> entries =  Collections.list(zip.getEntries());
+            ArrayList<ZipArchiveEntry> entries = Collections.list(zip.getEntries());
 
             // no compression
             for (ZipArchiveEntry e : entries) {
@@ -315,25 +314,24 @@ public class ZarrStoreTest extends ZarrTest {
 
             // correct order of zarr.json files
             String[] expectedFirstEntries = new String[]{
-                "zarr.json",
-                "a1/zarr.json",
-                "g1/zarr.json",
-                "g2/zarr.json",
-                "g3/zarr.json",
-                "g1/g1_1/zarr.json",
-                "g1/g1_2/zarr.json",
-                "g2/g2_1/zarr.json",
-                "g1/g1_1/g1_1_1/zarr.json"
+                    "zarr.json",
+                    "a1/zarr.json",
+                    "g1/zarr.json",
+                    "g2/zarr.json",
+                    "g3/zarr.json",
+                    "g1/g1_1/zarr.json",
+                    "g1/g1_2/zarr.json",
+                    "g2/g2_1/zarr.json",
+                    "g1/g1_1/g1_1_1/zarr.json"
             };
             String[] actualFirstEntries = entries.stream()
-                .map(ZipArchiveEntry::getName)
-                .limit(expectedFirstEntries.length)
-                .toArray(String[]::new);
+                    .map(ZipArchiveEntry::getName)
+                    .limit(expectedFirstEntries.length)
+                    .toArray(String[]::new);
 
             Assertions.assertArrayEquals(expectedFirstEntries, actualFirstEntries, "zarr.json files are not in the expected breadth-first order");
         }
     }
-
 
     @ParameterizedTest
     @CsvSource({"false", "true",})
@@ -341,7 +339,7 @@ public class ZarrStoreTest extends ZarrTest {
         Path path = TESTOUTPUT.resolve("testZipStoreV2" + (flushOnWrite ? "Flush" : "NoFlush") + ".zip");
         BufferedZipStore zipStore = new BufferedZipStore(path, flushOnWrite);
         writeTestGroupV2(zipStore, true);
-        if(!flushOnWrite) zipStore.flush();
+        if (!flushOnWrite) zipStore.flush();
 
         BufferedZipStore zipStoreRead = new BufferedZipStore(path);
         assertIsTestGroupV2(dev.zarr.zarrjava.core.Group.open(zipStoreRead.resolve()), true);
@@ -366,15 +364,6 @@ public class ZarrStoreTest extends ZarrTest {
         assertIsTestGroupV3(Group.open(readOnlyZipStore.resolve()), true);
     }
 
-
-    static Stream<Store> localStores() {
-        return Stream.of(
-                new MemoryStore(),
-                new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
-                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"), true)
-        );
-    }
-
     @ParameterizedTest
     @MethodSource("localStores")
     public void testLocalStores(Store store) throws IOException, ZarrException {
@@ -384,7 +373,7 @@ public class ZarrStoreTest extends ZarrTest {
     }
 
 
-    int[] testData(){
+    int[] testData() {
         int[] testData = new int[1024 * 1024];
         Arrays.setAll(testData, p -> p);
         return testData;

@@ -4,7 +4,6 @@ import dev.zarr.zarrjava.utils.Utils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
@@ -15,8 +14,8 @@ public class StoreHandle {
 
     @Nonnull
     public final Store store;
-  @Nonnull
-  public final String[] keys;
+    @Nonnull
+    public final String[] keys;
 
     public StoreHandle(@Nonnull Store store, @Nonnull String... keys) {
         this.store = store;
@@ -48,16 +47,16 @@ public class StoreHandle {
     }
 
     public InputStream getInputStream(int start, int end) {
-    return store.getInputStream(keys, start, end);
-  }
+        return store.getInputStream(keys, start, end);
+    }
 
-  public InputStream getInputStream() {
-    return store.getInputStream(keys);
-  }
+    public InputStream getInputStream() {
+        return store.getInputStream(keys);
+    }
 
-  public void set(ByteBuffer bytes) {
-    store.set(keys, bytes);
-  }
+    public void set(ByteBuffer bytes) {
+        store.set(keys, bytes);
+    }
 
     public void delete() {
         store.delete(keys);
@@ -75,13 +74,13 @@ public class StoreHandle {
     }
 
     public long getSize() {
-    return store.getSize(keys);
-  }
+        return store.getSize(keys);
+    }
 
-  @Override
-  public String toString() {
-    return store + "/" + String.join("/", keys);
-  }
+    @Override
+    public String toString() {
+        return store + "/" + String.join("/", keys);
+    }
 
     public StoreHandle resolve(String... subKeys) {
         return new StoreHandle(store, Utils.concatArrays(keys, subKeys));

@@ -82,7 +82,7 @@ public class S3Store implements Store, Store.ListableStore {
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                .range(String.format("bytes=%d-%d", start, end-1)) // S3 range is inclusive
+                .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
                 .build();
         return get(req);
     }
@@ -122,30 +122,30 @@ public class S3Store implements Store, Store.ListableStore {
     }
 
     @Override
-  public InputStream getInputStream(String[] keys, long start, long end) {
-    GetObjectRequest req = GetObjectRequest.builder()
-    .bucket(bucketName)
-    .key(resolveKeys(keys))
-    .range(String.format("bytes=%d-%d", start, end-1)) // S3 range is inclusive
-    .build();
-    ResponseInputStream<GetObjectResponse> responseInputStream = s3client.getObject(req);
-    return responseInputStream;
-  }
-
-  @Override
-  public long getSize(String[] keys) {
-    HeadObjectRequest req = HeadObjectRequest.builder()
-            .bucket(bucketName)
-            .key(resolveKeys(keys))
-            .build();
-    try {
-      return s3client.headObject(req).contentLength();
-    } catch (NoSuchKeyException e) {
-        return -1;
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        GetObjectRequest req = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(resolveKeys(keys))
+                .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
+                .build();
+        ResponseInputStream<GetObjectResponse> responseInputStream = s3client.getObject(req);
+        return responseInputStream;
     }
-  }
 
-  @Override
+    @Override
+    public long getSize(String[] keys) {
+        HeadObjectRequest req = HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(resolveKeys(keys))
+                .build();
+        try {
+            return s3client.headObject(req).contentLength();
+        } catch (NoSuchKeyException e) {
+            return -1;
+        }
+    }
+
+    @Override
     public String toString() {
         return "s3://" + bucketName + "/" + prefix;
     }

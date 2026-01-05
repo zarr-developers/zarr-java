@@ -1,11 +1,10 @@
 package dev.zarr.zarrjava.store;
 
 import dev.zarr.zarrjava.utils.Utils;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.apache.commons.io.input.BoundedInputStream;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -110,26 +109,27 @@ public class FilesystemStore implements Store, Store.ListableStore {
         }
     }
 
-  @Override
-  public void delete(String[] keys) {
-    try {
-      Files.delete(resolveKeys(keys));
-    } catch (NoSuchFileException e) {
-      // ignore
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    @Override
+    public void delete(String[] keys) {
+        try {
+            Files.delete(resolveKeys(keys));
+        } catch (NoSuchFileException e) {
+            // ignore
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
-  }
-  public Stream<String[]> list(String[] keys) {
+
+    public Stream<String[]> list(String[] keys) {
         try {
             return Files.list(resolveKeys(keys)).map(path -> {
-        Path relativePath = resolveKeys(keys).relativize(path);
-        String[] parts = new String[relativePath.getNameCount()];
-        for (int i = 0; i < relativePath.getNameCount(); i++) {
-          parts[i] = relativePath.getName(i).toString();
-        }
-        return parts;
-      });
+                Path relativePath = resolveKeys(keys).relativize(path);
+                String[] parts = new String[relativePath.getNameCount()];
+                for (int i = 0; i < relativePath.getNameCount(); i++) {
+                    parts[i] = relativePath.getName(i).toString();
+                }
+                return parts;
+            });
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

@@ -1,6 +1,5 @@
 package dev.zarr.zarrjava.store;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveInputStream;
 import org.apache.commons.io.input.BoundedInputStream;
@@ -16,11 +15,24 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 
-/** A Store implementation that provides read-only access to a zip archive stored in an underlying Store.
+/**
+ * A Store implementation that provides read-only access to a zip archive stored in an underlying Store.
  * Compared to BufferedZipStore, this implementation reads directly from the zip archive without parsing
  * its contents into a buffer store first making it more efficient for read-only access to large zip archives.
  */
 public class ReadOnlyZipStore extends ZipStore {
+
+    public ReadOnlyZipStore(@Nonnull StoreHandle underlyingStore) {
+        super(underlyingStore);
+    }
+
+    public ReadOnlyZipStore(@Nonnull Path underlyingStore) {
+        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()));
+    }
+
+    public ReadOnlyZipStore(@Nonnull String underlyingStorePath) {
+        this(Paths.get(underlyingStorePath));
+    }
 
     String resolveKeys(String[] keys) {
         return String.join("/", keys);
@@ -112,18 +124,6 @@ public class ReadOnlyZipStore extends ZipStore {
         return "ReadOnlyZipStore(" + underlyingStore.toString() + ")";
     }
 
-    public ReadOnlyZipStore(@Nonnull StoreHandle underlyingStore) {
-        super(underlyingStore);
-    }
-
-    public ReadOnlyZipStore(@Nonnull Path underlyingStore) {
-        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()));
-    }
-
-    public ReadOnlyZipStore(@Nonnull String underlyingStorePath) {
-        this(Paths.get(underlyingStorePath));
-    }
-
     @Override
     public Stream<String[]> list(String[] keys) {
         Stream.Builder<String[]> builder = Stream.builder();
@@ -147,7 +147,8 @@ public class ReadOnlyZipStore extends ZipStore {
                 String[] entryKeys = resolveEntryKeys(entryName.substring(prefix.length()));
                 builder.add(entryKeys);
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
         return builder.build();
     }
 
@@ -180,7 +181,8 @@ public class ReadOnlyZipStore extends ZipStore {
                 return new BoundedInputStream(zis, bytesToRead);
             }
             return null;
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
         return null;
     }
 

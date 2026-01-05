@@ -1,20 +1,12 @@
 package dev.zarr.zarrjava.store;
 
-import com.squareup.okhttp.Call;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.Response;
-import com.squareup.okhttp.ResponseBody;
-
-import java.io.FilterInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
 import com.squareup.okhttp.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 public class HttpStore implements Store {
@@ -106,10 +98,10 @@ public class HttpStore implements Store {
         return new StoreHandle(this, keys);
     }
 
-  @Override
-  public String toString() {
-      return uri;
-  }
+    @Override
+    public String toString() {
+        return uri;
+    }
 
     @Override
     @Nullable
@@ -138,6 +130,7 @@ public class HttpStore implements Store {
             return null;
         }
     }
+
     @Override
     public long getSize(String[] keys) {
         // Explicitly request "identity" encoding to prevent OkHttp from adding "gzip"

@@ -61,17 +61,17 @@ public class MemoryStore implements Store, Store.ListableStore {
     }
 
     public Stream<String[]> list(String[] keys) {
-      List<String> prefix = resolveKeys(keys);
-      Set<List<String>> allKeys = new HashSet<>();
+        List<String> prefix = resolveKeys(keys);
+        Set<List<String>> allKeys = new HashSet<>();
 
-      for (List<String> k : map.keySet()) {
-          if (k.size() <= prefix.size() || ! k.subList(0, prefix.size()).equals(prefix))
-              continue;
-          for (int i = prefix.size(); i < k.size(); i++) {
-              allKeys.add(k.subList(0, i+1));
-                  }
-      }
-      return allKeys.stream().map(k -> k.toArray(new String[0]));
+        for (List<String> k : map.keySet()) {
+            if (k.size() <= prefix.size() || !k.subList(0, prefix.size()).equals(prefix))
+                continue;
+            for (int i = prefix.size(); i < k.size(); i++) {
+                allKeys.add(k.subList(0, i + 1));
+            }
+        }
+        return allKeys.stream().map(k -> k.toArray(new String[0]));
     }
 
     @Nonnull
@@ -91,7 +91,7 @@ public class MemoryStore implements Store, Store.ListableStore {
         if (bytes == null) return null;
         if (end < 0) end = bytes.length;
         if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
-        return new java.io.ByteArrayInputStream(bytes, (int) start, (int)(end - start));
+        return new java.io.ByteArrayInputStream(bytes, (int) start, (int) (end - start));
     }
 
     @Override
