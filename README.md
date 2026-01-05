@@ -48,3 +48,9 @@ Furthermore, you will need the `l4_sample` test data:
 && cd testdata
 && unzip l4_sample.zip
 `
+
+### Code Style & Formatting
+This project uses IntelliJ IDEA default Java formatting
+
+Before submitting changes, please run:
+- IntelliJ: `Reformat Code` and `Optimize Imports`
