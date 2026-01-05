@@ -2,9 +2,11 @@ package dev.zarr.zarrjava;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
-import dev.zarr.zarrjava.store.*;
+import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.HttpStore;
+import dev.zarr.zarrjava.store.MemoryStore;
+import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.v3.*;
-import java.net.URI;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -15,6 +17,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.stream.Stream;
@@ -28,8 +31,8 @@ public class ZarrStoreTest extends ZarrTest {
         ObjectMapper objectMapper = makeObjectMapper();
 
         GroupMetadata groupMetadata = objectMapper.readValue(
-            Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
-            GroupMetadata.class
+                Files.readAllBytes(TESTDATA.resolve("l4_sample").resolve("zarr.json")),
+                GroupMetadata.class
         );
 
         String groupMetadataString = objectMapper.writeValueAsString(groupMetadata);
@@ -37,8 +40,8 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertTrue(groupMetadataString.contains("\"node_type\":\"group\""));
 
         ArrayMetadata arrayMetadata = objectMapper.readValue(Files.readAllBytes(TESTDATA.resolve(
-                "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
-            ArrayMetadata.class);
+                        "l4_sample").resolve("color").resolve("1").resolve("zarr.json")),
+                ArrayMetadata.class);
 
         String arrayMetadataString = objectMapper.writeValueAsString(arrayMetadata);
         Assertions.assertTrue(arrayMetadataString.contains("\"zarr_format\":3"));
@@ -63,23 +66,23 @@ public class ZarrStoreTest extends ZarrTest {
     @Test
     public void testS3Store() throws IOException, ZarrException {
         S3Store s3Store = new S3Store(S3Client.builder()
-            .endpointOverride(URI.create("https://uk1s3.embassy.ebi.ac.uk"))
-            .region(Region.US_EAST_1) // required, but ignored
-            .serviceConfiguration(
-                S3Configuration.builder()
-                    .pathStyleAccessEnabled(true) // required
-                    .build()
-            )
-            .credentialsProvider(AnonymousCredentialsProvider.create())
-            .build(), "idr", "zarr/v0.5/idr0033A");
+                .endpointOverride(URI.create("https://uk1s3.embassy.ebi.ac.uk"))
+                .region(Region.US_EAST_1) // required, but ignored
+                .serviceConfiguration(
+                        S3Configuration.builder()
+                                .pathStyleAccessEnabled(true) // required
+                                .build()
+                )
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .build(), "idr", "zarr/v0.5/idr0033A");
 
         Array arrayV3 = Array.open(s3Store.resolve("BR00109990_C2.zarr", "0", "0"));
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayV3.metadata().shape);
-        Assertions.assertEquals(574, arrayV3.read(new long[]{0,0,0}, new int[]{1,1,1}).getInt(0));
+        Assertions.assertEquals(574, arrayV3.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
 
         dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(s3Store.resolve("BR00109990_C2.zarr", "0", "0"));
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayCore.metadata().shape);
-        Assertions.assertEquals(574, arrayCore.read(new long[]{0,0,0}, new int[]{1,1,1}).getInt(0));
+        Assertions.assertEquals(574, arrayCore.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
     }
 
     @Test

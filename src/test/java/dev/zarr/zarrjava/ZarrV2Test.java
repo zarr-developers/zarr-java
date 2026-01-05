@@ -1,8 +1,8 @@
 package dev.zarr.zarrjava;
 
-import dev.zarr.zarrjava.core.Attributes;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -28,18 +28,26 @@ import java.util.stream.Stream;
 import static dev.zarr.zarrjava.core.Node.ZARRAY;
 
 public class ZarrV2Test extends ZarrTest {
+    static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> compressorBuilder() {
+        return Stream.of(
+                ArrayMetadataBuilder::withBloscCompressor,
+                ArrayMetadataBuilder::withZlibCompressor,
+                b -> b
+        );
+    }
+
     @ParameterizedTest
     @CsvSource({"blosclz,noshuffle,0", "lz4,shuffle,6", "lz4hc,bitshuffle,3", "zlib,shuffle,5", "zstd,bitshuffle,9"})
     public void testCreateBlosc(String cname, String shuffle, int clevel) throws IOException, ZarrException {
         Array array = Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("v2_create_blosc", cname + "_" + shuffle + "_" + clevel),
-            Array.metadataBuilder()
-                .withShape(10, 10)
-                .withDataType(DataType.UINT8)
-                .withChunks(5, 5)
-                .withFillValue(1)
-                .withBloscCompressor(cname, shuffle, clevel)
-                .build()
+                new FilesystemStore(TESTOUTPUT).resolve("v2_create_blosc", cname + "_" + shuffle + "_" + clevel),
+                Array.metadataBuilder()
+                        .withShape(10, 10)
+                        .withDataType(DataType.UINT8)
+                        .withChunks(5, 5)
+                        .withFillValue(1)
+                        .withBloscCompressor(cname, shuffle, clevel)
+                        .build()
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
@@ -50,7 +58,7 @@ public class ZarrV2Test extends ZarrTest {
 
     @ParameterizedTest
     @CsvSource({
-        "BOOL", "FLOAT64"
+            "BOOL", "FLOAT64"
     })
     public void testReadBloscDetectTypesize(DataType dt) throws IOException, ZarrException {
         String arrayname = dt == DataType.BOOL ? "bool" : "double";
@@ -65,13 +73,13 @@ public class ZarrV2Test extends ZarrTest {
         DataType dataType = DataType.UINT32;
 
         Array array = Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("v2_create"),
-            Array.metadataBuilder()
-                .withShape(10, 10)
-                .withDataType(dataType)
-                .withChunks(5, 5)
-                .withFillValue(2)
-                .build()
+                new FilesystemStore(TESTOUTPUT).resolve("v2_create"),
+                Array.metadataBuilder()
+                        .withShape(10, 10)
+                        .withDataType(dataType)
+                        .withChunks(5, 5)
+                        .withFillValue(2)
+                        .build()
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{8, 8}));
 
@@ -84,14 +92,14 @@ public class ZarrV2Test extends ZarrTest {
     @ValueSource(ints = {0, 1, 5, 9})
     public void testCreateZlib(int level) throws IOException, ZarrException {
         Array array = Array.create(
-            new FilesystemStore(TESTOUTPUT).resolve("v2_create_zlib", String.valueOf(level)),
-            Array.metadataBuilder()
-                .withShape(15, 10)
-                .withDataType(DataType.UINT8)
-                .withChunks(4, 5)
-                .withFillValue(5)
-                .withZlibCompressor(level)
-                .build()
+                new FilesystemStore(TESTOUTPUT).resolve("v2_create_zlib", String.valueOf(level)),
+                Array.metadataBuilder()
+                        .withShape(15, 10)
+                        .withDataType(DataType.UINT8)
+                        .withChunks(4, 5)
+                        .withFillValue(5)
+                        .withZlibCompressor(level)
+                        .build()
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{7, 6}));
 
@@ -106,12 +114,12 @@ public class ZarrV2Test extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_no_fillvalue", dataType.name());
 
         Array array = Array.create(
-            storeHandle,
-            Array.metadataBuilder()
-                .withShape(15, 10)
-                .withDataType(dataType)
-                .withChunks(4, 5)
-                .build()
+                storeHandle,
+                Array.metadataBuilder()
+                        .withShape(15, 10)
+                        .withDataType(dataType)
+                        .withChunks(4, 5)
+                        .build()
         );
         Assertions.assertNull(array.metadata().fillValue);
 
@@ -123,11 +131,10 @@ public class ZarrV2Test extends ZarrTest {
         }
 
         Array array2 = Array.open(
-            storeHandle
+                storeHandle
         );
         Assertions.assertNull(array2.metadata().fillValue);
     }
-
 
     @Test
     public void testOpen() throws ZarrException, IOException {
@@ -236,15 +243,14 @@ public class ZarrV2Test extends ZarrTest {
         Group group = Group.create(fsStore.resolve("v2_testgroup"));
         Group group2 = group.createGroup("test2");
         Array array = group2.createArray("array", b ->
-            b.withShape(10, 10)
-                .withDataType(DataType.UINT8)
-                .withChunks(5, 5)
+                b.withShape(10, 10)
+                        .withDataType(DataType.UINT8)
+                        .withChunks(5, 5)
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
         Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata().chunks);
     }
-
 
     @Test
     public void testCreateGroup() throws ZarrException, IOException {
@@ -271,15 +277,15 @@ public class ZarrV2Test extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testAttributesV2");
 
         ArrayMetadata arrayMetadata = Array.metadataBuilder()
-            .withShape(10, 10)
-            .withDataType(DataType.UINT8)
-            .withChunks(5, 5)
-            .putAttribute("specific", "attribute")
-            .withAttributes(defaultTestAttributes())
-            .withAttributes(new Attributes() {{
-                put("another", "attribute");
-            }})
-            .build();
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(5, 5)
+                .putAttribute("specific", "attribute")
+                .withAttributes(defaultTestAttributes())
+                .withAttributes(new Attributes() {{
+                    put("another", "attribute");
+                }})
+                .build();
 
         Array array = Array.create(storeHandle, arrayMetadata);
         assertContainsTestAttributes(array.metadata().attributes());
@@ -297,11 +303,11 @@ public class ZarrV2Test extends ZarrTest {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testSetAttributesV2");
 
         ArrayMetadata arrayMetadata = Array.metadataBuilder()
-            .withShape(10, 10)
-            .withDataType(DataType.UINT8)
-            .withChunks(5, 5)
-            .withAttributes(new Attributes(b -> b.set("some", "value")))
-            .build();
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunks(5, 5)
+                .withAttributes(new Attributes(b -> b.set("some", "value")))
+                .build();
 
         Array array = Array.create(storeHandle, arrayMetadata);
         Assertions.assertEquals("value", array.metadata().attributes().getString("some"));
@@ -332,11 +338,11 @@ public class ZarrV2Test extends ZarrTest {
 
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayV2");
         ArrayMetadata arrayMetadata = Array.metadataBuilder()
-            .withShape(10, 10)
-            .withDataType(DataType.UINT32)
-            .withChunks(5, 5)
-            .withFillValue(1)
-            .build();
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunks(5, 5)
+                .withFillValue(1)
+                .build();
         ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
         Array array = Array.create(storeHandle, arrayMetadata);
         array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
@@ -365,15 +371,6 @@ public class ZarrV2Test extends ZarrTest {
 
         group = Group.open(storeHandle);
         Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
-    }
-
-
-    static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> compressorBuilder() {
-        return Stream.of(
-                ArrayMetadataBuilder::withBloscCompressor,
-                ArrayMetadataBuilder::withZlibCompressor,
-                b -> b
-        );
     }
 
     @ParameterizedTest
@@ -406,7 +403,7 @@ public class ZarrV2Test extends ZarrTest {
         );
         group.createGroup("subgroup");
         Assertions.assertEquals(2, group.list().count());
-        for(String s: storeHandle.list().toArray(String[]::new))
+        for (String s : storeHandle.list().toArray(String[]::new))
             System.out.println(s);
     }
 
