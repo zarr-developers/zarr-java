@@ -68,7 +68,7 @@ public class MemoryStore implements Store, Store.ListableStore {
             if (k.size() <= prefix.size() || !k.subList(0, prefix.size()).equals(prefix))
                 continue;
             for (int i = prefix.size(); i < k.size(); i++) {
-                allKeys.add(k.subList(0, i + 1));
+                allKeys.add(k.subList(prefix.size(), i + 1));
             }
         }
         return allKeys.stream().map(k -> k.toArray(new String[0]));
