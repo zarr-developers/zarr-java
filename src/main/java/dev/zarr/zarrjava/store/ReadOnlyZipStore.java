@@ -140,7 +140,9 @@ public class ReadOnlyZipStore extends ZipStore {
                 if (entryName.startsWith("/")) {
                     entryName = entryName.substring(1);
                 }
-
+                if (entryName.endsWith("/")) {
+                    entryName = entryName.substring(0, entryName.length() - 1);
+                }
                 if (!entryName.startsWith(prefix) || entryName.equals(prefix)) {
                     continue;
                 }
