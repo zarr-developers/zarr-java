@@ -9,7 +9,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Objects;
 import java.util.stream.Stream;
 
 public abstract class Group extends AbstractNode {
@@ -71,17 +70,7 @@ public abstract class Group extends AbstractNode {
         return get(new String[]{key});
     }
 
-    public Stream<Node> list() {
-        return storeHandle.list()
-                .map(key -> {
-                    try {
-                        return get(key);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .filter(Objects::nonNull);
-    }
+    public abstract Stream<Node> list();
 
     public Node[] listAsArray() {
         try (Stream<Node> nodeStream = list()) {
