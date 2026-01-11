@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public abstract class ZipStore implements Store, Store.ListableStore {
-    protected final StoreHandle underlyingStore;
+    public final StoreHandle underlyingStore;
 
     public ZipStore(@Nonnull StoreHandle underlyingStore) {
         this.underlyingStore = underlyingStore;

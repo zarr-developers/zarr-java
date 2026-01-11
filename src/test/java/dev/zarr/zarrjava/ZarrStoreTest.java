@@ -24,6 +24,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 
@@ -79,11 +81,12 @@ public class ZarrStoreTest extends ZarrTest {
         );
     }
 
-    static Stream<Store> localStores() {
+    static Stream<Store.ListableStore> localStores() {
         return Stream.of(
                 new MemoryStore(),
                 new FilesystemStore(TESTOUTPUT.resolve("testLocalStoresFS")),
-                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"), true)
+                new BufferedZipStore(TESTOUTPUT.resolve("testLocalStoresZIP.zip"), true),
+                new ReadOnlyZipStore(TESTOUTPUT.resolve("testLocalStoresReadOnlyZIP.zip"))
         );
     }
 
@@ -113,8 +116,7 @@ public class ZarrStoreTest extends ZarrTest {
         Assertions.assertInstanceOf(Array.class, Array.open(fsStore.resolve("l4_sample", "color", "1")));
 
         Node[] subNodes = Group.open(fsStore.resolve("l4_sample")).list().toArray(Node[]::new);
-        Assertions.assertEquals(2, subNodes.length);
-        Assertions.assertInstanceOf(Group.class, subNodes[0]);
+        Assertions.assertEquals(12, subNodes.length);
 
         Array[] colorSubNodes = ((Group) Group.open(fsStore.resolve("l4_sample")).get("color")).list().toArray(Array[]::new);
 
@@ -366,9 +368,34 @@ public class ZarrStoreTest extends ZarrTest {
 
     @ParameterizedTest
     @MethodSource("localStores")
-    public void testLocalStores(Store store) throws IOException, ZarrException {
+    public void testLocalStores(Store.ListableStore store) throws IOException, ZarrException {
         boolean useParallel = true;
-        Group group = writeTestGroupV3(store, useParallel);
+        Store writeStore = store;
+        if (store instanceof ReadOnlyZipStore) {
+            StoreHandle underlyingStore = ((ReadOnlyZipStore)store).underlyingStore;
+            writeStore = new BufferedZipStore(underlyingStore, true);
+        }
+        Group group = writeTestGroupV3(writeStore, useParallel);
+
+        java.util.Set<String> expectedSubgroupKeys = new java.util.HashSet<>(Arrays.asList(
+                "array/c/1/1",
+                "array/c/0/0",
+                "array/c/0/1",
+                "zarr.json",
+                "array",
+                "array/c/1/0",
+                "array/c/1",
+                "array/c/0",
+                "array/zarr.json",
+                "array/c"
+        ));
+
+        java.util.Set<String> actualKeys = store.resolve("subgroup").list()
+                .map(node -> String.join("/", node))
+                .collect(Collectors.toSet());
+
+        Assertions.assertEquals(expectedSubgroupKeys, actualKeys);
+
         assertIsTestGroupV3(group, useParallel);
     }
 
@@ -389,17 +416,29 @@ public class ZarrStoreTest extends ZarrTest {
                 .withChunkShape(512, 512)
         );
         array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), useParallel);
-        group.createGroup("subgroup");
+        dev.zarr.zarrjava.v3.Group subgroup = group.createGroup("subgroup");
+        dev.zarr.zarrjava.v3.Array subgrouparray = subgroup.createArray("array", b -> b
+                .withShape(1024, 1024)
+                .withDataType(dev.zarr.zarrjava.v3.DataType.UINT32)
+                .withChunkShape(512, 512)
+        );
+        subgrouparray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{1024, 1024}, testData()), useParallel);
+
         group.setAttributes(new Attributes(b -> b.set("some", "value")));
         return group;
     }
 
     void assertIsTestGroupV3(Group group, boolean useParallel) throws ZarrException, IOException {
         Stream<Node> nodes = group.list();
-        Assertions.assertEquals(2, nodes.count());
+        List<Node> nodeList = nodes.collect(Collectors.toList());
+        Assertions.assertEquals(3, nodeList.size());
         Array array = (Array) group.get("array");
         Assertions.assertNotNull(array);
         ucar.ma2.Array result = array.read(useParallel);
+        Assertions.assertArrayEquals(testData(), (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        Group subgroup = (Group) group.get("subgroup");
+        Array subgrouparray = (Array) subgroup.get("array");
+        result = subgrouparray.read(useParallel);
         Assertions.assertArrayEquals(testData(), (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
         Attributes attrs = group.metadata().attributes();
         Assertions.assertNotNull(attrs);
