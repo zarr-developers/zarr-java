@@ -17,6 +17,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -183,20 +184,22 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
 
     @Override
     public Stream<dev.zarr.zarrjava.core.Node> list() {
-        Stream<String[]> metadataKeys = storeHandle.list()
-                .filter(key -> {
-                    if (key.length <= 1) return false; // exclude root from list
-                    String fileName = key[key.length - 1];
-                    return fileName.equals(ZARRAY) || fileName.equals(ZGROUP);
-                });
-
-        return metadataKeys.map(key -> {
+        return storeHandle.list().map(key -> {
+            if (key.length <= 1) return null; // exclude root from list
+            String fileName = key[key.length - 1];
+            StoreHandle parent = storeHandle.resolve(Arrays.copyOf(key, key.length - 1));
             try {
-                return get(Arrays.copyOf(key, key.length - 1));
+                if (fileName.equals(ZARRAY)) {
+                    return Array.open(parent);
+                }
+                if (fileName.equals(ZGROUP)) {
+                    return (dev.zarr.zarrjava.core.Node) Group.open(parent);
+                }
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-        });
+            return null;
+        }).filter(Objects::nonNull);
     }
 
     /**
