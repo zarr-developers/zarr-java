@@ -129,13 +129,13 @@
         <dependency>
             <groupId>com.adobe.testing</groupId>
             <artifactId>s3mock</artifactId>
-            <version>3.12.0</version>
+            <version>2.17.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.adobe.testing</groupId>
             <artifactId>s3mock-testcontainers</artifactId>
-            <version>3.12.0</version>
+            <version>2.17.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -148,6 +148,13 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <version>1.20.4</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Add/Update Logback to a version compatible with SLF4J 2.0 (Java 11+) -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.14</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -168,6 +175,10 @@
                 <version>3.2.5</version>
                 <configuration>
                     <useSystemClassLoader>false</useSystemClassLoader>
+                    <environmentVariables>
+                        <!-- Force Testcontainers to use a newer Docker API version supported by your local Daemon -->
+                        <DOCKER_API_VERSION>1.44</DOCKER_API_VERSION>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>
