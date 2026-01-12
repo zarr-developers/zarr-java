@@ -46,3 +46,4 @@ build/
 /pyproject.toml
 /uv.lock
 **/__pycache__
+/dependency-reduced-pom.xml

@@ -1,19 +1,26 @@
 package dev.zarr.zarrjava;
 
+import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.*;
 import dev.zarr.zarrjava.store.*;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.utils.AttributeMap;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +39,55 @@ import java.util.zip.ZipEntry;
 import static dev.zarr.zarrjava.Utils.unzipFile;
 import static dev.zarr.zarrjava.Utils.zipFile;
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
+import static software.amazon.awssdk.http.SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES;
+
+
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Testcontainers
+class S3StoreTest {
+    private final String TEST_BUCKET = "test-bucket";
+    @Container
+    private S3MockContainer s3Mock;
+    private S3Client s3Client;
+
+    @BeforeAll
+    void setUp() {
+        s3Mock = new S3MockContainer("latest").withInitialBuckets(TEST_BUCKET);
+        s3Mock.start();
+        SdkHttpClient httpClient = ApacheHttpClient.builder().buildWithDefaults(AttributeMap.builder().put(TRUST_ALL_CERTIFICATES, Boolean.TRUE).build());
+        s3Client = S3Client.builder().endpointOverride(URI.create(s3Mock.getHttpsEndpoint())).serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build()).credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("foo", "bar"))).region(Region.US_EAST_1) // required, but ignored
+                .httpClient(httpClient).build();
+    }
+
+    @AfterAll
+    void tearDown() {
+        if (s3Mock.isRunning()) {
+            s3Mock.stop();
+        }
+    }
+
+    @Test
+    void testS3Mock() {
+        Assertions.assertTrue(s3Mock.isRunning());
+    }
+
+    @Test
+    void testReadWriteS3Store() {
+        S3Store s3Store = new S3Store(s3Client, TEST_BUCKET, "");
+
+        StoreHandle storeHandle = s3Store.resolve("testfile");
+        byte[] testData = new byte[100];
+        for (int i = 0; i < testData.length; i++) {
+            testData[i] = (byte) i;
+        }
+        storeHandle.set(ByteBuffer.wrap(testData));
+        ByteBuffer retrievedData = storeHandle.read();
+        byte[] retrievedBytes = new byte[retrievedData.remaining()];
+        retrievedData.get(retrievedBytes);
+        Assertions.assertArrayEquals(testData, retrievedBytes);
+    }
+
+}
 
 public class ZarrStoreTest extends ZarrTest {
     static StoreHandle createS3StoreHandle() {
