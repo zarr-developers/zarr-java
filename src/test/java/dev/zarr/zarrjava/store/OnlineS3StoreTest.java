@@ -62,6 +62,12 @@ public class OnlineS3StoreTest extends StoreTest {
     StoreHandle storeHandleWithData() {
         return storeHandle.resolve("zarr.json");
     }
+
+    @Override
+    @Test
+    void testList() {
+        Assertions.assertTrue(storeHandle.list().count() > 1);
+    }
 }
 
 

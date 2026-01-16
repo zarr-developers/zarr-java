@@ -22,4 +22,16 @@ public class HttpStoreTest extends StoreTest {
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, array.metadata().shape);
     }
 
+    @Override
+    @Test
+    public void testStoreGetSize() {
+        // size is not defined in BR00109990_C2.zarr
+        long size = storeHandleWithData().getSize();
+        Assertions.assertEquals(-1, size);
+    }
+
+    @Override
+    void testList() throws ZarrException, IOException {
+        // listing is not supported in HttpStore
+    }
 }

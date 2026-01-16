@@ -123,4 +123,7 @@ public abstract class StoreTest extends ZarrTest {
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals("value", attrs.getString("some"));
     }
+
+    @Test
+    abstract void testList() throws ZarrException, IOException;
 }
