@@ -1,6 +1,5 @@
 package dev.zarr.zarrjava;
 
-import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.*;
 import dev.zarr.zarrjava.store.*;
@@ -10,17 +9,12 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.http.SdkHttpClient;
-import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
-import software.amazon.awssdk.utils.AttributeMap;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,41 +33,44 @@ import java.util.zip.ZipEntry;
 import static dev.zarr.zarrjava.Utils.unzipFile;
 import static dev.zarr.zarrjava.Utils.zipFile;
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
-import static software.amazon.awssdk.http.SdkHttpConfigurationOption.TRUST_ALL_CERTIFICATES;
 
-
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@Testcontainers
+/**
+ * Tests for S3Store
+ * <p>
+ * Requires a local S3 mock server running at http://localhost:9090
+ * with a bucket named "zarr-test-bucket"
+ * <p>
+ * Execute the following command to start a local S3 mock server:
+ * <pre>
+ * docker run -p 9090:9090 -p 9191:9191 -e "initialBuckets=zarr-test-bucket" adobe/s3mock:3.11.0
+ * </pre>
+ */
+@Tag("s3")
 class S3StoreTest {
-    private final String TEST_BUCKET = "test-bucket";
-    @Container
-    private S3MockContainer s3Mock;
-    private S3Client s3Client;
+
+    static String s3Endpoint = "http://localhost:9090";
+    static String bucket = "zarr-test-bucket";
+    static S3Client s3Client;
 
     @BeforeAll
-    void setUp() {
-        s3Mock = new S3MockContainer("latest").withInitialBuckets(TEST_BUCKET);
-        s3Mock.start();
-        SdkHttpClient httpClient = ApacheHttpClient.builder().buildWithDefaults(AttributeMap.builder().put(TRUST_ALL_CERTIFICATES, Boolean.TRUE).build());
-        s3Client = S3Client.builder().endpointOverride(URI.create(s3Mock.getHttpsEndpoint())).serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build()).credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("foo", "bar"))).region(Region.US_EAST_1) // required, but ignored
-                .httpClient(httpClient).build();
-    }
-
-    @AfterAll
-    void tearDown() {
-        if (s3Mock.isRunning()) {
-            s3Mock.stop();
-        }
-    }
-
-    @Test
-    void testS3Mock() {
-        Assertions.assertTrue(s3Mock.isRunning());
+    static void setUp() {
+        s3Client = S3Client.builder()
+                .endpointOverride(URI.create(s3Endpoint))
+                .region(Region.US_EAST_1) // required, but ignored
+                .serviceConfiguration(
+                        S3Configuration.builder()
+                                .pathStyleAccessEnabled(true) // required
+                                .build()
+                )
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create("accessKey", "secretKey")
+                ))
+                .build();
     }
 
     @Test
     void testReadWriteS3Store() {
-        S3Store s3Store = new S3Store(s3Client, TEST_BUCKET, "");
+        S3Store s3Store = new S3Store(s3Client, bucket, "");
 
         StoreHandle storeHandle = s3Store.resolve("testfile");
         byte[] testData = new byte[100];
