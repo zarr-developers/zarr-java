@@ -12,6 +12,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class S3Store implements Store, Store.ListableStore {
@@ -110,9 +112,20 @@ public class S3Store implements Store, Store.ListableStore {
                 .bucket(bucketName).prefix(fullKey)
                 .build();
         ListObjectsResponse res = s3client.listObjects(req);
-        return res.contents()
-                .stream()
-                .map(p -> p.key().substring(fullKey.length() + 1).split("/"));
+        return res.contents().stream()
+                .map(S3Object::key)
+                .flatMap(key -> {
+                    List<String> pathSegments = new ArrayList<>();
+                    int index = fullKey.length();
+                    while ((index = key.indexOf('/', index + 1)) != -1) {
+                        pathSegments.add(key.substring(fullKey.length() + 1, index));
+                    }
+                    pathSegments.add(key.substring(fullKey.length() + 1));
+                    return pathSegments.stream();
+                })
+                .distinct()
+                .map(s -> s.split("/"))
+                .filter(arr -> arr.length > 0);
     }
 
     @Nonnull
