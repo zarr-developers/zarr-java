@@ -146,7 +146,11 @@ public class ReadOnlyZipStore extends ZipStore {
                 if (!entryName.startsWith(prefix) || entryName.equals(prefix)) {
                     continue;
                 }
-                String[] entryKeys = resolveEntryKeys(entryName.substring(prefix.length() + 1));
+                entryName = entryName.substring(prefix.length());
+                if (entryName.startsWith("/")) {
+                    entryName = entryName.substring(1);
+                }
+                String[] entryKeys = resolveEntryKeys(entryName);
                 builder.add(entryKeys);
             }
         } catch (IOException ignored) {

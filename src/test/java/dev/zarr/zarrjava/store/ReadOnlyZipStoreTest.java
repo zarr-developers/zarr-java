@@ -12,21 +12,36 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-public class ReadOnlyZipStoreTest extends  StoreTest {
+public class ReadOnlyZipStoreTest extends StoreTest {
 
+    Path storePath = TESTOUTPUT.resolve("readOnlyZipStoreTest.zip");
     StoreHandle storeHandleWithData;
 
     @BeforeAll
     void writeStoreHandleWithData() throws ZarrException, IOException {
-        Path source = TESTDATA.resolve("v2_sample").resolve("bool");
-        Path target = TESTOUTPUT.resolve("readOnlyZipStoreTest.zip");
-        Utils.zipFile(source, target);
-        storeHandleWithData = new ReadOnlyZipStore(target).resolve("0.0.0");
+        Path source = TESTDATA.resolve("v2_sample").resolve("subgroup");
+        Utils.zipFile(source, storePath);
+        storeHandleWithData = new ReadOnlyZipStore(storePath).resolve("array", "0.0.0");
     }
 
     @Override
     StoreHandle storeHandleWithData() {
         return storeHandleWithData;
+    }
+
+    @Override
+    @Test
+    void testList() {
+        ReadOnlyZipStore zipStore = new ReadOnlyZipStore(storePath);
+        BufferedZipStore bufferedZipStore = new BufferedZipStore(storePath);
+
+        java.util.Set<String> expectedKeys = bufferedZipStore.resolve().list()
+                .map(node -> String.join("/", node))
+                .collect(Collectors.toSet());
+        java.util.Set<String> actualKeys = zipStore.resolve().list()
+                .map(node -> String.join("/", node))
+                .collect(Collectors.toSet());
+        Assertions.assertEquals(expectedKeys, actualKeys);
     }
 
     @Test
