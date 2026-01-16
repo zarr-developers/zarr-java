@@ -9,7 +9,7 @@ import java.util.zip.ZipOutputStream;
 
 public class Utils {
 
-    static void zipFile(Path sourceDir, Path targetDir) throws IOException {
+    public static void zipFile(Path sourceDir, Path targetDir) throws IOException {
         FileOutputStream fos = new FileOutputStream(targetDir.toFile());
         ZipOutputStream zipOut = new ZipOutputStream(fos);
 
@@ -53,7 +53,7 @@ public class Utils {
      * Unzip sourceZip into targetDir.
      * Protects against Zip Slip by ensuring extracted paths remain inside targetDir.
      */
-    static void unzipFile(Path sourceZip, Path targetDir) throws IOException {
+    public static void unzipFile(Path sourceZip, Path targetDir) throws IOException {
         Files.createDirectories(targetDir);
         try (FileInputStream fis = new FileInputStream(sourceZip.toFile());
              ZipInputStream zis = new ZipInputStream(fis)) {
