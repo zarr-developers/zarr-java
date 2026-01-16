@@ -14,6 +14,14 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
+    services:
+      s3mock:
+        # This service will only start if the runner is Linux
+        image: ${{ matrix.os == 'ubuntu-latest' && 'adobe/s3mock:3.11.0' || '' }}
+        ports:
+          - 9090:9090
+        env:
+          initialBuckets: zarr-test-bucket
     defaults:
       run:
         shell: bash
@@ -21,28 +29,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Start S3Mock
-        if: runner.os != 'macOS'
-        run: |
-          docker run -d -p 9090:9090 -p 9191:9191 \
-            --name s3mock \
-            -e "initialBuckets=zarr-test-bucket" \
-            adobe/s3mock:3.11.0
-
-      # TODO: move this waiting logic right in front of the tests that need it
-      - name: Wait for S3Mock
-        if: runner.os != 'macOS'
-        run: |
-          echo "Waiting for S3Mock to start..."
-          for i in {1..30}; do
-            if curl -s http://localhost:9090/favicon.ico > /dev/null; then
-              echo "S3Mock is up!"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "S3Mock failed to start"
-          exit 1
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -71,12 +57,12 @@ jobs:
       - name: Test
         env:
           MAVEN_OPTS: "-Xmx6g"
-          SKIP_S3_TESTS: ${{ matrix.os == 'macos-latest' }}
         run: |
-          if [ "$SKIP_S3_TESTS" = "true" ]; then
-            mvn --no-transfer-progress test -DargLine="-Xmx6g" -Dgroups="!s3"
-          else
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             mvn --no-transfer-progress test -DargLine="-Xmx6g"
+          else
+            # Skip S3 tests on Windows/macOS where the service isn't running (labeled with @Tag("s3"))
+            mvn --no-transfer-progress test -DargLine="-Xmx6g" -DexcludedGroups="s3"
           fi
       - name: Assemble JAR
         run: mvn package -DskipTests
