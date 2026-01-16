@@ -63,7 +63,7 @@ public abstract class WritableStoreTest extends StoreTest {
     public void testWriteReadV3(boolean useParallel) throws ZarrException, IOException {
         int[] testData = testDataInt();
         Store store = writableStore();
-        StoreHandle storeHandle = store.resolve("testWriteReadV3").resolve(store.getClass().getSimpleName());
+        StoreHandle storeHandle = store.resolve("testWriteReadV3").resolve(store.getClass().getSimpleName()).resolve("" + useParallel);
 
         dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.create(storeHandle);
         Array array = group.createArray("array", b -> b
@@ -86,11 +86,10 @@ public abstract class WritableStoreTest extends StoreTest {
 
     @ParameterizedTest
     @CsvSource({"false", "true",})
-    public void testMemoryStoreV2(boolean useParallel) throws ZarrException, IOException {
+    public void testWriteReadV2(boolean useParallel) throws ZarrException, IOException {
         int[] testData = testDataInt();
         Store store = writableStore();
-        StoreHandle storeHandle = store.resolve("testMemoryStoreV2").resolve(store.getClass().getSimpleName());
-
+        StoreHandle storeHandle = store.resolve("testMemoryStoreV2").resolve(store.getClass().getSimpleName()).resolve("" + useParallel);
         dev.zarr.zarrjava.v2.Group group = dev.zarr.zarrjava.v2.Group.create(storeHandle);
         dev.zarr.zarrjava.v2.Array array = group.createArray("array", b -> b
                 .withShape(1024, 1024)
