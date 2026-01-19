@@ -11,23 +11,18 @@ public class HttpStoreTest extends StoreTest {
 
     @Override
     StoreHandle storeHandleWithData() {
+        return br00109990StoreHandle().resolve("c", "0", "0", "0");
+    }
+
+    StoreHandle br00109990StoreHandle() {
         HttpStore httpStore = new dev.zarr.zarrjava.store.HttpStore("https://uk1s3.embassy.ebi.ac.uk/idr/zarr/v0.5/idr0033A");
         return httpStore.resolve("BR00109990_C2.zarr", "0", "0");
-
     }
 
     @Test
-    public void testHttpStore() throws IOException, ZarrException {
-        Array array = Array.open(storeHandleWithData());
+    public void testOpen() throws IOException, ZarrException {
+        Array array = Array.open(br00109990StoreHandle());
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, array.metadata().shape);
-    }
-
-    @Override
-    @Test
-    public void testStoreGetSize() {
-        // size is not defined in BR00109990_C2.zarr
-        long size = storeHandleWithData().getSize();
-        Assertions.assertEquals(-1, size);
     }
 
     @Override
