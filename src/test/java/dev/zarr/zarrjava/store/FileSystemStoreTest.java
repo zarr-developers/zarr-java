@@ -11,7 +11,7 @@ import java.nio.file.Files;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
-public class FileSystemStoreTest extends WritableStoreTest{
+public class FileSystemStoreTest extends WritableStoreTest {
 
     @Override
     StoreHandle storeHandleWithData() {

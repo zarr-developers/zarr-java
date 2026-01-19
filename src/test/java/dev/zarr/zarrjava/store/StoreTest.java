@@ -51,6 +51,7 @@ public abstract class StoreTest extends ZarrTest {
         }
         return testData;
     }
+
     int[] testDataInt() {
         int[] testData = new int[1024 * 1024];
         for (int i = 0; i < testData.length; i++) {

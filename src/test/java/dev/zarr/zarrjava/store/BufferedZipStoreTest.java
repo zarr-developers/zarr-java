@@ -157,9 +157,9 @@ public class BufferedZipStoreTest extends WritableStoreTest {
     Store writableStore() {
         Path path = TESTOUTPUT.resolve("writableStore.ZIP");
         if (Files.exists(path)) {
-            try{
+            try {
                 Files.delete(path);
-            }catch (IOException e) {
+            } catch (IOException e) {
                 throw new RuntimeException("Failed to delete existing test ZIP store at: " + path.toAbsolutePath(), e);
             }
         }
