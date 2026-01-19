@@ -31,12 +31,8 @@ public abstract class WritableStoreTest extends StoreTest {
                 "array/c/0/0",
                 "array/c/0/1",
                 "zarr.json",
-                "array",
                 "array/c/1/0",
-                "array/c/1",
-                "array/c/0",
-                "array/zarr.json",
-                "array/c"
+                "array/zarr.json"
         ));
 
         java.util.Set<String> actualKeys = storeHandle.resolve("subgroup").list()
@@ -44,10 +40,10 @@ public abstract class WritableStoreTest extends StoreTest {
                 .collect(Collectors.toSet());
         Assertions.assertEquals(expectedSubgroupKeys, actualKeys);
 
-        List<String> allKeys = storeHandle.list()
+        List<String> allKeys = ((Store.ListableStore) storeHandle.store).list()
                 .map(node -> String.join("/", node))
                 .collect(Collectors.toList());
-        Assertions.assertEquals(21, allKeys.size(), "Total number of keys in store should be 21 but was: " + allKeys);
+        Assertions.assertEquals(12, allKeys.size(), "Total number of keys in store should be 12 but was: " + allKeys);
     }
 
     @Test
