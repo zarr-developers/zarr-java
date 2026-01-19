@@ -13,6 +13,7 @@ import ucar.ma2.DataType;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -77,6 +78,26 @@ public abstract class StoreTest extends ZarrTest {
         long size = storeHandle.getSize();
         long actual_size = storeHandle.read().remaining();
         Assertions.assertEquals(actual_size, size);
+    }
+
+    @Test
+    public void testGetWithStartEnd() {
+        StoreHandle storeHandle = storeHandleWithData();
+        long size = storeHandle.getSize();
+        System.out.println("Store size: " + size);
+        if (size < 20) {
+            Assertions.fail("Store size is too small to test get with start and end");
+        }
+        ByteBuffer buffer = storeHandle.read(5, 15);
+        Assertions.assertEquals(10, buffer.remaining());
+
+        ByteBuffer fullBuffer = storeHandle.read();
+        byte[] expectedBytes = new byte[10];
+        fullBuffer.position(5);
+        fullBuffer.get(expectedBytes, 0, 10);
+        byte[] actualBytes = new byte[10];
+        buffer.get(actualBytes, 0, 10);
+        Assertions.assertArrayEquals(expectedBytes, actualBytes);
     }
 
     @Test
