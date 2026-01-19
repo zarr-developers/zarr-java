@@ -14,6 +14,8 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class OnlineS3StoreTest extends StoreTest {
@@ -64,8 +66,30 @@ public class OnlineS3StoreTest extends StoreTest {
     }
 
     @Override
+    StoreHandle storeHandleWithoutData() {
+        return storeHandle.resolve("nonexistent_key");
+    }
+
+    @Override
+    Store storeWithArrays() {
+        return storeHandle.store;
+    }
+
     @Test
-    void testList() {
+    @Override
+    public void testListChildren() {
+        List<String> children = ((Store.ListableStore) storeHandle.store).listChildren().collect(Collectors.toList());
+        List<String> expectedChildren = Collections.singletonList("BR00109990_C2.zarr");
+        Assertions.assertEquals(expectedChildren, children);
+
+        Set<String> storeHandleChildren = storeHandle.listChildren().collect(Collectors.toSet());
+        Set<String> expectedStoreHandleChildren = new HashSet<>(Arrays.asList("c", "zarr.json"));
+        Assertions.assertEquals(expectedStoreHandleChildren, storeHandleChildren);
+    }
+
+    @Test
+    @Override
+    public void testList() {
         Assertions.assertTrue(storeHandle.list().count() > 1);
     }
 }

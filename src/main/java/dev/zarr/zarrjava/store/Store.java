@@ -51,7 +51,7 @@ public interface Store {
          * Directory-only entries are excluded.
          *
          * @param prefix The prefix keys to match.
-         * @return A stream of full key arrays containing data.
+         * @return A stream of key arrays containing data.
          */
         Stream<String[]> list(String[] prefix);
 
@@ -60,12 +60,23 @@ public interface Store {
          * This is useful for UI navigation or browsing the store hierarchy.
          *
          * @param prefix The prefix keys to explore.
-         * @return A stream of key arrays representing one level deeper than the prefix.
+         * @return A stream of keys representing one level deeper than the prefix.
          */
-        Stream<String[]> listChildren(String[] prefix);
+        Stream<String> listChildren(String[] prefix);
+
+        /**
+         * Lists the immediate children (files and virtual directories) under the store root.
+         *
+         * @return A stream of keys.
+         */
+        default Stream<String> listChildren() {
+            return listChildren(new String[]{});
+        }
 
         /**
          * Lists all data-bearing keys in the entire store.
+         *
+         * @return A stream of key arrays containing data.
          */
         default Stream<String[]> list() {
             return list(new String[]{});

@@ -246,7 +246,7 @@ public class BufferedZipStore extends ZipStore {
     }
 
     @Override
-    public Stream<String[]> listChildren(String[] prefix) {
+    public Stream<String> listChildren(String[] prefix) {
         return bufferStore.listChildren(prefix);
     }
 

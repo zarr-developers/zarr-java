@@ -35,7 +35,7 @@ public class FilesystemStore implements Store, Store.ListableStore {
 
     @Override
     public boolean exists(String[] keys) {
-        return Files.exists(resolveKeys(keys));
+        return Files.isRegularFile(resolveKeys(keys));
     }
 
     @Nullable
@@ -148,14 +148,13 @@ public class FilesystemStore implements Store, Store.ListableStore {
     }
 
     @Override
-    public Stream<String[]> listChildren(String[] prefix) {
+    public Stream<String> listChildren(String[] prefix) {
         Path rootPath = resolveKeys(prefix);
         if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
             return Stream.empty();
         }
         try {
-            return Files.list(rootPath) // note: Files.list is non-recursive
-                    .map(path -> pathToKeyArray(rootPath, path, prefix));
+            return Files.list(rootPath).map(path -> path.getFileName().toString());
         } catch (IOException e) {
             throw new RuntimeException("Failed to list store children", e);
         }

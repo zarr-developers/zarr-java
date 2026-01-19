@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava.store;
 
+import dev.zarr.zarrjava.ZarrException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -79,7 +80,6 @@ public class S3StoreTest extends WritableStoreTest {
         Assertions.assertArrayEquals(testData, retrievedBytes);
     }
 
-
     @Override
     Store writableStore() {
         return new S3Store(s3Client, bucketName, "");
@@ -93,5 +93,17 @@ public class S3StoreTest extends WritableStoreTest {
             throw new RuntimeException(e);
         }
         return new S3Store(s3Client, bucketName, "").resolve(testDataKey);
+    }
+
+    @Override
+    StoreHandle storeHandleWithoutData() {
+        return new S3Store(s3Client, bucketName, "").resolve("nonexistent_key");
+    }
+
+    @Override
+    Store storeWithArrays() throws ZarrException, IOException {
+        S3Store s3Store = new S3Store(s3Client, bucketName, "");
+        writeTestGroupV3(s3Store.resolve("array"), false);
+        return s3Store;
     }
 }

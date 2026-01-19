@@ -13,7 +13,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -26,7 +28,7 @@ public abstract class WritableStoreTest extends StoreTest {
         StoreHandle storeHandle = writableStore().resolve("testList");
         boolean useParallel = true;
         writeTestGroupV3(storeHandle, useParallel);
-        java.util.Set<String> expectedSubgroupKeys = new java.util.HashSet<>(Arrays.asList(
+        Set<String> expectedSubgroupKeys = new HashSet<>(Arrays.asList(
                 "array/c/1/1",
                 "array/c/0/0",
                 "array/c/0/1",
@@ -35,7 +37,7 @@ public abstract class WritableStoreTest extends StoreTest {
                 "array/zarr.json"
         ));
 
-        java.util.Set<String> actualKeys = storeHandle.resolve("subgroup").list()
+        Set<String> actualKeys = storeHandle.resolve("subgroup").list()
                 .map(node -> String.join("/", node))
                 .collect(Collectors.toSet());
         Assertions.assertEquals(expectedSubgroupKeys, actualKeys);
@@ -44,6 +46,33 @@ public abstract class WritableStoreTest extends StoreTest {
                 .map(node -> String.join("/", node))
                 .collect(Collectors.toList());
         Assertions.assertEquals(12, allKeys.size(), "Total number of keys in store should be 12 but was: " + allKeys);
+    }
+
+    @Test
+    @Override
+    public void testListChildren() throws ZarrException, IOException {
+        StoreHandle storeHandle = writableStore().resolve("testListChildren");
+        boolean useParallel = true;
+        writeTestGroupV3(storeHandle, useParallel);
+
+        Set<String> expectedChildren = new HashSet<>(Arrays.asList(
+                "array",
+                "zarr.json",
+                "subgroup"
+        ));
+
+        Set<String> actualChildren = storeHandle.resolve().listChildren()
+                .collect(Collectors.toSet());
+        Assertions.assertEquals(expectedChildren, actualChildren);
+
+        Set<String> expectedSubgroupKeys = new HashSet<>(Arrays.asList(
+                "array",
+                "zarr.json"
+        ));
+        Set<String> subgroupChildren = storeHandle.resolve("subgroup").listChildren()
+                .collect(Collectors.toSet());
+
+        Assertions.assertEquals(expectedSubgroupKeys, subgroupChildren);
     }
 
     @Test

@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.stream.Stream;
 
 
@@ -143,13 +145,14 @@ public class ReadOnlyZipStore extends ZipStore {
                     builder.add(resolveEntryKeys(name.substring(prefix.length())));
                 }
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
         return builder.build();
     }
 
     @Override
-    public Stream<String[]> listChildren(String[] prefixKeys) {
-        java.util.Set<String> children = new java.util.LinkedHashSet<>();
+    public Stream<String> listChildren(String[] prefixKeys) {
+        Set<String> children = new LinkedHashSet<>();
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) return Stream.empty();
 
@@ -166,19 +169,13 @@ public class ReadOnlyZipStore extends ZipStore {
                 if (name.startsWith(prefix) && !name.equals(prefix)) {
                     String relative = name.substring(prefix.length());
                     String[] parts = relative.split("/");
-                    // The child is the prefix + the very next segment
-                    String childSegment = parts[0];
-                    children.add(childSegment);
+                    children.add(parts[0]);
                 }
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
 
-        return children.stream().map(segment -> {
-            String[] result = new String[prefixKeys.length + 1];
-            System.arraycopy(prefixKeys, 0, result, 0, prefixKeys.length);
-            result[prefixKeys.length] = segment;
-            return result;
-        });
+        return children.stream();
     }
 
     private String normalizeEntryName(String name) {

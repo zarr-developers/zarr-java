@@ -4,7 +4,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -71,21 +74,14 @@ public class MemoryStore implements Store, Store.ListableStore {
     }
 
     @Override
-    public Stream<String[]> listChildren(String[] prefix) {
+    public Stream<String> listChildren(String[] prefix) {
         List<String> prefixList = resolveKeys(prefix);
         int prefixSize = prefixList.size();
 
         return map.keySet().stream()
                 .filter(key -> key.size() > prefixSize && key.subList(0, prefixSize).equals(prefixList))
-                // Identify the immediate child segment
-                // e.g. if prefix is [a], and key is [a, b, c], the child is [a, b]
-                .map(key -> {
-                    List<String> childPath = new ArrayList<>(prefixList);
-                    childPath.add(key.get(prefixSize));
-                    return childPath;
-                })
-                .distinct()
-                .map(list -> list.toArray(new String[0]));
+                .map(key -> key.get(prefixSize))
+                .distinct();
     }
 
     @Nonnull

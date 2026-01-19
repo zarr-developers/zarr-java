@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ReadOnlyZipStoreTest extends StoreTest {
@@ -30,15 +32,43 @@ public class ReadOnlyZipStoreTest extends StoreTest {
     }
 
     @Override
+    StoreHandle storeHandleWithoutData() {
+        return new ReadOnlyZipStore(storePath).resolve("nonexistent_key");
+    }
+
+    @Override
+    Store storeWithArrays() {
+        return new ReadOnlyZipStore(storePath);
+    }
+
+
+    @Override
     @Test
-    void testList() {
+    public void testListChildren() {
         ReadOnlyZipStore zipStore = new ReadOnlyZipStore(storePath);
         BufferedZipStore bufferedZipStore = new BufferedZipStore(storePath);
 
-        java.util.Set<String> expectedKeys = bufferedZipStore.resolve().list()
+        Set<String> expectedKeys = bufferedZipStore.resolve().listChildren()
                 .map(node -> String.join("/", node))
                 .collect(Collectors.toSet());
-        java.util.Set<String> actualKeys = zipStore.resolve().list()
+        Set<String> actualKeys = zipStore.resolve().listChildren()
+                .map(node -> String.join("/", node))
+                .collect(Collectors.toSet());
+
+        Assertions.assertFalse(actualKeys.isEmpty());
+        Assertions.assertEquals(expectedKeys, actualKeys);
+    }
+
+    @Override
+    @Test
+    public void testList() {
+        ReadOnlyZipStore zipStore = new ReadOnlyZipStore(storePath);
+        BufferedZipStore bufferedZipStore = new BufferedZipStore(storePath);
+
+        Set<String> expectedKeys = bufferedZipStore.resolve().list()
+                .map(node -> String.join("/", node))
+                .collect(Collectors.toSet());
+        Set<String> actualKeys = zipStore.resolve().list()
                 .map(node -> String.join("/", node))
                 .collect(Collectors.toSet());
         Assertions.assertEquals(expectedKeys, actualKeys);
@@ -69,7 +99,7 @@ public class ReadOnlyZipStoreTest extends StoreTest {
         ReadOnlyZipStore readOnlyZipStore = new ReadOnlyZipStore(path);
         Assertions.assertEquals(archiveComment, readOnlyZipStore.getArchiveComment(), "ZIP archive comment from ReadOnlyZipStore does not match expected value.");
 
-        java.util.Set<String> expectedSubgroupKeys = new java.util.HashSet<>(Arrays.asList(
+        Set<String> expectedSubgroupKeys = new HashSet<>(Arrays.asList(
                 "array/c/1/1",
                 "array/c/0/0",
                 "array/c/0/1",
@@ -82,7 +112,7 @@ public class ReadOnlyZipStoreTest extends StoreTest {
                 "array/c"
         ));
 
-        java.util.Set<String> actualKeys = readOnlyZipStore.resolve("subgroup").list()
+        Set<String> actualKeys = readOnlyZipStore.resolve("subgroup").list()
                 .map(node -> String.join("/", node))
                 .collect(Collectors.toSet());
 

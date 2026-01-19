@@ -18,6 +18,16 @@ public class FileSystemStoreTest extends WritableStoreTest {
         return new FilesystemStore(TESTDATA).resolve("l4_sample", "zarr.json");
     }
 
+    @Override
+    StoreHandle storeHandleWithoutData() {
+        return new FilesystemStore(TESTDATA).resolve("nonexistent_key");
+    }
+
+    @Override
+    Store storeWithArrays() {
+        return new FilesystemStore(TESTDATA.resolve("l4_sample"));
+    }
+
     @Test
     public void testFileSystemStores() throws IOException, ZarrException {
         FilesystemStore fsStore = new FilesystemStore(TESTDATA);

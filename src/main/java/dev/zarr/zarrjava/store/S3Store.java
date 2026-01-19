@@ -12,8 +12,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.stream.Stream;
 
 public class S3Store implements Store, Store.ListableStore {
@@ -52,9 +50,6 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public boolean exists(String[] keys) {
-        if (keys == null || keys.length == 0) {
-            return true;
-        }
         HeadObjectRequest req = HeadObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build();
         try {
             return s3client.headObject(req).sdkHttpResponse().statusCode() == 200;
@@ -152,7 +147,7 @@ public class S3Store implements Store, Store.ListableStore {
     }
 
     @Override
-    public Stream<String[]> listChildren(String[] keys) {
+    public Stream<String> listChildren(String[] keys) {
         String fullPrefix = resolveKeys(keys);
         if (!fullPrefix.isEmpty() && !fullPrefix.endsWith("/")) {
             fullPrefix += "/";
@@ -173,7 +168,7 @@ public class S3Store implements Store, Store.ListableStore {
                 .filter(key -> !key.equals(finalFullPrefix));
 
         return Stream.concat(folders, files)
-                .map(k -> keyToRelativeArray(k, finalFullPrefix));
+                .map(k -> keyToRelativeArray(k, finalFullPrefix)[0]);
     }
 
     /**

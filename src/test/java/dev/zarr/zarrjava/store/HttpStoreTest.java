@@ -3,15 +3,26 @@ package dev.zarr.zarrjava.store;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Array;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-public class HttpStoreTest extends StoreTest {
+class HttpStoreTest extends StoreTest {
 
     @Override
     StoreHandle storeHandleWithData() {
         return br00109990StoreHandle().resolve("c", "0", "0", "0");
+    }
+
+    @Override
+    StoreHandle storeHandleWithoutData() {
+        return br00109990StoreHandle().resolve("nonexistent", "path", "to", "data");
+    }
+
+    @Override
+    Store storeWithArrays() {
+        return br00109990StoreHandle().store;
     }
 
     StoreHandle br00109990StoreHandle() {
@@ -26,7 +37,22 @@ public class HttpStoreTest extends StoreTest {
     }
 
     @Override
-    void testList() throws ZarrException, IOException {
-        // listing is not supported in HttpStore
+    @Test
+    @Disabled("List is not supported in HttpStore")
+    public void testList() {
     }
+
+    @Override
+    @Test
+    @Disabled("List is not supported in HttpStore")
+    public void testListedItemsExist() {
+    }
+
+    @Override
+    @Test
+    @Disabled("List is not supported in HttpStore")
+    public void testListChildren() {
+    }
+
+
 }

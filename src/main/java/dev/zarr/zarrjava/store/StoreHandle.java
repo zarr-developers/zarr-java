@@ -73,6 +73,13 @@ public class StoreHandle {
         return ((Store.ListableStore) store).list(keys);
     }
 
+    public Stream<String> listChildren() {
+        if (!(store instanceof Store.ListableStore)) {
+            throw new UnsupportedOperationException("The underlying store does not support listing.");
+        }
+        return ((Store.ListableStore) store).listChildren(keys);
+    }
+
     public long getSize() {
         return store.getSize(keys);
     }

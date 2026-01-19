@@ -38,6 +38,16 @@ public class BufferedZipStoreTest extends WritableStoreTest {
         return new BufferedZipStore(testGroupDir).resolve("zarr.json");
     }
 
+    @Override
+    StoreHandle storeHandleWithoutData() {
+        return new BufferedZipStore(testGroupDir).resolve("nonexistent", "path", "zarr.json");
+    }
+
+    @Override
+    Store storeWithArrays() {
+        return new BufferedZipStore(testGroupDir);
+    }
+
     @Test
     public void testOpenZipStore() throws ZarrException, IOException {
         BufferedZipStore zipStore = new BufferedZipStore(testGroupDir);

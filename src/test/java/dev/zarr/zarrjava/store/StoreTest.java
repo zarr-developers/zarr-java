@@ -14,13 +14,24 @@ import ucar.ma2.DataType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class StoreTest extends ZarrTest {
 
+    /**
+     * Returns a StoreHandle with some test data written to it (optimally not written by the same Store implementation).
+     */
     abstract StoreHandle storeHandleWithData();
+
+    abstract StoreHandle storeHandleWithoutData();
+
+    /**
+     * Returns a Store with some test arrays written to it used to test list() and exist() (can be written by the same Store implementation).
+     */
+    abstract Store storeWithArrays() throws ZarrException, IOException;
 
     @Test
     public void testInputStream() throws IOException {
@@ -34,15 +45,42 @@ public abstract class StoreTest extends ZarrTest {
         Assertions.assertArrayEquals(expectedBuffer, buffer);
     }
 
+    @Test
+    public void testExists() throws ZarrException, IOException {
+        Assertions.assertTrue(storeHandleWithData().exists());
+        Assertions.assertFalse(storeHandleWithoutData().exists());
+        Assertions.assertFalse(storeWithArrays().resolve("").exists());
+    }
 
     @Test
-    public void testStoreGetSize() {
+    public void testListedItemsExist() throws IOException, ZarrException {
+        Store store = storeWithArrays();
+        if (!(store instanceof Store.ListableStore)) {
+            Assertions.fail("Store is not listable");
+        }
+        Set<String[]> nodes = ((Store.ListableStore) store).list().limit(10).collect(Collectors.toSet());
+        Assertions.assertFalse(nodes.isEmpty()); // to ensure the sensitivity of this test
+
+        nodes.forEach(keys -> {
+            System.out.println("Checking existence of key: " + String.join("/", keys));
+            StoreHandle handle = store.resolve(keys);
+            Assertions.assertTrue(handle.exists(), "Listed key does not exist: " + String.join("/", keys));
+        });
+    }
+
+    @Test
+    public abstract void testListChildren() throws ZarrException, IOException;
+
+    @Test
+    public void testGetSize() {
         StoreHandle storeHandle = storeHandleWithData();
         long size = storeHandle.getSize();
         long actual_size = storeHandle.read().remaining();
         Assertions.assertEquals(actual_size, size);
     }
 
+    @Test
+    public abstract void testList() throws ZarrException, IOException;
 
     byte[] testData() {
         byte[] testData = new byte[1024 * 1024];
@@ -125,6 +163,4 @@ public abstract class StoreTest extends ZarrTest {
         Assertions.assertEquals("value", attrs.getString("some"));
     }
 
-    @Test
-    abstract void testList() throws ZarrException, IOException;
 }
