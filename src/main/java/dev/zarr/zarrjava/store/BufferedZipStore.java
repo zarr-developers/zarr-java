@@ -246,6 +246,11 @@ public class BufferedZipStore extends ZipStore {
     }
 
     @Override
+    public Stream<String[]> listChildren(String[] prefix) {
+        return bufferStore.listChildren(prefix);
+    }
+
+    @Override
     public boolean exists(String[] keys) {
         return bufferStore.exists(keys);
     }

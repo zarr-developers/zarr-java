@@ -120,21 +120,44 @@ public class FilesystemStore implements Store, Store.ListableStore {
         }
     }
 
-    public Stream<String[]> list(String[] keys) {
-        Path keyPath = resolveKeys(keys);
+    /**
+     * Helper to convert a filesystem Path back into the full String[] key array
+     * relative to the prefix
+     */
+    private String[] pathToKeyArray(Path rootPath, Path currentPath, String[] prefix) {
+        Path relativePath = rootPath.relativize(currentPath);
+        int relativeCount = relativePath.getNameCount();
+
+        String[] result = new String[relativeCount];
+        for (int i = 0; i < relativeCount; i++) {
+            result[i] = relativePath.getName(i).toString();
+        }
+        return result;
+    }
+
+    @Override
+    public Stream<String[]> list(String[] prefix) {
+        Path rootPath = resolveKeys(prefix);
         try {
-            return Files.walk(keyPath)
-                    .filter(path -> !path.equals(keyPath))
-                    .map(path -> {
-                        Path relativePath = keyPath.relativize(path);
-                        String[] parts = new String[relativePath.getNameCount()];
-                        for (int i = 0; i < relativePath.getNameCount(); i++) {
-                            parts[i] = relativePath.getName(i).toString();
-                        }
-                        return parts;
-                    });
+            return Files.walk(rootPath)
+                    .filter(Files::isRegularFile)
+                    .map(path -> pathToKeyArray(rootPath, path, prefix));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to list store content", e);
+        }
+    }
+
+    @Override
+    public Stream<String[]> listChildren(String[] prefix) {
+        Path rootPath = resolveKeys(prefix);
+        if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
+            return Stream.empty();
+        }
+        try {
+            return Files.list(rootPath) // note: Files.list is non-recursive
+                    .map(path -> pathToKeyArray(rootPath, path, prefix));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to list store children", e);
         }
     }
 

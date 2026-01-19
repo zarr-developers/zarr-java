@@ -60,18 +60,32 @@ public class MemoryStore implements Store, Store.ListableStore {
         map.remove(resolveKeys(keys));
     }
 
-    public Stream<String[]> list(String[] keys) {
-        List<String> prefix = resolveKeys(keys);
-        Set<List<String>> allKeys = new HashSet<>();
+    @Override
+    public Stream<String[]> list(String[] prefix) {
+        List<String> prefixList = resolveKeys(prefix);
+        int prefixSize = prefixList.size();
 
-        for (List<String> k : map.keySet()) {
-            if (k.size() <= prefix.size() || !k.subList(0, prefix.size()).equals(prefix))
-                continue;
-            for (int i = prefix.size(); i < k.size(); i++) {
-                allKeys.add(k.subList(prefix.size(), i + 1));
-            }
-        }
-        return allKeys.stream().map(k -> k.toArray(new String[0]));
+        return map.keySet().stream()
+                .filter(key -> key.size() >= prefixSize && key.subList(0, prefixSize).equals(prefixList))
+                .map(key -> key.subList(prefixSize, key.size()).toArray(new String[0]));
+    }
+
+    @Override
+    public Stream<String[]> listChildren(String[] prefix) {
+        List<String> prefixList = resolveKeys(prefix);
+        int prefixSize = prefixList.size();
+
+        return map.keySet().stream()
+                .filter(key -> key.size() > prefixSize && key.subList(0, prefixSize).equals(prefixList))
+                // Identify the immediate child segment
+                // e.g. if prefix is [a], and key is [a, b, c], the child is [a, b]
+                .map(key -> {
+                    List<String> childPath = new ArrayList<>(prefixList);
+                    childPath.add(key.get(prefixSize));
+                    return childPath;
+                })
+                .distinct()
+                .map(list -> list.toArray(new String[0]));
     }
 
     @Nonnull

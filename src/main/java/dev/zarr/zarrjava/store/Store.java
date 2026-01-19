@@ -40,19 +40,33 @@ public interface Store {
      */
     long getSize(String[] keys);
 
+    /**
+     * A store that supports discovery of keys.
+     */
     interface ListableStore extends Store {
 
         /**
-         * Lists all keys in the store that match the given prefix keys. Keys are represented as arrays of strings,
-         * where each string is a segment of the key path.
-         * Keys that are exactly equal to the prefix are not included in the results.
-         * Keys that do not contain data (i.e. "directories") are included in the results.
+         * Recursively lists all keys that contain data (leaf nodes) under the given prefix
+         * relative to the prefix.
+         * Directory-only entries are excluded.
          *
-         * @param keys The prefix keys to match.
-         * @return A stream of key arrays that match the given prefix. Prefixed keys are not included in the results.
+         * @param prefix The prefix keys to match.
+         * @return A stream of full key arrays containing data.
          */
-        Stream<String[]> list(String[] keys);
+        Stream<String[]> list(String[] prefix);
 
+        /**
+         * Lists the immediate children (files and virtual directories) under the given prefix.
+         * This is useful for UI navigation or browsing the store hierarchy.
+         *
+         * @param prefix The prefix keys to explore.
+         * @return A stream of key arrays representing one level deeper than the prefix.
+         */
+        Stream<String[]> listChildren(String[] prefix);
+
+        /**
+         * Lists all data-bearing keys in the entire store.
+         */
         default Stream<String[]> list() {
             return list(new String[]{});
         }

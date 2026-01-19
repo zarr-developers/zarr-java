@@ -52,6 +52,9 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public boolean exists(String[] keys) {
+        if (keys == null || keys.length == 0) {
+            return true;
+        }
         HeadObjectRequest req = HeadObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build();
         try {
             return s3client.headObject(req).sdkHttpResponse().statusCode() == 200;
@@ -105,27 +108,89 @@ public class S3Store implements Store, Store.ListableStore {
                 .build());
     }
 
+//    @Override
+//    public Stream<String[]> list(String[] keys) {
+//        final String fullKey = resolveKeys(keys);
+//        ListObjectsRequest req = ListObjectsRequest.builder()
+//                .bucket(bucketName).prefix(fullKey)
+//                .build();
+//        ListObjectsResponse res = s3client.listObjects(req);
+//        return res.contents().stream()
+//                .map(S3Object::key)
+//                .flatMap(key -> {
+//                    List<String> pathSegments = new ArrayList<>();
+//                    int index = fullKey.length();
+//                    while ((index = key.indexOf('/', index + 1)) != -1) {
+//                        pathSegments.add(key.substring(fullKey.length() + 1, index));
+//                    }
+//                    pathSegments.add(key.substring(fullKey.length() + 1));
+//                    return pathSegments.stream();
+//                })
+//                .distinct()
+//                .map(s -> s.split("/"))
+//                .filter(arr -> arr.length > 0);
+//    }
+
     @Override
     public Stream<String[]> list(String[] keys) {
-        final String fullKey = resolveKeys(keys);
-        ListObjectsRequest req = ListObjectsRequest.builder()
-                .bucket(bucketName).prefix(fullKey)
+        String fullPrefix = resolveKeys(keys);
+        // Ensure prefix ends with / for precise matching if not empty
+        if (!fullPrefix.isEmpty() && !fullPrefix.endsWith("/")) {
+            fullPrefix += "/";
+        }
+
+        ListObjectsV2Request req = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(fullPrefix)
                 .build();
-        ListObjectsResponse res = s3client.listObjects(req);
-        return res.contents().stream()
+
+        final String finalFullPrefix = fullPrefix;
+        return s3client.listObjectsV2Paginator(req).contents().stream()
                 .map(S3Object::key)
-                .flatMap(key -> {
-                    List<String> pathSegments = new ArrayList<>();
-                    int index = fullKey.length();
-                    while ((index = key.indexOf('/', index + 1)) != -1) {
-                        pathSegments.add(key.substring(fullKey.length() + 1, index));
-                    }
-                    pathSegments.add(key.substring(fullKey.length() + 1));
-                    return pathSegments.stream();
-                })
-                .distinct()
-                .map(s -> s.split("/"))
-                .filter(arr -> arr.length > 0);
+                .filter(key -> !key.equals(finalFullPrefix) && !key.endsWith("/"))
+                .map(k -> keyToRelativeArray(k, finalFullPrefix));
+    }
+
+    @Override
+    public Stream<String[]> listChildren(String[] keys) {
+        String fullPrefix = resolveKeys(keys);
+        if (!fullPrefix.isEmpty() && !fullPrefix.endsWith("/")) {
+            fullPrefix += "/";
+        }
+
+        ListObjectsV2Request req = ListObjectsV2Request.builder()
+                .bucket(bucketName)
+                .prefix(fullPrefix)
+                .delimiter("/")
+                .build();
+
+        ListObjectsV2Response res = s3client.listObjectsV2(req);
+
+        // Combine CommonPrefixes (folders) and Contents (files)
+        Stream<String> folders = res.commonPrefixes().stream().map(CommonPrefix::prefix);
+        final String finalFullPrefix = fullPrefix;
+        Stream<String> files = res.contents().stream().map(S3Object::key)
+                .filter(key -> !key.equals(finalFullPrefix));
+
+        return Stream.concat(folders, files)
+                .map(k -> keyToRelativeArray(k, finalFullPrefix));
+    }
+
+    /**
+     * Helper to convert a full S3 key back into a String[] relative to the prefix.
+     */
+    private String[] keyToRelativeArray(String fullS3Key, String prefix) {
+        String relativePath = fullS3Key;
+        if (prefix != null && fullS3Key.startsWith(prefix)) {
+            relativePath = fullS3Key.substring(prefix.length());
+        }
+        if (relativePath.startsWith("/")) {
+            relativePath = relativePath.substring(1);
+        }
+        if (relativePath.endsWith("/")) {
+            relativePath = relativePath.substring(0, relativePath.length() - 1);
+        }
+        return relativePath.isEmpty() ? new String[0] : relativePath.split("/");
     }
 
     @Nonnull

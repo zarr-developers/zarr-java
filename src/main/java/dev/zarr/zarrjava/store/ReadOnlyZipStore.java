@@ -125,38 +125,68 @@ public class ReadOnlyZipStore extends ZipStore {
     }
 
     @Override
-    public Stream<String[]> list(String[] keys) {
+    public Stream<String[]> list(String[] prefixKeys) {
         Stream.Builder<String[]> builder = Stream.builder();
-
         InputStream inputStream = underlyingStore.getInputStream();
-        if (inputStream == null) {
-            return builder.build();
+        if (inputStream == null) return builder.build();
+
+        String prefix = resolveKeys(prefixKeys);
+        if (!prefix.isEmpty() && !prefix.endsWith("/")) {
+            prefix += "/";
         }
+
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
             ZipArchiveEntry entry;
-            String prefix = resolveKeys(keys);
             while ((entry = zis.getNextEntry()) != null) {
-                String entryName = entry.getName();
-                if (entryName.startsWith("/")) {
-                    entryName = entryName.substring(1);
+                String name = normalizeEntryName(entry.getName());
+                if (name.startsWith(prefix) && !entry.isDirectory()) {
+                    builder.add(resolveEntryKeys(name.substring(prefix.length())));
                 }
-                if (entryName.endsWith("/")) {
-                    entryName = entryName.substring(0, entryName.length() - 1);
-                }
-                if (!entryName.startsWith(prefix) || entryName.equals(prefix)) {
-                    continue;
-                }
-                entryName = entryName.substring(prefix.length());
-                if (entryName.startsWith("/")) {
-                    entryName = entryName.substring(1);
-                }
-                String[] entryKeys = resolveEntryKeys(entryName);
-                builder.add(entryKeys);
             }
-        } catch (IOException ignored) {
-        }
+        } catch (IOException ignored) {}
         return builder.build();
     }
+
+    @Override
+    public Stream<String[]> listChildren(String[] prefixKeys) {
+        java.util.Set<String> children = new java.util.LinkedHashSet<>();
+        InputStream inputStream = underlyingStore.getInputStream();
+        if (inputStream == null) return Stream.empty();
+
+        String prefix = resolveKeys(prefixKeys);
+        if (!prefix.isEmpty() && !prefix.endsWith("/")) {
+            prefix += "/";
+        }
+
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
+            ZipArchiveEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String name = normalizeEntryName(entry.getName());
+
+                if (name.startsWith(prefix) && !name.equals(prefix)) {
+                    String relative = name.substring(prefix.length());
+                    String[] parts = relative.split("/");
+                    // The child is the prefix + the very next segment
+                    String childSegment = parts[0];
+                    children.add(childSegment);
+                }
+            }
+        } catch (IOException ignored) {}
+
+        return children.stream().map(segment -> {
+            String[] result = new String[prefixKeys.length + 1];
+            System.arraycopy(prefixKeys, 0, result, 0, prefixKeys.length);
+            result[prefixKeys.length] = segment;
+            return result;
+        });
+    }
+
+    private String normalizeEntryName(String name) {
+        if (name.startsWith("/")) name = name.substring(1);
+        if (name.endsWith("/")) name = name.substring(0, name.length() - 1);
+        return name;
+    }
+
 
     @Override
     public InputStream getInputStream(String[] keys, long start, long end) {
