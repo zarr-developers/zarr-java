@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -81,6 +82,18 @@ public abstract class WritableStoreTest extends StoreTest {
         boolean useParallel = true;
         Group group = writeTestGroupV3(storeHandle, useParallel);
         assertIsTestGroupV3(group, useParallel);
+    }
+
+    @Test
+    public void testDelete() {
+        Store store = writableStore();
+        StoreHandle storeHandle = store.resolve("testDelete");
+
+        storeHandle.resolve("toBeDeleted").set(ByteBuffer.allocate(0));
+        Assertions.assertTrue(storeHandle.resolve("toBeDeleted").exists(), "Key toBeDeleted should exist before deletion.");
+        storeHandle.resolve("toBeDeleted").delete();
+        Assertions.assertFalse(storeHandle.resolve("toBeDeleted").exists(), "Key toBeDeleted should not exist after deletion.");
+
     }
 
     @ParameterizedTest
