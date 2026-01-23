@@ -37,9 +37,9 @@ public class S3StoreTest extends WritableStoreTest {
     String bucketName = "zarr-test-bucket";
     S3Client s3Client;
     String testDataKey = "testData";
-
+    S3Store s3Store;
     @BeforeAll
-    void setUpS3Client() {
+    void setUpS3Client() throws ZarrException, IOException {
         s3Client = S3Client.builder()
                 .endpointOverride(URI.create(s3Endpoint))
                 .region(Region.US_EAST_1) // required, but ignored
@@ -62,6 +62,9 @@ public class S3StoreTest extends WritableStoreTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        // Write a test group to the S3 store
+        s3Store = new S3Store(s3Client, bucketName, "storeWithArrays");
+        writeTestGroupV3(s3Store.resolve(), false);
     }
 
     @Test
@@ -100,10 +103,9 @@ public class S3StoreTest extends WritableStoreTest {
         return new S3Store(s3Client, bucketName, "").resolve("nonexistent_key");
     }
 
+
     @Override
-    Store storeWithArrays() throws ZarrException, IOException {
-        S3Store s3Store = new S3Store(s3Client, bucketName, "");
-        writeTestGroupV3(s3Store.resolve("array"), false);
-        return s3Store;
+    Store storeWithArrays() {
+        return new S3Store(s3Client, bucketName, "storeWithArrays");
     }
 }

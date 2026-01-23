@@ -104,12 +104,8 @@ public class ReadOnlyZipStoreTest extends StoreTest {
                 "array/c/0/0",
                 "array/c/0/1",
                 "zarr.json",
-                "array",
                 "array/c/1/0",
-                "array/c/1",
-                "array/c/0",
-                "array/zarr.json",
-                "array/c"
+                "array/zarr.json"
         ));
 
         Set<String> actualKeys = readOnlyZipStore.resolve("subgroup").list()
