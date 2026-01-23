@@ -63,7 +63,6 @@ public abstract class StoreTest extends ZarrTest {
         Assertions.assertFalse(nodes.isEmpty()); // to ensure the sensitivity of this test
 
         nodes.forEach(keys -> {
-            System.out.println("Checking existence of key: " + String.join("/", keys));
             StoreHandle handle = store.resolve(keys);
             Assertions.assertTrue(handle.exists(), "Listed key does not exist: " + String.join("/", keys));
         });

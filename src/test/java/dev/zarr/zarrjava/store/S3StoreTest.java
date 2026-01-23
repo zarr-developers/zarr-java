@@ -85,7 +85,7 @@ public class S3StoreTest extends WritableStoreTest {
 
     @Override
     Store writableStore() {
-        return new S3Store(s3Client, bucketName, "");
+        return new S3Store(s3Client, bucketName, "writableStore");
     }
 
     @Override
