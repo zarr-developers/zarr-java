@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
@@ -26,7 +27,6 @@ import ucar.ma2.MAMath;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -105,6 +105,17 @@ public class ZarrV3Test extends ZarrTest {
         );
 
         return Stream.concat(builders, codecBuilders().map(codecFunc -> b -> b.withCodecs(codecFunc)));
+    }
+
+    static Stream<Arguments> unalignedArrayAccessProvider() {
+        Stream.Builder<Arguments> builder = Stream.builder();
+        builder.add(Arguments.of(52, 17, 32));
+        builder.add(Arguments.of(71, 11, 12));
+        builder.add(Arguments.of(52, 17, 17));
+        builder.add(Arguments.of(50, 3, 7));
+        builder.add(Arguments.of(50, 3, 22));
+        builder.add(Arguments.of(13, 31, 21));
+        return builder.build();
     }
 
     @ParameterizedTest
@@ -737,40 +748,29 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
     }
 
-    @Test
-    public void testTemp() throws ZarrException, IOException {
-        String filePath = TESTOUTPUT + "/testTempV3.txt";
-        int imageWidth = 52;
-        int imageHeight = 1;
-        int chunkWidth = 17;
-        Array input = Array.create(
-                new FilesystemStore(filePath).resolve("0"),
+    @ParameterizedTest
+    @MethodSource("unalignedArrayAccessProvider")
+    public void testUnalignedArrayAccess(int arrayShape, int chunkShape, int accessShape) throws ZarrException, IOException {
+        Array array = Array.create(
+                new MemoryStore().resolve(),
                 Array.metadataBuilder()
-                        .withShape(imageHeight, imageWidth)
-                        .withDataType(DataType.UINT8)
-                        .withChunkShape(imageHeight, chunkWidth)
+                        .withShape(arrayShape)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(chunkShape)
                         .withFillValue(0)
                         .build()
         );
 
-        byte[] buf = new byte[imageWidth];
-        for (int i = 0; i < buf.length; i++) {
-            buf[i] = (byte) i;
-        }
-        ByteBuffer bytes = ByteBuffer.wrap(buf);
-        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.BYTE, new int[]{imageHeight, imageWidth}, bytes);
-        input.write(new long[]{0, 0}, data);
+        int[] testData = new int[arrayShape];
+        Arrays.setAll(testData, p -> (byte) p);
+        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{arrayShape}, testData);
+        array.write(data);
 
-        long[] readPosition = new long[]{0, 0};
-        int[] readSize = new int[]{1, 32};
-        for (int tile = 0; tile < buf.length; tile += readSize[1]) {
-            readPosition[1] = tile;
-            readSize[1] = (int) Math.min(readSize[1], buf.length - readPosition[1]);
-            ucar.ma2.Array readTile = input.read(readPosition, readSize);
-            for (int i = 0; i < readSize[1]; i++) {
-                byte pixel = readTile.getByte(i);
-                Assertions.assertEquals(buf[tile + i], pixel);
-            }
+        for (int i = 0; i < arrayShape; i += accessShape) {
+            accessShape = Math.min(accessShape, arrayShape - i);
+            ucar.ma2.Array result = array.read(new long[]{i}, new int[]{accessShape});
+            int[] expectedData = Arrays.copyOfRange(testData, i, i + accessShape);
+            Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
         }
     }
 }
