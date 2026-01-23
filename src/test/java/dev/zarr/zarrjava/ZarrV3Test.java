@@ -26,6 +26,7 @@ import ucar.ma2.MAMath;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -734,5 +735,42 @@ public class ZarrV3Test extends ZarrTest {
 
         group = Group.open(storeHandle);
         Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+    }
+
+    @Test
+    public void testTemp() throws ZarrException, IOException {
+        String filePath = TESTOUTPUT + "/testTempV3.txt";
+        int imageWidth = 52;
+        int imageHeight = 1;
+        int chunkWidth = 17;
+        Array input = Array.create(
+                new FilesystemStore(filePath).resolve("0"),
+                Array.metadataBuilder()
+                        .withShape(imageHeight, imageWidth)
+                        .withDataType(DataType.UINT8)
+                        .withChunkShape(imageHeight, chunkWidth)
+                        .withFillValue(0)
+                        .build()
+        );
+
+        byte[] buf = new byte[imageWidth];
+        for (int i = 0; i < buf.length; i++) {
+            buf[i] = (byte) i;
+        }
+        ByteBuffer bytes = ByteBuffer.wrap(buf);
+        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.BYTE, new int[]{imageHeight, imageWidth}, bytes);
+        input.write(new long[]{0, 0}, data);
+
+        long[] readPosition = new long[]{0, 0};
+        int[] readSize = new int[]{1, 32};
+        for (int tile = 0; tile < buf.length; tile += readSize[1]) {
+            readPosition[1] = tile;
+            readSize[1] = (int) Math.min(readSize[1], buf.length - readPosition[1]);
+            ucar.ma2.Array readTile = input.read(readPosition, readSize);
+            for (int i = 0; i < readSize[1]; i++) {
+                byte pixel = readTile.getByte(i);
+                Assertions.assertEquals(buf[tile + i], pixel);
+            }
+        }
     }
 }
