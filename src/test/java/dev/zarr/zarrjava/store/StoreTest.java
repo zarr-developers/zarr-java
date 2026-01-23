@@ -83,7 +83,6 @@ public abstract class StoreTest extends ZarrTest {
     public void testGetWithStartEnd() {
         StoreHandle storeHandle = storeHandleWithData();
         long size = storeHandle.getSize();
-        System.out.println("Store size: " + size);
         if (size < 20) {
             Assertions.fail("Store size is too small to test get with start and end");
         }
@@ -95,6 +94,13 @@ public abstract class StoreTest extends ZarrTest {
         fullBuffer.position(5);
         fullBuffer.get(expectedBytes, 0, 10);
         byte[] actualBytes = new byte[10];
+        buffer.get(actualBytes, 0, 10);
+        Assertions.assertArrayEquals(expectedBytes, actualBytes);
+
+        buffer = storeHandle.read(size-10);
+        Assertions.assertEquals(10, buffer.remaining());
+        fullBuffer.position((int)(size-10));
+        fullBuffer.get(expectedBytes, 0, 10);
         buffer.get(actualBytes, 0, 10);
         Assertions.assertArrayEquals(expectedBytes, actualBytes);
     }
