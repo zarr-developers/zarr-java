@@ -72,6 +72,17 @@ public class BufferedZipStoreTest extends WritableStoreTest {
         assertIsTestGroupV3(Group.open(fsStore.resolve()), true);
     }
 
+    @Test
+    public void testAutoCloseable() throws ZarrException, IOException {
+        Path path = TESTOUTPUT.resolve("testAutoCloseable.zip");
+        try (BufferedZipStore zipStore = new BufferedZipStore(path)) {
+            writeTestGroupV3(zipStore.resolve(), true);
+        }
+        // After closing, it should be flushed
+        BufferedZipStore zipStoreRead = new BufferedZipStore(path);
+        assertIsTestGroupV3(Group.open(zipStoreRead.resolve()), true);
+    }
+
     @ParameterizedTest
     @CsvSource({"false", "true",})
     public void testZipStoreWithComment(boolean flushOnWrite) throws ZarrException, IOException {

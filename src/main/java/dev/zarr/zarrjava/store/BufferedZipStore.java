@@ -22,7 +22,7 @@ import java.util.zip.ZipEntry;
 /**
  * A Store implementation that buffers reads and writes and flushes them to an underlying Store as a zip file.
  */
-public class BufferedZipStore extends ZipStore {
+public class BufferedZipStore extends ZipStore implements AutoCloseable {
 
     private final Store.ListableStore bufferStore;
     private final boolean flushOnWrite;
@@ -226,6 +226,11 @@ public class BufferedZipStore extends ZipStore {
      */
     public void flush() throws IOException {
         writeBuffer();
+    }
+
+    @Override
+    public void close() throws IOException {
+        flush();
     }
 
     @Override

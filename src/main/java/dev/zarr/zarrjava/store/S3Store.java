@@ -103,29 +103,6 @@ public class S3Store implements Store, Store.ListableStore {
                 .build());
     }
 
-//    @Override
-//    public Stream<String[]> list(String[] keys) {
-//        final String fullKey = resolveKeys(keys);
-//        ListObjectsRequest req = ListObjectsRequest.builder()
-//                .bucket(bucketName).prefix(fullKey)
-//                .build();
-//        ListObjectsResponse res = s3client.listObjects(req);
-//        return res.contents().stream()
-//                .map(S3Object::key)
-//                .flatMap(key -> {
-//                    List<String> pathSegments = new ArrayList<>();
-//                    int index = fullKey.length();
-//                    while ((index = key.indexOf('/', index + 1)) != -1) {
-//                        pathSegments.add(key.substring(fullKey.length() + 1, index));
-//                    }
-//                    pathSegments.add(key.substring(fullKey.length() + 1));
-//                    return pathSegments.stream();
-//                })
-//                .distinct()
-//                .map(s -> s.split("/"))
-//                .filter(arr -> arr.length > 0);
-//    }
-
     @Override
     public Stream<String[]> list(String[] keys) {
         String fullPrefix = resolveKeys(keys);
