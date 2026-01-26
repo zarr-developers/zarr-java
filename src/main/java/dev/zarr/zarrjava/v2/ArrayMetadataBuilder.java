@@ -171,7 +171,14 @@ public class ArrayMetadataBuilder {
     
     /**
      * Calculate default chunk shape when not specified.
-     * Similar to JZarr's ArrayParams.build() logic, targeting chunks of about size 512.
+     * This implements JZarr's ArrayParams.build() logic, targeting chunks of approximately 512 elements.
+     * 
+     * The algorithm divides each dimension by 512 to determine the number of ~512-sized chunks,
+     * then calculates chunk sizes that will cover the dimension. Note that the total coverage
+     * may slightly exceed the dimension size (e.g., for shape=1024, chunks=342 results in 
+     * 3 chunks covering 1026 elements). This is intentional and matches JZarr behavior - 
+     * Zarr handles out-of-bounds gracefully, and the goal is approximate chunk sizes rather 
+     * than perfect tiling.
      */
     private int[] calculateDefaultChunks(long[] shape) {
         int[] chunks = new int[shape.length];

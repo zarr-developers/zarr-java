@@ -288,9 +288,9 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
         }
         
         try {
-            // List all files in the array directory
+            // List all files in the array directory, excluding metadata files (.zarray, .zattrs, .zgroup)
             String[] chunkFiles = storeHandle.list()
-                .filter(key -> !key.startsWith(".z"))  // Exclude metadata files
+                .filter(key -> !key.startsWith(".z"))
                 .toArray(String[]::new);
             
             if (chunkFiles.length == 0) {
