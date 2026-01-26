@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
@@ -104,6 +105,17 @@ public class ZarrV3Test extends ZarrTest {
         );
 
         return Stream.concat(builders, codecBuilders().map(codecFunc -> b -> b.withCodecs(codecFunc)));
+    }
+
+    static Stream<Arguments> unalignedArrayAccessProvider() {
+        Stream.Builder<Arguments> builder = Stream.builder();
+        builder.add(Arguments.of(52, 17, 32));
+        builder.add(Arguments.of(71, 11, 12));
+        builder.add(Arguments.of(52, 17, 17));
+        builder.add(Arguments.of(50, 3, 7));
+        builder.add(Arguments.of(50, 3, 22));
+        builder.add(Arguments.of(13, 31, 21));
+        return builder.build();
     }
 
     @ParameterizedTest
@@ -734,5 +746,31 @@ public class ZarrV3Test extends ZarrTest {
 
         group = Group.open(storeHandle);
         Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("unalignedArrayAccessProvider")
+    public void testUnalignedArrayAccess(int arrayShape, int chunkShape, int accessShape) throws ZarrException, IOException {
+        Array array = Array.create(
+                new MemoryStore().resolve(),
+                Array.metadataBuilder()
+                        .withShape(arrayShape)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(chunkShape)
+                        .withFillValue(0)
+                        .build()
+        );
+
+        int[] testData = new int[arrayShape];
+        Arrays.setAll(testData, p -> (byte) p);
+        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{arrayShape}, testData);
+        array.write(data);
+
+        for (int i = 0; i < arrayShape; i += accessShape) {
+            accessShape = Math.min(accessShape, arrayShape - i);
+            ucar.ma2.Array result = array.read(new long[]{i}, new int[]{accessShape});
+            int[] expectedData = Arrays.copyOfRange(testData, i, i + accessShape);
+            Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        }
     }
 }
