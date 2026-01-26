@@ -248,7 +248,8 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
      * @throws IOException   throws IOException if the new metadata cannot be serialized
      */
     public Array updateAttributes(Function<Attributes, Attributes> attributeMapper) throws ZarrException, IOException {
-        return setAttributes(attributeMapper.apply(metadata.attributes));
+        Attributes currentAttributes = metadata.attributes != null ? new Attributes(metadata.attributes) : new Attributes();
+        return setAttributes(attributeMapper.apply(currentAttributes));
     }
 
     @Override
