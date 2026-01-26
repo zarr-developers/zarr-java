@@ -97,9 +97,9 @@ public abstract class StoreTest extends ZarrTest {
         buffer.get(actualBytes, 0, 10);
         Assertions.assertArrayEquals(expectedBytes, actualBytes);
 
-        buffer = storeHandle.read(size-10);
+        buffer = storeHandle.read(size - 10);
         Assertions.assertEquals(10, buffer.remaining());
-        fullBuffer.position((int)(size-10));
+        fullBuffer.position((int) (size - 10));
         fullBuffer.get(expectedBytes, 0, 10);
         buffer.get(actualBytes, 0, 10);
         Assertions.assertArrayEquals(expectedBytes, actualBytes);

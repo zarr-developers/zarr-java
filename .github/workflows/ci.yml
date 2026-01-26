@@ -59,10 +59,9 @@ jobs:
           MAVEN_OPTS: "-Xmx6g"
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            mvn --no-transfer-progress test -DargLine="-Xmx6g"
+            mvn --no-transfer-progress test -DargLine="-Xmx6g" -DrunS3Tests=true
           else
-            # Skip S3 tests on Windows/macOS where the service isn't running (labeled with @Tag("s3"))
-            mvn --no-transfer-progress test -DargLine="-Xmx6g" -DexcludedGroups="s3"
+            mvn --no-transfer-progress test -DargLine="-Xmx6g"
           fi
       - name: Assemble JAR
         run: mvn package -DskipTests

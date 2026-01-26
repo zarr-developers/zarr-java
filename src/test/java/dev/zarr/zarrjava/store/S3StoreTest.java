@@ -3,8 +3,8 @@ package dev.zarr.zarrjava.store;
 import dev.zarr.zarrjava.ZarrException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
  * docker run -p 9090:9090 -p 9191:9191 -e "initialBuckets=zarr-test-bucket" adobe/s3mock:3.11.0
  * </pre>
  */
-@Tag("s3")
+@EnabledIfSystemProperty(named = "runS3Tests", matches = "true")
 public class S3StoreTest extends WritableStoreTest {
 
     String s3Endpoint = "http://localhost:9090";
@@ -38,6 +38,7 @@ public class S3StoreTest extends WritableStoreTest {
     S3Client s3Client;
     String testDataKey = "testData";
     S3Store s3Store;
+
     @BeforeAll
     void setUpS3Client() throws ZarrException, IOException {
         s3Client = S3Client.builder()
