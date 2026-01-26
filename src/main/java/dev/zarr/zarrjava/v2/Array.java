@@ -60,27 +60,6 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
                     Utils.toArray(storeHandle.resolve(ZATTRS).readNonNull()),
                     Attributes.class
             );
-        
-        // Auto-detect dimension separator if not specified and array has multiple dimensions
-        if (metadata.dimensionSeparator == null && metadata.shape.length > 1) {
-            Separator detectedSeparator = detectDimensionSeparator(storeHandle, metadata.chunks);
-            if (detectedSeparator != null) {
-                // Create a new metadata instance with the detected separator
-                metadata = new ArrayMetadata(
-                    metadata.zarrFormat,
-                    metadata.shape,
-                    metadata.chunks,
-                    metadata.dataType,
-                    metadata.parsedFillValue,
-                    metadata.order,
-                    metadata.filters,
-                    metadata.compressor,
-                    detectedSeparator,
-                    metadata.attributes
-                );
-            }
-        }
-        
         return new Array(
                 storeHandle,
                 metadata
@@ -270,70 +249,6 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
      */
     public Array updateAttributes(Function<Attributes, Attributes> attributeMapper) throws ZarrException, IOException {
         return setAttributes(attributeMapper.apply(metadata.attributes));
-    }
-
-    /**
-     * Detects dimension separator from existing chunk files in the store.
-     * Similar to JZarr's ZarrArray::findNestedChunks method.
-     * 
-     * @param storeHandle the store containing the array
-     * @param chunks the chunk shape
-     * @return the detected separator (SLASH or DOT), or null if detection fails
-     */
-    @Nullable
-    private static Separator detectDimensionSeparator(StoreHandle storeHandle, int[] chunks) {
-        // Only attempt detection if store supports listing
-        if (!(storeHandle.store instanceof Store.ListableStore)) {
-            return null;
-        }
-        
-        try {
-            // List all files in the array directory, excluding metadata files (.zarray, .zattrs, .zgroup)
-            String[] chunkFiles = storeHandle.list()
-                .filter(key -> !key.startsWith(".z"))
-                .toArray(String[]::new);
-            
-            if (chunkFiles.length == 0) {
-                // No chunks exist yet, cannot detect
-                return null;
-            }
-            
-            // Build regex pattern to match nested chunks (SLASH separator)
-            // Pattern: \d+/\d+/... for multi-dimensional arrays
-            StringBuilder nestedPattern = new StringBuilder("\\d+");
-            for (int i = 1; i < chunks.length; i++) {
-                nestedPattern.append("/\\d+");
-            }
-            String nestedRegex = nestedPattern.toString();
-            
-            // Check if any chunk file matches the nested pattern
-            for (String chunkFile : chunkFiles) {
-                if (chunkFile.matches(nestedRegex)) {
-                    return Separator.SLASH;
-                }
-            }
-            
-            // Build regex pattern to match flat chunks (DOT separator)
-            // Pattern: \d+.\d+.... for multi-dimensional arrays
-            StringBuilder flatPattern = new StringBuilder("\\d+");
-            for (int i = 1; i < chunks.length; i++) {
-                flatPattern.append("\\.\\d+");
-            }
-            String flatRegex = flatPattern.toString();
-            
-            // Check if any chunk file matches the flat pattern
-            for (String chunkFile : chunkFiles) {
-                if (chunkFile.matches(flatRegex)) {
-                    return Separator.DOT;
-                }
-            }
-            
-            // Could not detect separator from existing chunks
-            return null;
-        } catch (Exception e) {
-            // If listing fails, return null
-            return null;
-        }
     }
 
     @Override
