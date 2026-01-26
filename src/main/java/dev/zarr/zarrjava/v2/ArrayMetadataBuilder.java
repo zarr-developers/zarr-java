@@ -146,12 +146,15 @@ public class ArrayMetadataBuilder {
         if (shape == null) {
             throw new IllegalStateException("Please call `withShape` first.");
         }
-        if (chunks == null) {
-            throw new IllegalStateException("Please call `withChunks` first.");
-        }
         if (dataType == null) {
             throw new IllegalStateException("Please call `withDataType` first.");
         }
+        
+        // If chunks are not specified, calculate default chunks
+        if (chunks == null) {
+            chunks = calculateDefaultChunks(shape);
+        }
+        
         return new ArrayMetadata(
                 2,
                 shape,
@@ -164,5 +167,29 @@ public class ArrayMetadataBuilder {
                 dimensionSeparator,
                 attributes
         );
+    }
+    
+    /**
+     * Calculate default chunk shape when not specified.
+     * Similar to JZarr's ArrayParams.build() logic, targeting chunks of about size 512.
+     */
+    private int[] calculateDefaultChunks(long[] shape) {
+        int[] chunks = new int[shape.length];
+        for (int i = 0; i < shape.length; i++) {
+            long shapeDim = shape[i];
+            int numChunks = (int) (shapeDim / 512);
+            if (numChunks > 0) {
+                int chunkDim = (int) (shapeDim / (numChunks + 1));
+                if (shapeDim % chunkDim == 0) {
+                    chunks[i] = chunkDim;
+                } else {
+                    chunks[i] = chunkDim + 1;
+                }
+            } else {
+                // If dimension is smaller than 512, use the full dimension
+                chunks[i] = (int) shapeDim;
+            }
+        }
+        return chunks;
     }
 }

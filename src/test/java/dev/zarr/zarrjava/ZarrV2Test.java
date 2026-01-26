@@ -407,4 +407,114 @@ public class ZarrV2Test extends ZarrTest {
             System.out.println(s);
     }
 
+    @Test
+    public void testDefaultChunkShape() throws IOException, ZarrException {
+        // Test with a small array (< 512 elements per dimension)
+        Array smallArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v2_default_chunks_small"),
+                Array.metadataBuilder()
+                        .withShape(100, 50)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(2, smallArray.metadata().chunks.length);
+        // Both dimensions < 512, so chunks should equal shape
+        Assertions.assertEquals(100, smallArray.metadata().chunks[0]);
+        Assertions.assertEquals(50, smallArray.metadata().chunks[1]);
+
+        // Test with a larger array (> 512 elements per dimension)
+        Array largeArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v2_default_chunks_large"),
+                Array.metadataBuilder()
+                        .withShape(2000, 1500)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(2, largeArray.metadata().chunks.length);
+        // Chunks should be calculated based on division by 512
+        Assertions.assertTrue(largeArray.metadata().chunks[0] > 0);
+        Assertions.assertTrue(largeArray.metadata().chunks[0] < 2000);
+        Assertions.assertTrue(largeArray.metadata().chunks[1] > 0);
+        Assertions.assertTrue(largeArray.metadata().chunks[1] < 1500);
+
+        // Test with mixed dimensions
+        Array mixedArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v2_default_chunks_mixed"),
+                Array.metadataBuilder()
+                        .withShape(1024, 100, 2048)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(3, mixedArray.metadata().chunks.length);
+        // Verify chunks are reasonable
+        Assertions.assertTrue(mixedArray.metadata().chunks[0] > 0);
+        Assertions.assertTrue(mixedArray.metadata().chunks[0] <= 1024);
+        Assertions.assertEquals(100, mixedArray.metadata().chunks[1]);  // < 512, should equal shape
+        Assertions.assertTrue(mixedArray.metadata().chunks[2] > 0);
+        Assertions.assertTrue(mixedArray.metadata().chunks[2] <= 2048);
+    }
+
+    @Test
+    public void testDimensionSeparatorAutoDetection() throws IOException, ZarrException {
+        // Test with SLASH separator
+        StoreHandle slashStoreHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_separator_detection_slash");
+        Array slashArray = Array.create(
+                slashStoreHandle,
+                Array.metadataBuilder()
+                        .withShape(10, 10)
+                        .withDataType(DataType.UINT8)
+                        .withChunks(5, 5)
+                        .withDimensionSeparator(dev.zarr.zarrjava.core.chunkkeyencoding.Separator.SLASH)
+                        .build()
+        );
+        
+        // Write some data to create chunk files
+        slashArray.write(new long[]{0, 0}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{5, 5}));
+        
+        // Now open without specifying separator - it should auto-detect SLASH
+        Array reopenedSlashArray = Array.open(slashStoreHandle);
+        Assertions.assertEquals(dev.zarr.zarrjava.core.chunkkeyencoding.Separator.SLASH, 
+                               reopenedSlashArray.metadata().dimensionSeparator);
+
+        // Test with DOT separator
+        StoreHandle dotStoreHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_separator_detection_dot");
+        Array dotArray = Array.create(
+                dotStoreHandle,
+                Array.metadataBuilder()
+                        .withShape(10, 10)
+                        .withDataType(DataType.UINT8)
+                        .withChunks(5, 5)
+                        .withDimensionSeparator(dev.zarr.zarrjava.core.chunkkeyencoding.Separator.DOT)
+                        .build()
+        );
+        
+        // Write some data to create chunk files
+        dotArray.write(new long[]{0, 0}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{5, 5}));
+        
+        // Now open without specifying separator - it should auto-detect DOT
+        Array reopenedDotArray = Array.open(dotStoreHandle);
+        Assertions.assertEquals(dev.zarr.zarrjava.core.chunkkeyencoding.Separator.DOT, 
+                               reopenedDotArray.metadata().dimensionSeparator);
+    }
+
+    @Test
+    public void testDimensionSeparatorDefaultFallback() throws IOException, ZarrException {
+        // Test that when no chunks exist, the separator defaults to DOT (as per ArrayMetadata.chunkKeyEncoding())
+        StoreHandle emptyStoreHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_separator_detection_empty");
+        Array emptyArray = Array.create(
+                emptyStoreHandle,
+                Array.metadataBuilder()
+                        .withShape(10, 10)
+                        .withDataType(DataType.UINT8)
+                        .withChunks(5, 5)
+                        .build()
+        );
+        
+        // Open without writing any chunks
+        Array reopenedEmptyArray = Array.open(emptyStoreHandle);
+        // Should use default DOT separator from ArrayMetadata.chunkKeyEncoding()
+        // When dimensionSeparator is null, chunkKeyEncoding() defaults to DOT
+        Assertions.assertEquals(dev.zarr.zarrjava.core.chunkkeyencoding.Separator.DOT,
+                               reopenedEmptyArray.metadata().chunkKeyEncoding().separator);
+    }
 }
