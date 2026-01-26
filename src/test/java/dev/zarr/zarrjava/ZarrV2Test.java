@@ -382,6 +382,9 @@ public class ZarrV2Test extends ZarrTest {
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        Array reopenedArray = Array.open(storeHandle);
+        Assertions.assertArrayEquals(new int[]{20, 15}, reopenedArray.read().getShape());
     }
 
     @Test
