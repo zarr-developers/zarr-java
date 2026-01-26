@@ -198,8 +198,10 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
     }
 
     /**
-     * Sets a new shape for the Zarr array. It only changes the metadata, no array data is modified or
-     * deleted. This method returns a new instance of the Zarr array class and the old instance
+     * Sets a new shape for the Zarr array. Old array data outside the new shape will be deleted.
+     * If data deletion is not desired, use {@link #resize(long[], boolean)} with
+     * `resizeMetadataOnly` set to true.
+     * This method returns a new instance of the Zarr array class and the old instance
      * becomes invalid.
      *
      * @param newShape the new shape of the Zarr array
@@ -207,9 +209,27 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
      * @throws IOException   throws IOException if the new metadata cannot be serialized
      */
     public Array resize(long[] newShape) throws ZarrException, IOException {
+        return resize(newShape, false);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape, boolean resizeMetadataOnly) throws ZarrException, IOException {
         if (newShape.length != metadata.ndim()) {
             throw new IllegalArgumentException(
                     "'newShape' needs to have rank '" + metadata.ndim() + "'.");
+        }
+
+        if (!resizeMetadataOnly) {
+            cleanupChunksForResize(newShape);
         }
 
         ArrayMetadata newArrayMetadata = ArrayMetadataBuilder.fromArrayMetadata(metadata)
@@ -217,6 +237,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
                 .build();
         return writeMetadata(newArrayMetadata);
     }
+
 
     /**
      * Sets the attributes of the Zarr array. It overwrites and removes any existing attributes. This

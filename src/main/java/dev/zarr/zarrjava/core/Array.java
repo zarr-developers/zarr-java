@@ -174,6 +174,104 @@ public abstract class Array extends AbstractNode {
         return codecPipeline.decode(chunkBytes);
     }
 
+    /**
+     * Deletes chunks that are completely outside the new shape and trims boundary chunks.
+     *
+     * @param newShape the new shape of the array
+     */
+    protected void cleanupChunksForResize(long[] newShape) {
+        ArrayMetadata metadata = metadata();
+        final int[] chunkShape = metadata.chunkShape();
+        final int ndim = metadata.ndim();
+        final dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding chunkKeyEncoding = metadata.chunkKeyEncoding();
+
+        // Calculate max valid chunk coordinates for the new shape
+        long[] newMaxChunkCoords = new long[ndim];
+        for (int i = 0; i < ndim; i++) {
+            newMaxChunkCoords[i] = (newShape[i] + chunkShape[i] - 1) / chunkShape[i];
+        }
+
+        // Iterate over all possible chunk coordinates in the old shape
+        long[][] allOldChunkCoords = IndexingUtils.computeChunkCoords(metadata.shape, chunkShape);
+
+        for (long[] chunkCoords : allOldChunkCoords) {
+            boolean isOutsideBounds = false;
+            boolean isOnBoundary = false;
+
+            for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+                if (chunkCoords[dimIdx] >= newMaxChunkCoords[dimIdx]) {
+                    isOutsideBounds = true;
+                    break;
+                }
+                // Check if this chunk is on the boundary (partially outside new shape)
+                long chunkEnd = (chunkCoords[dimIdx] + 1) * chunkShape[dimIdx];
+                if (chunkEnd > newShape[dimIdx]) {
+                    isOnBoundary = true;
+                }
+            }
+
+            String[] chunkKeys = chunkKeyEncoding.encodeChunkKey(chunkCoords);
+            StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+            if (isOutsideBounds) {
+                // Delete chunk that is completely outside
+                chunkHandle.delete();
+            } else if (isOnBoundary) {
+                // Trim boundary chunk - read, clear out-of-bounds data, write back
+                try {
+                    trimBoundaryChunk(chunkCoords, newShape, chunkShape);
+                } catch (ZarrException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Trims a boundary chunk by reading it, clearing the out-of-bounds portion, and writing it back.
+     *
+     * @param chunkCoords the coordinates of the chunk to trim
+     * @param newShape    the new shape of the array
+     * @param chunkShape  the shape of the chunks
+     * @throws ZarrException if reading or writing the chunk fails
+     */
+    protected void trimBoundaryChunk(long[] chunkCoords, long[] newShape, int[] chunkShape) throws ZarrException {
+        ArrayMetadata metadata = metadata();
+        final int ndim = metadata.ndim();
+
+        // Calculate the valid region within this chunk
+        int[] validShape = new int[ndim];
+        boolean needsTrimming = false;
+        for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+            long chunkStart = chunkCoords[dimIdx] * chunkShape[dimIdx];
+            long chunkEnd = chunkStart + chunkShape[dimIdx];
+            if (chunkEnd > newShape[dimIdx]) {
+                validShape[dimIdx] = (int) (newShape[dimIdx] - chunkStart);
+                needsTrimming = true;
+            } else {
+                validShape[dimIdx] = chunkShape[dimIdx];
+            }
+        }
+
+        if (!needsTrimming) {
+            return;
+        }
+
+        // Read the existing chunk
+        ucar.ma2.Array chunkData = readChunk(chunkCoords);
+
+        // Create a new chunk filled with fill value
+        ucar.ma2.Array newChunkData = metadata.allocateFillValueChunk();
+
+        // Copy only the valid region
+        MultiArrayUtils.copyRegion(
+                chunkData, new int[ndim], newChunkData, new int[ndim], validShape
+        );
+
+        // Write the trimmed chunk back
+        writeChunk(chunkCoords, newChunkData);
+    }
+
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
