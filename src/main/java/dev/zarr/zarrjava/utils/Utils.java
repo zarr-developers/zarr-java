@@ -107,4 +107,38 @@ public class Utils {
         }
         return inverse;
     }
+
+    /**
+     * Calculate default chunk shape when not specified.
+     * This implements JZarr's ArrayParams.build() logic, targeting chunks of approximately 512 elements.
+     * 
+     * The algorithm divides each dimension by 512 to determine the number of ~512-sized chunks,
+     * then calculates chunk sizes that will cover the dimension. Note that the total coverage
+     * may slightly exceed the dimension size (e.g., for shape=1024, chunks=342 results in 
+     * 3 chunks covering 1026 elements). This is intentional and matches JZarr behavior - 
+     * Zarr handles out-of-bounds gracefully, and the goal is approximate chunk sizes rather 
+     * than perfect tiling.
+     * 
+     * @param shape the shape of the array
+     * @return the calculated default chunk shape
+     */
+    public static int[] calculateDefaultChunks(long[] shape) {
+        int[] chunks = new int[shape.length];
+        for (int i = 0; i < shape.length; i++) {
+            long shapeDim = shape[i];
+            int numChunks = (int) (shapeDim / 512);
+            if (numChunks > 0) {
+                int chunkDim = (int) (shapeDim / (numChunks + 1));
+                if (shapeDim % chunkDim == 0) {
+                    chunks[i] = chunkDim;
+                } else {
+                    chunks[i] = chunkDim + 1;
+                }
+            } else {
+                // If dimension is smaller than 512, use the full dimension
+                chunks[i] = (int) shapeDim;
+            }
+        }
+        return chunks;
+    }
 }
