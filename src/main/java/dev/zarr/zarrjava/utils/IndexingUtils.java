@@ -187,5 +187,15 @@ public class IndexingUtils {
             this.outOffset = outOffset;
             this.shape = shape;
         }
+
+        @Override
+        public String toString() {
+            return "ChunkProjection{" +
+                    "chunkCoords=" + Arrays.toString(chunkCoords) +
+                    ", chunkOffset=" + Arrays.toString(chunkOffset) +
+                    ", outOffset=" + Arrays.toString(outOffset) +
+                    ", shape=" + Arrays.toString(shape) +
+                    '}';
+        }
     }
 }
