@@ -417,6 +417,83 @@ public class ZarrV2Test extends ZarrTest {
     }
 
     @Test
+    public void testResizeArrayShrinkWithChunkCleanup() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkWithChunkCleanupV2");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunks(5, 5)
+                .withFillValue(99)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        // Verify all 4 chunks exist before resize
+        Assertions.assertTrue(storeHandle.resolve("0.0").exists());
+        Assertions.assertTrue(storeHandle.resolve("0.1").exists());
+        Assertions.assertTrue(storeHandle.resolve("1.0").exists());
+        Assertions.assertTrue(storeHandle.resolve("1.1").exists());
+
+        // Resize with chunk cleanup (resizeMetadataOnly=false)
+        array = array.resize(new long[]{5, 5}, false);
+        Assertions.assertArrayEquals(new int[]{5, 5}, array.read().getShape());
+
+        // Verify only chunk (0,0) still exists
+        Assertions.assertTrue(storeHandle.resolve("0.0").exists());
+        Assertions.assertFalse(storeHandle.resolve("0.1").exists());
+        Assertions.assertFalse(storeHandle.resolve("1.0").exists());
+        Assertions.assertFalse(storeHandle.resolve("1.1").exists());
+
+        ucar.ma2.Array data = array.read();
+        int[] expectedData = new int[5 * 5];
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                expectedData[i * 5 + j] = testData[i * 10 + j];
+            }
+        }
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testResizeArrayShrinkWithBoundaryTrimming() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkWithBoundaryTrimmingV2");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunks(5, 5)
+                .withFillValue(99)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        // Resize to 7x7 (crosses chunk boundary, should trim boundary chunks)
+        array = array.resize(new long[]{7, 7}, false);
+        Assertions.assertArrayEquals(new int[]{7, 7}, array.read().getShape());
+
+        // Verify chunks (0,0), (0,1), (1,0), (1,1) still exist (boundary trimmed, not deleted)
+        Assertions.assertTrue(storeHandle.resolve("0.0").exists());
+        Assertions.assertTrue(storeHandle.resolve("0.1").exists());
+        Assertions.assertTrue(storeHandle.resolve("1.0").exists());
+        Assertions.assertTrue(storeHandle.resolve("1.1").exists());
+
+        // Now resize to expand again and check that trimmed area has fill value
+        array = array.resize(new long[]{10, 10}, true);
+        ucar.ma2.Array data = array.read(new long[]{7, 0}, new int[]{3, 10});
+        // All values in rows 7-9 should be fill value (99)
+        int[] expectedFillData = new int[3 * 10];
+        Arrays.fill(expectedFillData, 99);
+        Assertions.assertArrayEquals(expectedFillData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
     public void testGroupAttributes() throws IOException, ZarrException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testGroupAttributesV2");
 
