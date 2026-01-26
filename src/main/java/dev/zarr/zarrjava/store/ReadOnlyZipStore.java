@@ -12,7 +12,9 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -23,6 +25,10 @@ import java.util.stream.Stream;
  * its contents into a buffer store first making it more efficient for read-only access to large zip archives.
  */
 public class ReadOnlyZipStore extends ZipStore {
+
+    private Map<String, Long> fileIndex;
+    private Set<String> directoryIndex;
+    private boolean isCached = false;
 
     public ReadOnlyZipStore(@Nonnull StoreHandle underlyingStore) {
         super(underlyingStore);
@@ -36,6 +42,33 @@ public class ReadOnlyZipStore extends ZipStore {
         this(Paths.get(underlyingStorePath));
     }
 
+    private synchronized void ensureCache() {
+        if (isCached) return;
+
+        fileIndex = new LinkedHashMap<>();
+        directoryIndex = new LinkedHashSet<>();
+
+        InputStream inputStream = underlyingStore.getInputStream();
+        if (inputStream == null) {
+            isCached = true;
+            return;
+        }
+
+        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
+            ZipArchiveEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String name = normalizeEntryName(entry.getName());
+                if (entry.isDirectory()) {
+                    directoryIndex.add(name);
+                } else {
+                    fileIndex.put(name, entry.getSize());
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        isCached = true;
+    }
+
     String resolveKeys(String[] keys) {
         return String.join("/", keys);
     }
@@ -46,7 +79,8 @@ public class ReadOnlyZipStore extends ZipStore {
 
     @Override
     public boolean exists(String[] keys) {
-        return get(keys, 0, 0) != null;
+        ensureCache();
+        return fileIndex.containsKey(resolveKeys(keys));
     }
 
     @Nullable
@@ -64,6 +98,12 @@ public class ReadOnlyZipStore extends ZipStore {
     @Nullable
     @Override
     public ByteBuffer get(String[] keys, long start, long end) {
+        ensureCache();
+        String key = resolveKeys(keys);
+        if (!fileIndex.containsKey(key)) {
+            return null;
+        }
+
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) {
             return null;
@@ -128,52 +168,40 @@ public class ReadOnlyZipStore extends ZipStore {
 
     @Override
     public Stream<String[]> list(String[] prefixKeys) {
+        ensureCache();
         Stream.Builder<String[]> builder = Stream.builder();
-        InputStream inputStream = underlyingStore.getInputStream();
-        if (inputStream == null) return builder.build();
 
         String prefix = resolveKeys(prefixKeys);
         if (!prefix.isEmpty() && !prefix.endsWith("/")) {
             prefix += "/";
         }
 
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
-            ZipArchiveEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                String name = normalizeEntryName(entry.getName());
-                if (name.startsWith(prefix) && !entry.isDirectory()) {
-                    builder.add(resolveEntryKeys(name.substring(prefix.length())));
-                }
+        for (String name : fileIndex.keySet()) {
+            if (name.startsWith(prefix)) {
+                builder.add(resolveEntryKeys(name.substring(prefix.length())));
             }
-        } catch (IOException ignored) {
         }
         return builder.build();
     }
 
     @Override
     public Stream<String> listChildren(String[] prefixKeys) {
+        ensureCache();
         Set<String> children = new LinkedHashSet<>();
-        InputStream inputStream = underlyingStore.getInputStream();
-        if (inputStream == null) return Stream.empty();
 
         String prefix = resolveKeys(prefixKeys);
         if (!prefix.isEmpty() && !prefix.endsWith("/")) {
             prefix += "/";
         }
 
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
-            ZipArchiveEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                String name = normalizeEntryName(entry.getName());
-
-                if (name.startsWith(prefix) && !name.equals(prefix)) {
-                    String relative = name.substring(prefix.length());
-                    String[] parts = relative.split("/");
-                    children.add(parts[0]);
-                }
+        String finalPrefix = prefix;
+        Stream.concat(fileIndex.keySet().stream(), directoryIndex.stream()).forEach(name -> {
+            if (name.startsWith(finalPrefix) && !name.equals(finalPrefix)) {
+                String relative = name.substring(finalPrefix.length());
+                String[] parts = relative.split("/");
+                children.add(parts[0]);
             }
-        } catch (IOException ignored) {
-        }
+        });
 
         return children.stream();
     }
@@ -187,6 +215,12 @@ public class ReadOnlyZipStore extends ZipStore {
 
     @Override
     public InputStream getInputStream(String[] keys, long start, long end) {
+        ensureCache();
+        String key = resolveKeys(keys);
+        if (!fileIndex.containsKey(key)) {
+            return null;
+        }
+
         InputStream baseStream = underlyingStore.getInputStream();
 
         try {
@@ -221,6 +255,17 @@ public class ReadOnlyZipStore extends ZipStore {
 
     @Override
     public long getSize(String[] keys) {
+        ensureCache();
+        String key = resolveKeys(keys);
+        Long cachedSize = fileIndex.get(key);
+        if (cachedSize == null) {
+            return -1;
+        }
+        if (cachedSize >= 0) {
+            return cachedSize;
+        }
+
+        // if size is not in header/cache, we fallback to reading
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) {
             throw new RuntimeException(new IOException("Underlying store input stream is null"));
