@@ -87,7 +87,7 @@ public class IndexingUtils {
 
             if (selOffset[dimIdx] + selShape[dimIdx] > dimLimit) {
                 // selection ends after current chunk
-                shape[dimIdx] = (int) (chunkShape[dimIdx] - (selOffset[dimIdx] % chunkShape[dimIdx]));
+                shape[dimIdx] = chunkShape[dimIdx] - chunkOffset[dimIdx];
             } else {
                 // selection ends within current chunk
                 shape[dimIdx] = (int) (selOffset[dimIdx] + selShape[dimIdx] - dimOffset
@@ -186,6 +186,16 @@ public class IndexingUtils {
             this.chunkOffset = chunkOffset;
             this.outOffset = outOffset;
             this.shape = shape;
+        }
+
+        @Override
+        public String toString() {
+            return "ChunkProjection{" +
+                    "chunkCoords=" + Arrays.toString(chunkCoords) +
+                    ", chunkOffset=" + Arrays.toString(chunkOffset) +
+                    ", outOffset=" + Arrays.toString(outOffset) +
+                    ", shape=" + Arrays.toString(shape) +
+                    '}';
         }
     }
 }
