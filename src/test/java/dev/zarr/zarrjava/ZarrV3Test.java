@@ -695,6 +695,31 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
+    public void testUpdateAttributesBehavior() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testUpdateAttributesBehaviorV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(5, 5)
+                .withAttributes(new Attributes(b -> b.set("key1", "val1")))
+                .build();
+
+        Array array1 = Array.create(storeHandle, arrayMetadata);
+        Array array2 = array1.updateAttributes(attrs -> attrs.set("key2", "val2"));
+
+        Assertions.assertNotSame(array1, array2);
+        Assertions.assertEquals("val1", array1.metadata().attributes().get("key1"));
+        Assertions.assertNull(array1.metadata().attributes().get("key2"));
+
+        Assertions.assertEquals("val1", array2.metadata().attributes().get("key1"));
+        Assertions.assertEquals("val2", array2.metadata().attributes().get("key2"));
+
+        // Re-opening should show the updated attributes
+        Array array3 = Array.open(storeHandle);
+        Assertions.assertEquals("val2", array3.metadata().attributes().get("key2"));
+    }
+
+    @Test
     public void testResizeArray() throws IOException, ZarrException {
         int[] testData = new int[10 * 10];
         Arrays.setAll(testData, p -> p);
@@ -719,6 +744,34 @@ public class ZarrV3Test extends ZarrTest {
         data = array.read(new long[]{10, 10}, new int[]{5, 5});
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testResizeArrayShrink() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        array = array.resize(new long[]{5, 5});
+        Assertions.assertArrayEquals(new int[]{5, 5}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read();
+        int[] expectedData = new int[5 * 5];
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                expectedData[i * 5 + j] = testData[i * 10 + j];
+            }
+        }
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
 

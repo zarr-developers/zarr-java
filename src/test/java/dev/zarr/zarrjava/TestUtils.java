@@ -26,6 +26,5 @@ public class TestUtils {
         Assertions.assertArrayEquals(new int[]{0, 3, 2, 4, 1}, inversePermutation(new int[]{0, 4, 2, 1, 3}));
         Assertions.assertFalse(Arrays.equals(new int[]{2, 0, 1}, inversePermutation(new int[]{2, 0, 1})));
     }
-
 }
 
