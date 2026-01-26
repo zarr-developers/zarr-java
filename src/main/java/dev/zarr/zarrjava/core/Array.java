@@ -293,15 +293,6 @@ public abstract class Array extends AbstractNode {
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
-
-        boolean isListableStore = storeHandle.store instanceof Store.ListableStore;
-        Set<List<String>> existingKeys;
-        if (isListableStore) {
-            existingKeys = storeHandle.list().map(Arrays::asList).collect(Collectors.toSet());
-        } else {
-            existingKeys = null;
-        }
-
         chunkStream.forEach(
                 chunkCoords -> {
                     try {
@@ -320,11 +311,7 @@ public abstract class Array extends AbstractNode {
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
                         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
-                        // chunkHandle.exists() can be expensive on some store types, so we optimize for ListableStore
-                        if (isListableStore) {
-                            if (existingKeys.stream().noneMatch(Arrays.asList(chunkKeys)::equals))
-                                return;
-                        } else if (!chunkHandle.exists()) return;
+                        if (!chunkHandle.exists()) return;
 
                         if (codecPipeline.supportsPartialDecode()) {
                             final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
