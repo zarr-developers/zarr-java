@@ -785,9 +785,7 @@ public class ZarrV3Test extends ZarrTest {
         ucar.ma2.Array data = array.read();
         int[] expectedData = new int[5 * 5];
         for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                expectedData[i * 5 + j] = testData[i * 10 + j];
-            }
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
         }
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
@@ -827,9 +825,7 @@ public class ZarrV3Test extends ZarrTest {
         ucar.ma2.Array data = array.read();
         int[] expectedData = new int[5 * 5];
         for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                expectedData[i * 5 + j] = testData[i * 10 + j];
-            }
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
         }
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
