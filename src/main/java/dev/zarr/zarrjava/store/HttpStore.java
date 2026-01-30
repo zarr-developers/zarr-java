@@ -22,11 +22,17 @@ public class HttpStore implements Store {
     }
 
     String resolveKeys(String[] keys) {
-        StringBuilder newUri = new StringBuilder(uri.replaceAll("\\/+$", ""));
-        for (String key : keys) {
-            newUri.append("/").append(key);
+        HttpUrl url = HttpUrl.parse(uri);
+        if (url == null) {
+            throw new IllegalArgumentException("Invalid base URI: " + uri);
         }
-        return newUri.toString();
+        HttpUrl.Builder builder = url.newBuilder();
+        for (String key : keys) {
+            for (String segment : key.split("/", -1)) {
+                builder.addPathSegment(segment);
+            }
+        }
+        return builder.build().toString();
     }
 
     @Nullable
@@ -34,7 +40,13 @@ public class HttpStore implements Store {
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
+            if (!response.isSuccessful()) {
+                return null;
+            }
             try (ResponseBody body = response.body()) {
+                if (body == null) {
+                    return null;
+                }
                 return ByteBuffer.wrap(body.bytes());
             }
         } catch (IOException e) {
@@ -65,7 +77,7 @@ public class HttpStore implements Store {
     @Override
     public ByteBuffer get(String[] keys, long start) {
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                        "Range", start < 0 ? String.format("Bytes=%d", start) : String.format("Bytes=%d-", start))
+                        "Range", start < 0 ? String.format("bytes=%d", start) : String.format("bytes=%d-", start))
                 .build();
 
         return get(request);
@@ -78,7 +90,7 @@ public class HttpStore implements Store {
             throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
         }
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                "Range", String.format("Bytes=%d-%d", start, end - 1)).build();
+                "Range", String.format("bytes=%d-%d", start, end - 1)).build();
         return get(request);
     }
 
@@ -110,10 +122,13 @@ public class HttpStore implements Store {
             throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
         }
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                "Range", String.format("Bytes=%d-%d", start, end - 1)).build();
+                "Range", String.format("bytes=%d-%d", start, end - 1)).build();
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
+            if (!response.isSuccessful()) {
+                return null;
+            }
             ResponseBody body = response.body();
             if (body == null) return null;
             InputStream stream = body.byteStream();

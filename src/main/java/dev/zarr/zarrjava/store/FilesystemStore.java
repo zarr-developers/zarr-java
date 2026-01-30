@@ -30,11 +30,43 @@ public class FilesystemStore implements Store, Store.ListableStore {
         for (String key : keys) {
             newPath = newPath.resolve(key);
         }
-        Path absoluteRoot = path.toAbsolutePath().normalize();
-        Path absoluteTarget = newPath.toAbsolutePath().normalize();
-        if (!absoluteTarget.startsWith(absoluteRoot)) {
-            throw new IllegalArgumentException("Key resolves outside of store root: " + absoluteTarget);
+
+        try {
+            // Use toRealPath() to resolve symlinks and verify path is within root
+            // For non-existent paths, validate the existing parent path
+            Path absoluteRoot = path.toAbsolutePath().normalize();
+            Path targetPath = newPath.toAbsolutePath().normalize();
+
+            // Try to get real path if it exists (follows symlinks)
+            if (Files.exists(targetPath)) {
+                Path realTarget = targetPath.toRealPath();
+                Path realRoot = absoluteRoot.toRealPath();
+                if (!realTarget.startsWith(realRoot)) {
+                    throw new IllegalArgumentException("Key resolves outside of store root: " + realTarget);
+                }
+            } else {
+                // For non-existent paths, check the normalized path
+                // and ensure existing parent doesn't escape via symlinks
+                Path parent = targetPath.getParent();
+                if (parent != null && Files.exists(parent)) {
+                    Path realParent = parent.toRealPath();
+                    Path realRoot = absoluteRoot.toRealPath();
+                    if (!realParent.startsWith(realRoot)) {
+                        throw new IllegalArgumentException("Parent path resolves outside of store root: " + realParent);
+                    }
+                } else if (!targetPath.startsWith(absoluteRoot)) {
+                    throw new IllegalArgumentException("Key resolves outside of store root: " + targetPath);
+                }
+            }
+        } catch (IOException e) {
+            // If toRealPath() fails, fall back to normalized path check
+            Path absoluteRoot = path.toAbsolutePath().normalize();
+            Path absoluteTarget = newPath.toAbsolutePath().normalize();
+            if (!absoluteTarget.startsWith(absoluteRoot)) {
+                throw new IllegalArgumentException("Key resolves outside of store root: " + absoluteTarget);
+            }
         }
+
         return newPath.normalize();
     }
 

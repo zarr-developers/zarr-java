@@ -18,7 +18,7 @@ public class IndexingUtils {
         final int ndim = arrayShape.length;
         long[] start = new long[ndim];
         long[] end = new long[ndim];
-        int numChunks = 1;
+        long numChunks = 1;
         for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
             final int staIdx = (int) (selOffset[dimIdx] / chunkShape[dimIdx]);
             final int endIdx = (int) ((selOffset[dimIdx] + selShape[dimIdx] - 1) / chunkShape[dimIdx]);
@@ -27,7 +27,11 @@ public class IndexingUtils {
             end[dimIdx] = endIdx;
         }
 
-        final long[][] chunkCoords = new long[numChunks][];
+        if (numChunks > Integer.MAX_VALUE) {
+            throw new ArithmeticException("Number of chunks exceeds Integer.MAX_VALUE");
+        }
+
+        final long[][] chunkCoords = new long[(int) numChunks][];
 
         final long[] currentIdx = Arrays.copyOf(start, ndim);
         for (int i = 0; i < chunkCoords.length; i++) {
@@ -78,10 +82,20 @@ public class IndexingUtils {
                 // selection starts before current chunk
                 chunkOffset[dimIdx] = 0;
                 // compute number of previous items, provides offset into output array
-                outOffset[dimIdx] = (int) (dimOffset - selOffset[dimIdx]);
+                long outOffsetValue = dimOffset - selOffset[dimIdx];
+                if (outOffsetValue > Integer.MAX_VALUE) {
+                    throw new ArithmeticException(
+                            "Output offset exceeds Integer.MAX_VALUE at dimension " + dimIdx + ": " + outOffsetValue);
+                }
+                outOffset[dimIdx] = (int) outOffsetValue;
             } else {
                 // selection starts within current chunk
-                chunkOffset[dimIdx] = (int) (selOffset[dimIdx] - dimOffset);
+                long chunkOffsetValue = selOffset[dimIdx] - dimOffset;
+                if (chunkOffsetValue > Integer.MAX_VALUE) {
+                    throw new ArithmeticException(
+                            "Chunk offset exceeds Integer.MAX_VALUE at dimension " + dimIdx + ": " + chunkOffsetValue);
+                }
+                chunkOffset[dimIdx] = (int) chunkOffsetValue;
                 outOffset[dimIdx] = 0;
             }
 
@@ -90,8 +104,12 @@ public class IndexingUtils {
                 shape[dimIdx] = chunkShape[dimIdx] - chunkOffset[dimIdx];
             } else {
                 // selection ends within current chunk
-                shape[dimIdx] = (int) (selOffset[dimIdx] + selShape[dimIdx] - dimOffset
-                        - chunkOffset[dimIdx]);
+                long shapeValue = selOffset[dimIdx] + selShape[dimIdx] - dimOffset - chunkOffset[dimIdx];
+                if (shapeValue > Integer.MAX_VALUE || shapeValue < 0) {
+                    throw new ArithmeticException(
+                            "Shape value exceeds Integer.MAX_VALUE or is negative at dimension " + dimIdx + ": " + shapeValue);
+                }
+                shape[dimIdx] = (int) shapeValue;
             }
         }
 
@@ -112,8 +130,8 @@ public class IndexingUtils {
     }
 
     public static long fOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
-        int index = 0;
-        int multiplier = 1;
+        long index = 0;
+        long multiplier = 1;
 
         for (int i = 0; i < arrayShape.length; i++) {
             index += chunkCoords[i] * multiplier;

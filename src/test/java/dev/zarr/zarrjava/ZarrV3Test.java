@@ -822,4 +822,48 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertTrue(mixedArray.metadata().chunkShape()[2] > 0);
         Assertions.assertTrue(mixedArray.metadata().chunkShape()[2] <= 2048);
     }
+
+    @Test
+    public void testLargeArrayWithOffsetBeyondMaxInt() throws IOException, ZarrException {
+        // Create an array with second dimension exceeding Integer.MAX_VALUE
+        // Shape: [2, 3_000_000_000] - 3 billion elements in second dimension
+        // This array is mostly fillvalue, only write one small chunk
+        long largeSize = 3_000_000_000L; // 3 billion > Integer.MAX_VALUE (2.147B)
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("large_array_beyond_int");
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(largeSize, largeSize)
+                .withDataType(DataType.INT32)
+                .withChunkShape(1000, 1000)
+                .withFillValue(42)
+                .build();
+
+        Array array = Array.create(storeHandle, metadata);
+
+        // Write a small chunk at position [0, 0]
+        int[] testData = new int[1000];
+        Arrays.fill(testData, 100);
+        ucar.ma2.Array smallChunk = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{1, 1000}, testData);
+        array.write(new long[]{0, 0}, smallChunk);
+
+        // Write a small chunk at position [1, Integer.MAX_VALUE + 1]
+        long beyondIntMax = (long)(Integer.MAX_VALUE) + 1;
+        long[] offset = new long[]{1, beyondIntMax};
+        Arrays.fill(testData, 200);
+        smallChunk = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{1, 1000}, testData);
+        array.write(offset, smallChunk);
+
+        // Read from the written region - should get our data
+        ucar.ma2.Array readStart = array.read(new long[]{0, 0}, new long[]{1, 100});
+        Assertions.assertEquals(100, readStart.getInt(0), "Data at start should be written value");
+
+        // Read from position beyond Integer.MAX_VALUE - should get fillvalue
+        ucar.ma2.Array readFar = array.read(offset, new long[]{1, 100});
+        Assertions.assertEquals(200, readFar.getInt(1), "Data beyond Integer.MAX_VALUE should be fillvalue");
+
+        // Verify metadata
+        Assertions.assertEquals(2, array.metadata().shape.length);
+        Assertions.assertEquals(largeSize, array.metadata().shape[0]);
+        Assertions.assertEquals(largeSize, array.metadata().shape[1]);
+    }
 }

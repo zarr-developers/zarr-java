@@ -8,7 +8,6 @@ import software.amazon.awssdk.services.s3.model.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -89,12 +88,16 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public void set(String[] keys, ByteBuffer bytes) {
-        try (InputStream byteStream = new ByteArrayInputStream(Utils.toArray(bytes))) {
-            /*AWS SDK for Java v2 migration: When using InputStream to upload with S3Client, Content-Length should be specified and used with RequestBody.fromInputStream(). Otherwise, the entire stream will be buffered in memory. If content length must be unknown, we recommend using the CRT-based S3 client - https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/crt-based-s3-client.html*/
-            s3client.putObject(PutObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build(), RequestBody.fromContentProvider(() -> byteStream, "application/octet-stream"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        // Convert ByteBuffer to byte array and use RequestBody.fromBytes()
+        // This properly sets Content-Length and avoids buffering the entire stream in memory
+        byte[] data = Utils.toArray(bytes);
+        s3client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(resolveKeys(keys))
+                        .build(),
+                RequestBody.fromBytes(data)
+        );
     }
 
     @Override
@@ -178,8 +181,7 @@ public class S3Store implements Store, Store.ListableStore {
                 .key(resolveKeys(keys))
                 .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
                 .build();
-        ResponseInputStream<GetObjectResponse> responseInputStream = s3client.getObject(req);
-        return responseInputStream;
+        return s3client.getObject(req);
     }
 
     @Override

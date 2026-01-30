@@ -2,7 +2,7 @@ package dev.zarr.zarrjava;
 
 
 import dev.zarr.zarrjava.utils.IndexingUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 
 import java.util.Arrays;
@@ -74,6 +74,41 @@ public class TestUtils {
         Assertions.assertArrayEquals(new int[]{0,0}, projection.chunkOffset);
         Assertions.assertArrayEquals(new int[]{0,2}, projection.outOffset);
         Assertions.assertArrayEquals(new int[]{1, 17}, projection.shape);
+    }
+
+    @Test
+    public void testFOrderIndexOverflow() {
+        // Create a shape that fits in long but would cause int overflow in fOrderIndex
+        // Shape: [2000, 2000, 1000] -> Total elements = 4,000,000,000 (exceeds Integer.MAX_VALUE 2.14B)
+        long[] arrayShape = {2000, 2000, 1000};
+
+        // Target coordinates near the end
+        long[] chunkCoords = {1999, 1999, 999};
+
+        // Expected index should be large (approx 4 billion)
+        long expectedIndex = 1999 +
+                1999 * 2000L +
+                999 * 2000L * 2000L;
+
+        long actualIndex = IndexingUtils.fOrderIndex(chunkCoords, arrayShape);
+
+        Assertions.assertEquals(expectedIndex, actualIndex, "fOrderIndex failed due to integer overflow");
+    }
+
+    @Test
+    public void testComputeChunkCoordsOverflow() {
+        // Shape: [100000, 100000]
+        long[] arrayShape = {100000, 100000};
+        // Chunk: [1, 1]
+        int[] chunkShape = {1, 1};
+        // Selection: Full array
+        long[] selOffset = {0, 0};
+        long[] selShape = {100000, 100000};
+
+        // This should cause overflow: 100000 * 100000 = 10,000,000,000 > Integer.MAX_VALUE
+        Assertions.assertThrows(ArithmeticException.class, () -> {
+            IndexingUtils.computeChunkCoords(arrayShape, chunkShape, selOffset, selShape);
+        });
     }
 
 }
