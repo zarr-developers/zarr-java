@@ -30,7 +30,7 @@ public class TestUtils {
     }
 
     @Test
-    public void testComputeChunkCoords(){
+    public void testComputeChunkCoords() {
         long[] arrayShape = new long[]{100, 100};
         int[] chunkShape = new int[]{30, 30};
         long[] selOffset = new long[]{50, 20};
@@ -56,7 +56,7 @@ public class TestUtils {
     }
 
     @Test
-    public void testComputeProjection(){
+    public void testComputeProjection() {
         // chunk (0,2) contains indexes 34-50 along axis 1
         // thus the overlap with selection 32-52 is 34-50
         // which is offset 2 in the selection and offset 0 in the chunk
@@ -71,8 +71,8 @@ public class TestUtils {
                 chunkCoords, arrayShape, chunkShape, selOffset, selShape
         );
         Assertions.assertArrayEquals(chunkCoords, projection.chunkCoords);
-        Assertions.assertArrayEquals(new int[]{0,0}, projection.chunkOffset);
-        Assertions.assertArrayEquals(new int[]{0,2}, projection.outOffset);
+        Assertions.assertArrayEquals(new int[]{0, 0}, projection.chunkOffset);
+        Assertions.assertArrayEquals(new int[]{0, 2}, projection.outOffset);
         Assertions.assertArrayEquals(new int[]{1, 17}, projection.shape);
     }
 
