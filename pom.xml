@@ -121,6 +121,11 @@
             <version>4.13.1</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.28.0</version>
+        </dependency>
     </dependencies>
 
     <repositories>
@@ -139,6 +144,10 @@
                 <version>3.2.5</version>
                 <configuration>
                     <useSystemClassLoader>false</useSystemClassLoader>
+                    <environmentVariables>
+                        <!-- Force Testcontainers to use a newer Docker API version supported by your local Daemon -->
+                        <DOCKER_API_VERSION>1.44</DOCKER_API_VERSION>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>

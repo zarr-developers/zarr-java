@@ -565,7 +565,9 @@ public class ZarrV3Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata().chunkShape());
+        Array[] arrays = group.list().filter(n -> n instanceof Array).toArray(Array[]::new);
+        Assertions.assertEquals(1, arrays.length);
+        Assertions.assertArrayEquals(new int[]{5, 5}, arrays[0].metadata().chunkShape());
     }
 
     @Test

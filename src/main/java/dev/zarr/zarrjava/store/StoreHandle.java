@@ -4,6 +4,7 @@ import dev.zarr.zarrjava.utils.Utils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -12,9 +13,9 @@ import java.util.stream.Stream;
 public class StoreHandle {
 
     @Nonnull
-    final Store store;
+    public final Store store;
     @Nonnull
-    final String[] keys;
+    public final String[] keys;
 
     public StoreHandle(@Nonnull Store store, @Nonnull String... keys) {
         this.store = store;
@@ -45,6 +46,14 @@ public class StoreHandle {
         return store.get(keys, start, end);
     }
 
+    public InputStream getInputStream(int start, int end) {
+        return store.getInputStream(keys, start, end);
+    }
+
+    public InputStream getInputStream() {
+        return store.getInputStream(keys);
+    }
+
     public void set(ByteBuffer bytes) {
         store.set(keys, bytes);
     }
@@ -57,11 +66,22 @@ public class StoreHandle {
         return store.exists(keys);
     }
 
-    public Stream<String> list() {
+    public Stream<String[]> list() {
         if (!(store instanceof Store.ListableStore)) {
             throw new UnsupportedOperationException("The underlying store does not support listing.");
         }
         return ((Store.ListableStore) store).list(keys);
+    }
+
+    public Stream<String> listChildren() {
+        if (!(store instanceof Store.ListableStore)) {
+            throw new UnsupportedOperationException("The underlying store does not support listing.");
+        }
+        return ((Store.ListableStore) store).listChildren(keys);
+    }
+
+    public long getSize() {
+        return store.getSize(keys);
     }
 
     @Override
