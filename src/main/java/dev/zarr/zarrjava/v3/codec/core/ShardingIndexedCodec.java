@@ -203,7 +203,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
         final Array shardIndexArray = indexCodecPipeline.decode(shardIndexBytes);
         long[][] allChunkCoords = IndexingUtils.computeChunkCoords(shardMetadata.shape,
                 shardMetadata.chunkShape, offset,
-                shape);
+                Utils.toLongArray(shape));
 
         Arrays.stream(allChunkCoords)
                 // .parallel()
@@ -217,7 +217,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                                 Array chunkArray = null;
                                 final IndexingUtils.ChunkProjection chunkProjection =
                                         IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
-                                                shardMetadata.chunkShape, offset, shape
+                                                shardMetadata.chunkShape, offset, Utils.toLongArray(shape)
                                         );
                                 if (chunkByteOffset != -1 && chunkByteLength != -1) {
                                     final ByteBuffer chunkBytes = dataProvider.read(chunkByteOffset, chunkByteLength);

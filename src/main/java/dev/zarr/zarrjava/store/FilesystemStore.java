@@ -30,7 +30,44 @@ public class FilesystemStore implements Store, Store.ListableStore {
         for (String key : keys) {
             newPath = newPath.resolve(key);
         }
-        return newPath;
+
+        try {
+            // Use toRealPath() to resolve symlinks and verify path is within root
+            // For non-existent paths, validate the existing parent path
+            Path absoluteRoot = path.toAbsolutePath().normalize();
+            Path targetPath = newPath.toAbsolutePath().normalize();
+
+            // Try to get real path if it exists (follows symlinks)
+            if (Files.exists(targetPath)) {
+                Path realTarget = targetPath.toRealPath();
+                Path realRoot = absoluteRoot.toRealPath();
+                if (!realTarget.startsWith(realRoot)) {
+                    throw new IllegalArgumentException("Key resolves outside of store root: " + realTarget);
+                }
+            } else {
+                // For non-existent paths, check the normalized path
+                // and ensure existing parent doesn't escape via symlinks
+                Path parent = targetPath.getParent();
+                if (parent != null && Files.exists(parent)) {
+                    Path realParent = parent.toRealPath();
+                    Path realRoot = absoluteRoot.toRealPath();
+                    if (!realParent.startsWith(realRoot)) {
+                        throw new IllegalArgumentException("Parent path resolves outside of store root: " + realParent);
+                    }
+                } else if (!targetPath.startsWith(absoluteRoot)) {
+                    throw new IllegalArgumentException("Key resolves outside of store root: " + targetPath);
+                }
+            }
+        } catch (IOException e) {
+            // If toRealPath() fails, fall back to normalized path check
+            Path absoluteRoot = path.toAbsolutePath().normalize();
+            Path absoluteTarget = newPath.toAbsolutePath().normalize();
+            if (!absoluteTarget.startsWith(absoluteRoot)) {
+                throw new IllegalArgumentException("Key resolves outside of store root: " + absoluteTarget);
+            }
+        }
+
+        return newPath.normalize();
     }
 
     @Override
@@ -96,7 +133,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
         try {
             Files.createDirectories(keyPath.getParent());
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.writeFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to create parent directories for path: " + keyPath.getParent(), e));
         }
         try (SeekableByteChannel channel = Files.newByteChannel(keyPath.toAbsolutePath(),
                 StandardOpenOption.CREATE,
@@ -105,18 +145,25 @@ public class FilesystemStore implements Store, Store.ListableStore {
         )) {
             channel.write(bytes);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.writeFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to write " + bytes.remaining() + " bytes to file: " + keyPath, e));
         }
     }
 
     @Override
     public void delete(String[] keys) {
+        Path keyPath = resolveKeys(keys);
         try {
-            Files.delete(resolveKeys(keys));
+            Files.delete(keyPath);
         } catch (NoSuchFileException e) {
-            // ignore
+            // ignore - file doesn't exist, which is the desired outcome
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.deleteFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to delete file: " + keyPath, e));
         }
     }
 
@@ -143,7 +190,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
                     .filter(Files::isRegularFile)
                     .map(path -> pathToKeyArray(rootPath, path, prefix));
         } catch (IOException e) {
-            throw new RuntimeException("Failed to list store content", e);
+            throw StoreException.listFailed(
+                    this.toString(),
+                    prefix,
+                    new IOException("Failed to walk directory tree at: " + rootPath, e));
         }
     }
 
@@ -156,7 +206,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
         try {
             return Files.list(rootPath).map(path -> path.getFileName().toString());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to list store children", e);
+            throw StoreException.listFailed(
+                    this.toString(),
+                    prefix,
+                    new IOException("Failed to list directory contents at: " + rootPath, e));
         }
     }
 
@@ -182,7 +235,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
             if (start > 0) {
                 long skipped = inputStream.skip(start);
                 if (skipped < start) {
-                    throw new IOException("Unable to skip to the desired start position.");
+                    throw new IOException("Unable to skip to position " + start +
+                            ", only skipped " + skipped + " bytes in file: " + keyPath);
                 }
             }
             if (end != -1) {
@@ -192,17 +246,25 @@ public class FilesystemStore implements Store, Store.ListableStore {
                 return inputStream;
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.readFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to open input stream for file: " + keyPath +
+                            " (start: " + start + ", end: " + end + ")", e));
         }
     }
 
     public long getSize(String[] keys) {
+        Path keyPath = resolveKeys(keys);
         try {
-            return Files.size(resolveKeys(keys));
+            return Files.size(keyPath);
         } catch (NoSuchFileException e) {
             return -1;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.readFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to get file size for: " + keyPath, e));
         }
     }
 }

@@ -51,7 +51,7 @@ public class ZarrV2Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
+        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new long[]{8, 8});
         Assertions.assertEquals(8 * 8, outArray.getSize());
         Assertions.assertEquals(0, outArray.getByte(0));
     }
@@ -64,7 +64,7 @@ public class ZarrV2Test extends ZarrTest {
         String arrayname = dt == DataType.BOOL ? "bool" : "double";
         StoreHandle storeHandle = new FilesystemStore(TESTDATA).resolve("v2_sample", arrayname);
         Array array = Array.open(storeHandle);
-        array.read(new long[]{0, 0, 0}, new int[]{3, 4, 5});
+        array.read(new long[]{0, 0, 0}, new long[]{3, 4, 5});
         Assertions.assertEquals(dt, array.metadata().dataType);
     }
 
@@ -83,7 +83,7 @@ public class ZarrV2Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(dataType.getMA2DataType(), new int[]{8, 8}));
 
-        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{8, 8});
+        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new long[]{8, 8});
         Assertions.assertEquals(8 * 8, outArray.getSize());
         Assertions.assertEquals(0, outArray.getByte(0));
     }
@@ -103,7 +103,7 @@ public class ZarrV2Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{7, 6}));
 
-        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new int[]{7, 6});
+        ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new long[]{7, 6});
         Assertions.assertEquals(7 * 6, outArray.getSize());
         Assertions.assertEquals(0, outArray.getByte(0));
     }
@@ -123,7 +123,7 @@ public class ZarrV2Test extends ZarrTest {
         );
         Assertions.assertNull(array.metadata().fillValue);
 
-        ucar.ma2.Array outArray = array.read(new long[]{0, 0}, new int[]{1, 1});
+        ucar.ma2.Array outArray = array.read(new long[]{0, 0}, new long[]{1, 1});
         if (dataType == DataType.BOOL) {
             Assertions.assertFalse(outArray.getBoolean(0));
         } else {
@@ -351,10 +351,10 @@ public class ZarrV2Test extends ZarrTest {
         array = array.resize(new long[]{20, 15});
         Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
 
-        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new long[]{10, 10});
         Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
 
-        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        data = array.read(new long[]{10, 10}, new long[]{5, 5});
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));

@@ -143,9 +143,9 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
             throws IOException, ZarrException {
         StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
         if (!existsOk && metadataHandle.exists()) {
-            throw new RuntimeException(
-                    "Trying to create a new array in " + storeHandle + ". But " + metadataHandle
-                            + " already exists.");
+            throw new ZarrException(
+                    "Cannot create array at " + storeHandle + " - metadata file " + metadataHandle +
+                    " already exists. Use existsOk=true to overwrite.");
         }
         ObjectWriter objectWriter = makeObjectWriter();
         ByteBuffer metadataBytes = ByteBuffer.wrap(objectWriter.writeValueAsBytes(arrayMetadata));

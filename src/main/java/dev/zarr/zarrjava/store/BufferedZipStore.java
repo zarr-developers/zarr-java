@@ -56,7 +56,10 @@ public class BufferedZipStore extends ZipStore implements AutoCloseable {
         try {
             loadBuffer();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load buffer from underlying store", e);
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    new String[]{},
+                    new IOException("Failed to load ZIP buffer from underlying store: " + underlyingStore, e));
         }
     }
 
@@ -285,7 +288,10 @@ public class BufferedZipStore extends ZipStore implements AutoCloseable {
             try {
                 writeBuffer();
             } catch (IOException e) {
-                throw new RuntimeException("Failed to flush buffer to underlying store after set operation", e);
+                throw StoreException.writeFailed(
+                        underlyingStore.toString(),
+                        keys,
+                        new IOException("Failed to flush ZIP buffer to underlying store after set operation", e));
             }
         }
     }
@@ -297,7 +303,10 @@ public class BufferedZipStore extends ZipStore implements AutoCloseable {
             try {
                 writeBuffer();
             } catch (IOException e) {
-                throw new RuntimeException("Failed to flush buffer to underlying store after delete operation", e);
+                throw StoreException.deleteFailed(
+                        underlyingStore.toString(),
+                        keys,
+                        new IOException("Failed to flush ZIP buffer to underlying store after delete operation", e));
             }
         }
     }
