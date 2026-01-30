@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.core;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.store.Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
@@ -16,6 +17,9 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class Array extends AbstractNode {
@@ -404,9 +408,9 @@ public abstract class Array extends AbstractNode {
 
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
                         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-                        if (!chunkHandle.exists()) {
-                            return;
-                        }
+
+                        if (!chunkHandle.exists()) return;
+
                         if (codecPipeline.supportsPartialDecode()) {
                             final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
                                     Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);

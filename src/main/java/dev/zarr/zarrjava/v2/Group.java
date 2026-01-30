@@ -16,7 +16,10 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
@@ -170,13 +173,33 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @throws IOException   if there is an error accessing the storage
      */
     @Nullable
-    public Node get(String key) throws ZarrException, IOException {
+    public Node get(String[] key) throws ZarrException, IOException {
         StoreHandle keyHandle = storeHandle.resolve(key);
         try {
             return Node.open(keyHandle);
         } catch (NoSuchFileException e) {
             return null;
         }
+    }
+
+    @Override
+    public Stream<dev.zarr.zarrjava.core.Node> list() {
+        return storeHandle.list().map(key -> {
+            if (key.length <= 1) return null; // exclude root from list
+            String fileName = key[key.length - 1];
+            StoreHandle parent = storeHandle.resolve(Arrays.copyOf(key, key.length - 1));
+            try {
+                if (fileName.equals(ZARRAY)) {
+                    return Array.open(parent);
+                }
+                if (fileName.equals(ZGROUP)) {
+                    return (dev.zarr.zarrjava.core.Node) Group.open(parent);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            return null;
+        }).filter(Objects::nonNull);
     }
 
     /**

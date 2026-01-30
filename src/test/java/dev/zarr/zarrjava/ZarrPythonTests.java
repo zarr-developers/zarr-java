@@ -32,7 +32,6 @@ public class ZarrPythonTests extends ZarrTest {
 
     final static Path PYTHON_TEST_PATH = Paths.get("src/test/python-scripts/");
 
-
     public static int runCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder();
         pb.command().addAll(Arrays.asList(command));
@@ -91,13 +90,13 @@ public class ZarrPythonTests extends ZarrTest {
                     break;
                 case LONG:
                 case ULONG:
-                    array.setLong(i, (long) i);
+                    array.setLong(i, i);
                     break;
                 case FLOAT:
                     array.setFloat(i, (float) i);
                     break;
                 case DOUBLE:
-                    array.setDouble(i, (double) i);
+                    array.setDouble(i, i);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid DataType: " + dt);
@@ -130,13 +129,13 @@ public class ZarrPythonTests extends ZarrTest {
                     break;
                 case LONG:
                 case ULONG:
-                    Assertions.assertEquals((long) i, result.getLong(i));
+                    Assertions.assertEquals(i, result.getLong(i));
                     break;
                 case FLOAT:
                     Assertions.assertEquals((float) i, result.getFloat(i), 1e-6);
                     break;
                 case DOUBLE:
-                    Assertions.assertEquals((double) i, result.getDouble(i), 1e-12);
+                    Assertions.assertEquals(i, result.getDouble(i), 1e-12);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid DataType: " + dt);
