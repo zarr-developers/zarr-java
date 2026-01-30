@@ -30,7 +30,12 @@ public class FilesystemStore implements Store, Store.ListableStore {
         for (String key : keys) {
             newPath = newPath.resolve(key);
         }
-        return newPath;
+        Path absoluteRoot = path.toAbsolutePath().normalize();
+        Path absoluteTarget = newPath.toAbsolutePath().normalize();
+        if (!absoluteTarget.startsWith(absoluteRoot)) {
+            throw new IllegalArgumentException("Key resolves outside of store root: " + absoluteTarget);
+        }
+        return newPath.normalize();
     }
 
     @Override

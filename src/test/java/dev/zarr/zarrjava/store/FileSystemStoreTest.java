@@ -7,7 +7,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
@@ -68,5 +70,46 @@ public class FileSystemStoreTest extends WritableStoreTest {
     @Override
     Store writableStore() {
         return new FilesystemStore(TESTOUTPUT.resolve("writableFSStore"));
+    }
+
+    @Test
+    public void testPathTraversal() throws IOException {
+        Path storeRoot = TESTOUTPUT.resolve("testPathTraversal").resolve("store");
+        Files.createDirectories(storeRoot);
+        FilesystemStore store = new FilesystemStore(storeRoot);
+
+        // Try to write outside the store directory
+        String[] maliciousKeys = {"..", "outside.txt"};
+        ByteBuffer data = ByteBuffer.wrap("pwned".getBytes());
+
+        boolean exceptionThrown = false;
+        try {
+            store.set(maliciousKeys, data);
+        } catch (IllegalArgumentException e) {
+            exceptionThrown = true;
+        } catch (Exception e) {
+            // ignore other exceptions
+        }
+
+        Assertions.assertTrue(exceptionThrown, "Should have thrown IllegalArgumentException for path traversal");
+
+        Path targetFile = TESTOUTPUT.resolve("testPathTraversal").resolve("outside.txt");
+        Assertions.assertFalse(Files.exists(targetFile), "Path Traversal Vulnerability detected: File written outside store root!");
+    }
+
+    @Test
+    public void testValidTraversal() throws IOException {
+        Path storeRoot = TESTOUTPUT.resolve("testValidTraversal").resolve("store");
+        Files.createDirectories(storeRoot);
+        FilesystemStore store = new FilesystemStore(storeRoot);
+
+        // Valid traversal: subdirectory and back up, but still inside root
+        String[] validKeys = {"subdir", "..", "inside.txt"};
+        ByteBuffer data = ByteBuffer.wrap("safe".getBytes());
+
+        store.set(validKeys, data);
+
+        Path targetFile = storeRoot.resolve("inside.txt");
+        Assertions.assertTrue(Files.exists(targetFile), "Valid traversal should be allowed");
     }
 }
