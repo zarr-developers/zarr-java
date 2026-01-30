@@ -348,10 +348,10 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertNotSame(array1, array2);
         Assertions.assertEquals("val1", array1.metadata().attributes().get("key1"));
         Assertions.assertNull(array1.metadata().attributes().get("key2"));
-        
+
         Assertions.assertEquals("val1", array2.metadata().attributes().get("key1"));
         Assertions.assertEquals("val2", array2.metadata().attributes().get("key2"));
-        
+
         // Re-opening should show the updated attributes
         Array array3 = Array.open(storeHandle);
         Assertions.assertEquals("val2", array3.metadata().attributes().get("key2"));
@@ -409,9 +409,7 @@ public class ZarrV2Test extends ZarrTest {
         ucar.ma2.Array data = array.read();
         int[] expectedData = new int[5 * 5];
         for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                expectedData[i * 5 + j] = testData[i * 10 + j];
-            }
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
         }
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
@@ -451,9 +449,7 @@ public class ZarrV2Test extends ZarrTest {
         ucar.ma2.Array data = array.read();
         int[] expectedData = new int[5 * 5];
         for (int i = 0; i < 5; i++) {
-            for (int j = 0; j < 5; j++) {
-                expectedData[i * 5 + j] = testData[i * 10 + j];
-            }
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
         }
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
     }
