@@ -63,7 +63,7 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
             case FLOAT64:
                 return ucar.ma2.DataType.DOUBLE;
             default:
-                throw new RuntimeException("Unreachable");
+                throw new IllegalStateException("Unknown DataType: " + this);
         }
     }
 }

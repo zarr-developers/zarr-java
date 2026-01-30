@@ -122,8 +122,14 @@ public abstract class Array extends AbstractNode {
                             );
                         }
                         writeChunk(chunkCoords, chunkArray);
-                    } catch (ZarrException | InvalidRangeException e) {
-                        throw new RuntimeException(e);
+                    } catch (ZarrException e) {
+                        throw new RuntimeException(
+                                "Failed to write chunk at coordinates " + Arrays.toString(chunkCoords) +
+                                ": " + e.getMessage(), e);
+                    } catch (InvalidRangeException e) {
+                        throw new RuntimeException(
+                                "Invalid array range when writing chunk at coordinates " + Arrays.toString(chunkCoords) +
+                                ": " + e.getMessage(), e);
                     }
                 });
 

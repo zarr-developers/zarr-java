@@ -42,8 +42,20 @@ public class S3Store implements Store, Store.ListableStore {
     ByteBuffer get(GetObjectRequest getObjectRequest) {
         try (ResponseInputStream<GetObjectResponse> inputStream = s3client.getObject(getObjectRequest)) {
             return Utils.asByteBuffer(inputStream);
-        } catch (IOException e) {
+        } catch (NoSuchKeyException e) {
+            // Key doesn't exist, return null as per Store contract
             return null;
+        } catch (S3Exception e) {
+            // Include S3-specific error details
+            throw StoreException.readFailed(
+                    this.toString(),
+                    new String[]{getObjectRequest.key()},
+                    new IOException("S3 error (code: " + e.statusCode() + "): " + e.awsErrorDetails().errorMessage(), e));
+        } catch (IOException e) {
+            throw StoreException.readFailed(
+                    this.toString(),
+                    new String[]{getObjectRequest.key()},
+                    new IOException("Failed to read S3 object content", e));
         }
     }
 
@@ -91,19 +103,39 @@ public class S3Store implements Store, Store.ListableStore {
         // Convert ByteBuffer to byte array and use RequestBody.fromBytes()
         // This properly sets Content-Length and avoids buffering the entire stream in memory
         byte[] data = Utils.toArray(bytes);
-        s3client.putObject(
-                PutObjectRequest.builder()
-                        .bucket(bucketName)
-                        .key(resolveKeys(keys))
-                        .build(),
-                RequestBody.fromBytes(data)
-        );
+        String key = resolveKeys(keys);
+        try {
+            s3client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(key)
+                            .build(),
+                    RequestBody.fromBytes(data)
+            );
+        } catch (S3Exception e) {
+            throw StoreException.writeFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("S3 putObject failed (code: " + e.statusCode() + ") for key '" + key +
+                            "', bucket '" + bucketName + "': " + e.awsErrorDetails().errorMessage(), e));
+        }
     }
 
     @Override
     public void delete(String[] keys) {
-        s3client.deleteObject(DeleteObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys))
-                .build());
+        String key = resolveKeys(keys);
+        try {
+            s3client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build());
+        } catch (S3Exception e) {
+            throw StoreException.deleteFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("S3 deleteObject failed (code: " + e.statusCode() + ") for key '" + key +
+                            "', bucket '" + bucketName + "': " + e.awsErrorDetails().errorMessage(), e));
+        }
     }
 
     @Override

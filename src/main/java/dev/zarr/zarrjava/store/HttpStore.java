@@ -148,11 +148,12 @@ public class HttpStore implements Store {
 
     @Override
     public long getSize(String[] keys) {
+        String url = resolveKeys(keys);
         // Explicitly request "identity" encoding to prevent OkHttp from adding "gzip"
         // and subsequently stripping the Content-Length header.
         Request request = new Request.Builder()
                 .head()
-                .url(resolveKeys(keys))
+                .url(url)
                 .header("Accept-Encoding", "identity")
                 .build();
 
@@ -168,8 +169,16 @@ public class HttpStore implements Store {
                 return Long.parseLong(contentLength);
             }
             return -1;
+        } catch (NumberFormatException e) {
+            throw StoreException.readFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Invalid Content-Length header value from: " + url, e));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.readFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to get content length from HTTP HEAD request to: " + url, e));
         }
     }
 }

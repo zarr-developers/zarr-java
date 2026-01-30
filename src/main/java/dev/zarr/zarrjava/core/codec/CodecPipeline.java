@@ -68,8 +68,9 @@ public class CodecPipeline {
                 return (ArrayBytesCodec) codec;
             }
         }
-        throw new RuntimeException(
-                "Unreachable because the existence of exactly 1 ArrayBytes codec is asserted upon construction.");
+        throw new IllegalStateException(
+                "No ArrayBytesCodec found in codec pipeline. This should never happen as the existence " +
+                "of exactly 1 ArrayBytesCodec is validated during construction.");
     }
 
     BytesBytesCodec[] getBytesBytesCodecs() {
