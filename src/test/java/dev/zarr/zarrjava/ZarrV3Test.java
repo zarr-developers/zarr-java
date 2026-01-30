@@ -245,7 +245,7 @@ public class ZarrV3Test extends ZarrTest {
     public void testShardingReadCutout() throws IOException, ZarrException {
         Array array = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
 
-        ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new long[]{1, 64, 64, 64});
         Assertions.assertEquals(64 * 64 * 64, outArray.getSize());
         Assertions.assertEquals(-98, outArray.getByte(0));
     }
@@ -285,7 +285,7 @@ public class ZarrV3Test extends ZarrTest {
 
     @Test
     public void testCodecs() throws IOException, ZarrException {
-        int[] readShape = new int[]{1, 1, 1024, 1024};
+        long[] readShape = new long[]{1, 1, 1024, 1024};
         Array readArray = Array.open(
                 new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
         ucar.ma2.Array readArrayContent = readArray.read(new long[4], readShape);
@@ -363,7 +363,7 @@ public class ZarrV3Test extends ZarrTest {
         Array array = (Array) color.get("1");
         ucar.ma2.Array outArray = array.read(
                 new long[]{0, 3073, 3073, 513}, // offset
-                new int[]{1, 64, 64, 64} // shape
+                new long[]{1, 64, 64, 64} // shape
         );
         Assertions.assertEquals(64 * 64 * 64, outArray.getSize());
     }
@@ -385,7 +385,7 @@ public class ZarrV3Test extends ZarrTest {
                 new long[]{0, 0, 0, 0}, // offset
                 data
         );
-        ucar.ma2.Array output = array.read(new long[]{0, 0, 0, 0}, new int[]{1, 1, 2, 2});
+        ucar.ma2.Array output = array.read(new long[]{0, 0, 0, 0}, new long[]{1, 1, 2, 2});
         assert MultiArrayUtils.allValuesEqual(data, output);
     }
 
@@ -401,8 +401,8 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertArrayEquals(httpArray.metadata().shape, localArray.metadata().shape);
         Assertions.assertArrayEquals(httpArray.metadata().chunkShape(), localArray.metadata().chunkShape());
 
-        ucar.ma2.Array httpData1 = httpArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
-        ucar.ma2.Array localData1 = localArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array httpData1 = httpArray.read(new long[]{0, 0, 0, 0}, new long[]{1, 64, 64, 64});
+        ucar.ma2.Array localData1 = localArray.read(new long[]{0, 0, 0, 0}, new long[]{1, 64, 64, 64});
 
         assert MultiArrayUtils.allValuesEqual(httpData1, localData1);
 
@@ -415,8 +415,8 @@ public class ZarrV3Test extends ZarrTest {
             offset[i] = originalOffset[i] / (originalShape[i] / arrayShape[i]);
         }
 
-        ucar.ma2.Array httpData2 = httpArray.read(offset, new int[]{1, 64, 64, 64});
-        ucar.ma2.Array localData2 = localArray.read(offset, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array httpData2 = httpArray.read(offset, new long[]{1, 64, 64, 64});
+        ucar.ma2.Array localData2 = localArray.read(offset, new long[]{1, 64, 64, 64});
 
         assert MultiArrayUtils.allValuesEqual(httpData2, localData2);
     }
@@ -727,10 +727,10 @@ public class ZarrV3Test extends ZarrTest {
         array = array.resize(new long[]{20, 15});
         Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
 
-        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new long[]{10, 10});
         Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
 
-        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        data = array.read(new long[]{10, 10}, new long[]{5, 5});
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
@@ -770,7 +770,7 @@ public class ZarrV3Test extends ZarrTest {
 
         for (int i = 0; i < arrayShape; i += accessShape) {
             accessShape = Math.min(accessShape, arrayShape - i);
-            ucar.ma2.Array result = array.read(new long[]{i}, new int[]{accessShape});
+            ucar.ma2.Array result = array.read(new long[]{i}, new long[]{accessShape});
             int[] expectedData = Arrays.copyOfRange(testData, i, i + accessShape);
             Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
         }

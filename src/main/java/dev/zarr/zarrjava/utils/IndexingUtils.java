@@ -6,7 +6,7 @@ public class IndexingUtils {
 
     public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape) {
         return computeChunkCoords(arrayShape, chunkShape, new long[arrayShape.length],
-                Utils.toIntArray(arrayShape));
+                arrayShape);
     }
 
     public static long[][] computeChunkCoords(int[] arrayShape, int[] chunkShape) {
@@ -14,7 +14,7 @@ public class IndexingUtils {
     }
 
     public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape, long[] selOffset,
-                                              int[] selShape) {
+                                              long[] selShape) {
         final int ndim = arrayShape.length;
         long[] start = new long[ndim];
         long[] end = new long[ndim];
@@ -54,14 +54,14 @@ public class IndexingUtils {
     public static ChunkProjection computeProjection(long[] chunkCoords, long[] arrayShape,
                                                     int[] chunkShape) {
         return computeProjection(chunkCoords, arrayShape, chunkShape, new long[chunkCoords.length],
-                Utils.toIntArray(arrayShape)
+                arrayShape
         );
     }
 
     public static ChunkProjection computeProjection(
             final long[] chunkCoords, final long[] arrayShape,
             final int[] chunkShape, final long[] selOffset,
-            final int[] selShape
+            final long[] selShape
     ) {
         final int ndim = chunkCoords.length;
         final int[] chunkOffset = new int[ndim];
@@ -141,7 +141,7 @@ public class IndexingUtils {
         return true;
     }
 
-    public static boolean isSingleFullChunk(final long[] selOffset, final int[] selShape,
+    public static boolean isSingleFullChunk(final long[] selOffset, final long[] selShape,
                                             final int[] chunkShape) {
         if (selOffset.length != selShape.length) {
             throw new IllegalArgumentException("'selOffset' and 'selShape' need to have the same rank.");

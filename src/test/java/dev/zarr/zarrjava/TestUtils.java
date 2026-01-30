@@ -34,7 +34,7 @@ public class TestUtils {
         long[] arrayShape = new long[]{100, 100};
         int[] chunkShape = new int[]{30, 30};
         long[] selOffset = new long[]{50, 20};
-        int[] selShape = new int[]{20, 1};
+        long[] selShape = new long[]{20, 1};
         long[][] chunkCoords = computeChunkCoords(arrayShape, chunkShape, selOffset, selShape);
         long[][] expectedChunkCoords = new long[][]{
                 {1, 0},
@@ -45,7 +45,7 @@ public class TestUtils {
         arrayShape = new long[]{1, 52};
         chunkShape = new int[]{1, 17};
         selOffset = new long[]{0, 32};
-        selShape = new int[]{1, 20};
+        selShape = new long[]{1, 20};
         chunkCoords = computeChunkCoords(arrayShape, chunkShape, selOffset, selShape);
         expectedChunkCoords = new long[][]{
                 {0, 1},
@@ -65,7 +65,7 @@ public class TestUtils {
         final long[] arrayShape = new long[]{1, 52};
         final int[] chunkShape = new int[]{1, 17};
         final long[] selOffset = new long[]{0, 32};
-        final int[] selShape = new int[]{1, 20};
+        final long[] selShape = new long[]{1, 20};
 
         IndexingUtils.ChunkProjection projection = IndexingUtils.computeProjection(
                 chunkCoords, arrayShape, chunkShape, selOffset, selShape
