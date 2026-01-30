@@ -1,10 +1,12 @@
 package dev.zarr.zarrjava.store;
 
 import dev.zarr.zarrjava.utils.Utils;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.*;
@@ -33,7 +35,7 @@ public class FilesystemStore implements Store, Store.ListableStore {
 
     @Override
     public boolean exists(String[] keys) {
-        return Files.exists(resolveKeys(keys));
+        return Files.isRegularFile(resolveKeys(keys));
     }
 
     @Nullable
@@ -118,11 +120,43 @@ public class FilesystemStore implements Store, Store.ListableStore {
         }
     }
 
-    public Stream<String> list(String[] keys) {
+    /**
+     * Helper to convert a filesystem Path back into the full String[] key array
+     * relative to the prefix
+     */
+    private String[] pathToKeyArray(Path rootPath, Path currentPath, String[] prefix) {
+        Path relativePath = rootPath.relativize(currentPath);
+        int relativeCount = relativePath.getNameCount();
+
+        String[] result = new String[relativeCount];
+        for (int i = 0; i < relativeCount; i++) {
+            result[i] = relativePath.getName(i).toString();
+        }
+        return result;
+    }
+
+    @Override
+    public Stream<String[]> list(String[] prefix) {
+        Path rootPath = resolveKeys(prefix);
         try {
-            return Files.list(resolveKeys(keys)).map(p -> p.toFile().getName());
+            return Files.walk(rootPath)
+                    .filter(Files::isRegularFile)
+                    .map(path -> pathToKeyArray(rootPath, path, prefix));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Failed to list store content", e);
+        }
+    }
+
+    @Override
+    public Stream<String> listChildren(String[] prefix) {
+        Path rootPath = resolveKeys(prefix);
+        if (!Files.exists(rootPath) || !Files.isDirectory(rootPath)) {
+            return Stream.empty();
+        }
+        try {
+            return Files.list(rootPath).map(path -> path.getFileName().toString());
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to list store children", e);
         }
     }
 
@@ -137,4 +171,38 @@ public class FilesystemStore implements Store, Store.ListableStore {
         return this.path.toUri().toString().replaceAll("\\/$", "");
     }
 
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        Path keyPath = resolveKeys(keys);
+        try {
+            if (!Files.exists(keyPath)) {
+                return null;
+            }
+            InputStream inputStream = Files.newInputStream(keyPath);
+            if (start > 0) {
+                long skipped = inputStream.skip(start);
+                if (skipped < start) {
+                    throw new IOException("Unable to skip to the desired start position.");
+                }
+            }
+            if (end != -1) {
+                long bytesToRead = end - start;
+                return new BoundedInputStream(inputStream, bytesToRead);
+            } else {
+                return inputStream;
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public long getSize(String[] keys) {
+        try {
+            return Files.size(resolveKeys(keys));
+        } catch (NoSuchFileException e) {
+            return -1;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
