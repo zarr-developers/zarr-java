@@ -535,4 +535,50 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertEquals(2, group.list().count());
     }
 
+    @Test
+    public void testDefaultChunkShape() throws IOException, ZarrException {
+        // Test with a small array (< 512 elements per dimension)
+        Array smallArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v2_default_chunks_small"),
+                Array.metadataBuilder()
+                        .withShape(100, 50)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(2, smallArray.metadata().chunks.length);
+        // Both dimensions < 512, so chunks should equal shape
+        Assertions.assertEquals(100, smallArray.metadata().chunks[0]);
+        Assertions.assertEquals(50, smallArray.metadata().chunks[1]);
+
+        // Test with a larger array (> 512 elements per dimension)
+        Array largeArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v2_default_chunks_large"),
+                Array.metadataBuilder()
+                        .withShape(2000, 1500)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(2, largeArray.metadata().chunks.length);
+        // Chunks should be calculated based on division by 512
+        Assertions.assertTrue(largeArray.metadata().chunks[0] > 0);
+        Assertions.assertTrue(largeArray.metadata().chunks[0] < 2000);
+        Assertions.assertTrue(largeArray.metadata().chunks[1] > 0);
+        Assertions.assertTrue(largeArray.metadata().chunks[1] < 1500);
+
+        // Test with mixed dimensions
+        Array mixedArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v2_default_chunks_mixed"),
+                Array.metadataBuilder()
+                        .withShape(1024, 100, 2048)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(3, mixedArray.metadata().chunks.length);
+        // Verify chunks are reasonable
+        Assertions.assertTrue(mixedArray.metadata().chunks[0] > 0);
+        Assertions.assertTrue(mixedArray.metadata().chunks[0] <= 1024);
+        Assertions.assertEquals(100, mixedArray.metadata().chunks[1]);  // < 512, should equal shape
+        Assertions.assertTrue(mixedArray.metadata().chunks[2] > 0);
+        Assertions.assertTrue(mixedArray.metadata().chunks[2] <= 2048);
+    }
 }
