@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
+    public static final boolean DEFAULT_PARALLELISM = true;
 
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);
@@ -293,7 +294,7 @@ public abstract class Array extends AbstractNode {
      * @param array  the data to write
      */
     public void write(long[] offset, ucar.ma2.Array array) {
-        write(offset, array, false);
+        write(offset, array, DEFAULT_PARALLELISM);
     }
 
     /**
@@ -328,7 +329,7 @@ public abstract class Array extends AbstractNode {
      */
     @Nonnull
     public ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
-        return read(offset, shape, false);
+        return read(offset, shape, DEFAULT_PARALLELISM);
     }
 
     /**
