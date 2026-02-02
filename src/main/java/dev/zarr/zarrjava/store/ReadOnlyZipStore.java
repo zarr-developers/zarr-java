@@ -64,7 +64,11 @@ public class ReadOnlyZipStore extends ZipStore {
                     fileIndex.put(name, entry.getSize());
                 }
             }
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    new String[]{},
+                    new IOException("Failed to read ZIP directory from underlying store", e));
         }
         isCached = true;
     }
@@ -140,7 +144,7 @@ public class ReadOnlyZipStore extends ZipStore {
                 return ByteBuffer.wrap(bytes);
             }
         } catch (IOException e) {
-            return null;
+            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
         }
         return null;
     }
@@ -248,9 +252,9 @@ public class ReadOnlyZipStore extends ZipStore {
                 return new BoundedInputStream(zis, bytesToRead);
             }
             return null;
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
         }
-        return null;
     }
 
     @Override

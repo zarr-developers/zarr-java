@@ -49,8 +49,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
     public ByteBuffer get(String[] keys) {
         try {
             return ByteBuffer.wrap(Files.readAllBytes(resolveKeys(keys)));
-        } catch (IOException e) {
+        } catch (NoSuchFileException e) {
             return null;
+        } catch (IOException e) {
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
@@ -70,8 +72,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
             byteChannel.read(bytes);
             bytes.rewind();
             return bytes;
-        } catch (IOException e) {
+        } catch (NoSuchFileException e) {
             return null;
+        } catch (IOException e) {
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
@@ -90,8 +94,10 @@ public class FilesystemStore implements Store, Store.ListableStore {
             byteChannel.read(bytes);
             bytes.rewind();
             return bytes;
-        } catch (IOException e) {
+        } catch (NoSuchFileException e) {
             return null;
+        } catch (IOException e) {
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
@@ -197,9 +203,6 @@ public class FilesystemStore implements Store, Store.ListableStore {
     public InputStream getInputStream(String[] keys, long start, long end) {
         Path keyPath = resolveKeys(keys);
         try {
-            if (!Files.exists(keyPath)) {
-                return null;
-            }
             InputStream inputStream = Files.newInputStream(keyPath);
             if (start > 0) {
                 long skipped = inputStream.skip(start);
@@ -214,6 +217,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
             } else {
                 return inputStream;
             }
+        } catch (NoSuchFileException e) {
+            return null;
         } catch (IOException e) {
             throw StoreException.readFailed(
                     this.toString(),

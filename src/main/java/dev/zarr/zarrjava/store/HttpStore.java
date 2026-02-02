@@ -36,12 +36,18 @@ public class HttpStore implements Store {
     }
 
     @Nullable
-    ByteBuffer get(Request request) {
+    ByteBuffer get(Request request, String[] keys) {
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
             if (!response.isSuccessful()) {
-                return null;
+                if (response.code() == 404) {
+                    return null;
+                }
+                throw StoreException.readFailed(
+                        this.toString(),
+                        keys,
+                        new IOException("HTTP request failed with status code: " + response.code() + " " + response.message()));
             }
             try (ResponseBody body = response.body()) {
                 if (body == null) {
@@ -50,7 +56,7 @@ public class HttpStore implements Store {
                 return ByteBuffer.wrap(body.bytes());
             }
         } catch (IOException e) {
-            return null;
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
@@ -70,7 +76,7 @@ public class HttpStore implements Store {
     @Override
     public ByteBuffer get(String[] keys) {
         Request request = new Request.Builder().url(resolveKeys(keys)).build();
-        return get(request);
+        return get(request, keys);
     }
 
     @Nullable
@@ -80,7 +86,7 @@ public class HttpStore implements Store {
                         "Range", start < 0 ? String.format("bytes=%d", start) : String.format("bytes=%d-", start))
                 .build();
 
-        return get(request);
+        return get(request, keys);
     }
 
     @Nullable
@@ -91,7 +97,7 @@ public class HttpStore implements Store {
         }
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
                 "Range", String.format("bytes=%d-%d", start, end - 1)).build();
-        return get(request);
+        return get(request, keys);
     }
 
     @Override
@@ -127,7 +133,13 @@ public class HttpStore implements Store {
         try {
             Response response = call.execute();
             if (!response.isSuccessful()) {
-                return null;
+                if (response.code() == 404) {
+                    return null;
+                }
+                throw StoreException.readFailed(
+                        this.toString(),
+                        keys,
+                        new IOException("HTTP request failed with status code: " + response.code() + " " + response.message()));
             }
             ResponseBody body = response.body();
             if (body == null) return null;
@@ -142,7 +154,7 @@ public class HttpStore implements Store {
                 }
             };
         } catch (IOException e) {
-            return null;
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
