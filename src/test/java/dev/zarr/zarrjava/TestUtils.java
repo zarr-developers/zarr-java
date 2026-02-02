@@ -77,25 +77,6 @@ public class TestUtils {
     }
 
     @Test
-    public void testFOrderIndexOverflow() {
-        // Create a shape that fits in long but would cause int overflow in fOrderIndex
-        // Shape: [2000, 2000, 1000] -> Total elements = 4,000,000,000 (exceeds Integer.MAX_VALUE 2.14B)
-        long[] arrayShape = {2000, 2000, 1000};
-
-        // Target coordinates near the end
-        long[] chunkCoords = {1999, 1999, 999};
-
-        // Expected index should be large (approx 4 billion)
-        long expectedIndex = 1999 +
-                1999 * 2000L +
-                999 * 2000L * 2000L;
-
-        long actualIndex = IndexingUtils.fOrderIndex(chunkCoords, arrayShape);
-
-        Assertions.assertEquals(expectedIndex, actualIndex, "fOrderIndex failed due to integer overflow");
-    }
-
-    @Test
     public void testComputeChunkCoordsOverflow() {
         // Shape: [100000, 100000]
         long[] arrayShape = {100000, 100000};

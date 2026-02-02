@@ -116,31 +116,6 @@ public class IndexingUtils {
         return new ChunkProjection(chunkCoords, chunkOffset, outOffset, shape);
     }
 
-
-    public static long cOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
-        long index = 0;
-        long multiplier = 1;
-
-        for (int i = arrayShape.length - 1; i >= 0; i--) {
-            index += chunkCoords[i] * multiplier;
-            multiplier *= arrayShape[i];
-        }
-
-        return index;
-    }
-
-    public static long fOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
-        long index = 0;
-        long multiplier = 1;
-
-        for (int i = 0; i < arrayShape.length; i++) {
-            index += chunkCoords[i] * multiplier;
-            multiplier *= arrayShape[i];
-        }
-
-        return index;
-    }
-
     public static boolean isFullChunk(final int[] selOffset, final int[] selShape,
                                       final int[] chunkShape) {
         if (selOffset.length != selShape.length) {

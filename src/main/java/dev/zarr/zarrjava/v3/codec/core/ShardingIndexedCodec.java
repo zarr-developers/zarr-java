@@ -119,8 +119,6 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                 .forEach(
                         chunkCoords -> {
                             try {
-                                final int i =
-                                        (int) IndexingUtils.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
                                 final IndexingUtils.ChunkProjection chunkProjection =
                                         IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
                                                 shardMetadata.chunkShape
