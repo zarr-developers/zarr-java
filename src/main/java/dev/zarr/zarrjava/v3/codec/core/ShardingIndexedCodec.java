@@ -198,7 +198,10 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
             throw new ZarrException("Only index_location \"start\" or \"end\" are supported.");
         }
         if (shardIndexBytes == null) {
-            throw new ZarrException("Could not read shard index.");
+            if (arrayMetadata.parsedFillValue != null) {
+                MultiArrayUtils.fill(outputArray, arrayMetadata.parsedFillValue);
+            }
+            return outputArray;
         }
         final Array shardIndexArray = indexCodecPipeline.decode(shardIndexBytes);
         long[][] allChunkCoords = IndexingUtils.computeChunkCoords(shardMetadata.shape,

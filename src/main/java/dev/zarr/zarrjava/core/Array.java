@@ -317,8 +317,6 @@ public abstract class Array extends AbstractNode {
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
                         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
-                        if (!chunkHandle.exists()) return;
-
                         if (codecPipeline.supportsPartialDecode()) {
                             final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
                                     Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
@@ -326,9 +324,12 @@ public abstract class Array extends AbstractNode {
                                     chunkProjection.outOffset, chunkProjection.shape
                             );
                         } else {
-                            MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
-                                    outputArray, chunkProjection.outOffset, chunkProjection.shape
-                            );
+                            ByteBuffer chunkBytes = chunkHandle.read();
+                            if (chunkBytes != null) {
+                                MultiArrayUtils.copyRegion(codecPipeline.decode(chunkBytes), chunkProjection.chunkOffset,
+                                        outputArray, chunkProjection.outOffset, chunkProjection.shape
+                                );
+                            }
                         }
 
                     } catch (ZarrException e) {
