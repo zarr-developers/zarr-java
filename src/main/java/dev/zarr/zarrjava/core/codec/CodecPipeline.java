@@ -159,18 +159,4 @@ public class CodecPipeline {
         }
         return inputByteLength;
     }
-
-    public Array partialDecode(
-            StoreHandle valueHandle, long[] offset, int[] shape,
-            CoreArrayMetadata arrayMetadata
-    ) {
-        return null; // TODO
-    }
-
-    public ByteBuffer partialEncode(
-            StoreHandle oldValueHandle, Array array, long[] offset, int[] shape,
-            CoreArrayMetadata arrayMetadata
-    ) {
-        return null; // TODO
-    }
 }
