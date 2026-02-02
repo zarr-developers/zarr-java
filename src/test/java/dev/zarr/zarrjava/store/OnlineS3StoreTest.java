@@ -40,11 +40,11 @@ public class OnlineS3StoreTest extends StoreTest {
     public void testOpen() throws IOException, ZarrException {
         Array arrayV3 = Array.open(storeHandle);
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayV3.metadata().shape);
-        Assertions.assertEquals(574, arrayV3.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
+        Assertions.assertEquals(574, arrayV3.read(new long[]{0, 0, 0}, new long[]{1, 1, 1}).getInt(0));
 
         dev.zarr.zarrjava.core.Array arrayCore = dev.zarr.zarrjava.core.Array.open(storeHandle);
         Assertions.assertArrayEquals(new long[]{5, 1552, 2080}, arrayCore.metadata().shape);
-        Assertions.assertEquals(574, arrayCore.read(new long[]{0, 0, 0}, new int[]{1, 1, 1}).getInt(0));
+        Assertions.assertEquals(574, arrayCore.read(new long[]{0, 0, 0}, new long[]{1, 1, 1}).getInt(0));
     }
 
 

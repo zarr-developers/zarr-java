@@ -200,8 +200,12 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
         return metadataKeys.map(key -> {
             try {
                 return get(Arrays.copyOf(key, key.length - 1));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+            } catch (IOException e) {
+                throw new RuntimeException(
+                        "Failed to read node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
+            } catch (ZarrException e) {
+                throw new RuntimeException(
+                        "Failed to parse node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
             }
         });
     }
