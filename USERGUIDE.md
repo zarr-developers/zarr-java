@@ -57,7 +57,7 @@ ucar.ma2.Array data = array.read();
 // Read a subset
 ucar.ma2.Array subset = array.read(
     new long[]{0, 0, 0},     // offset
-    new int[]{10, 100, 100}  // shape
+    new long[]{10, 100, 100}  // shape
 );
 ```
 ### Creating and Writing an Array
@@ -166,14 +166,22 @@ ucar.ma2.Array data = array.read();
 ```java
 ucar.ma2.Array subset = array.read(
     new long[]{10, 20, 30},  // offset
-    new int[]{50, 60, 70}    // shape
+    new long[]{50, 60, 70}    // shape
 );
 ```
-#### Read without Parallelism
+#### Read with Parallelism Control
+By default, read operations use **parallel processing**. You can disable it for sequential reading:
 ```java
+// Parallel reading (default behavior)
 ucar.ma2.Array data = array.read(
     new long[]{0, 0, 0},
-    new int[]{100, 100, 100},
+    new long[]{100, 100, 100}
+);
+
+// Explicitly disable parallelism if needed
+ucar.ma2.Array data = array.read(
+    new long[]{0, 0, 0},
+    new long[]{100, 100, 100},
     false  // disable parallel processing
 );
 ```
@@ -186,11 +194,13 @@ ucar.ma2.Array data = array.access()
 ```
 ### Writing Data
 ```java
-// Write at origin
+// Write at origin (parallel by default)
 array.write(data);
-// Write at offset
+
+// Write at offset (parallel by default)
 array.write(new long[]{10, 20, 30}, data);
-// Write without parallelism
+
+// Explicitly disable parallelism if needed
 array.write(new long[]{0, 0, 0}, data, false);
 ```
 ### Resizing Arrays
@@ -248,12 +258,16 @@ Group group = Group.create(
 ```java
 // Open a group
 Group group = Group.open("/path/to/zarr");
-// Get all members
-Map<String, Node> members = group.members();
-// Check existence
-boolean exists = group.contains("subgroup");
+
+// Get all members as a stream
+Stream<Node> members = group.list();
+
+// Convert to array if needed
+Node[] memberArray = group.listAsArray();
+
 // Get specific member
 Node member = group.get("array");
+
 // Type-check and cast
 if (member instanceof dev.zarr.zarrjava.v3.Array) {
     dev.zarr.zarrjava.v3.Array array = 
@@ -339,30 +353,81 @@ Array array = Array.create(
 );
 ```
 ### ZIP Storage
+
+ZIP stores provide a convenient way to bundle entire Zarr hierarchies in a single file.
+
 #### Read-only ZIP
+**Use when**: Reading data that doesn't fit into memory. The read-only store streams data directly from the ZIP file without loading everything into memory.
+
 ```java
 import dev.zarr.zarrjava.store.ReadOnlyZipStore;
+
 ReadOnlyZipStore store = new ReadOnlyZipStore("/path/to/archive.zip");
 Array array = Array.open(store.resolve("myarray"));
+ucar.ma2.Array data = array.read();
 ```
+
 #### Buffered ZIP (Read/Write)
+**Use when**: You need to write data to a ZIP archive. The buffered store uses an in-memory buffer (by default) but can be configured with alternative buffers for different use cases.
+
+Always use try-with-resources or explicitly close the store to ensure changes are flushed:
+
 ```java
 import dev.zarr.zarrjava.store.BufferedZipStore;
+
+// Using try-with-resources (recommended)
+try (BufferedZipStore store = new BufferedZipStore("/path/to/archive.zip")) {
+    Array array = Array.create(
+        store.resolve("myarray"),
+        Array.metadataBuilder()
+            .withShape(100, 100)
+            .withDataType(DataType.FLOAT32)
+            .withChunkShape(10, 10)
+            .build()
+    );
+    
+    ucar.ma2.Array data = ucar.ma2.Array.factory(
+        ucar.ma2.DataType.FLOAT,
+        new int[]{100, 100}
+    );
+    array.write(data);
+    // Store automatically closes and flushes at end of try block
+}
+
+// Manual close (if not using try-with-resources)
 BufferedZipStore store = new BufferedZipStore("/path/to/archive.zip");
-Array array = Array.create(
-    store.resolve("myarray"),
-    Array.metadataBuilder()
-        .withShape(100, 100)
-        .withDataType(DataType.FLOAT32)
-        .withChunkShape(10, 10)
-        .build()
-);
-// Important: Close to flush changes
-store.close();
+try {
+    // ... use store
+} finally {
+    store.close();  // Important: flush changes to disk
+}
 ```
 ---
 ## Compression and Codecs
+
+Codecs transform array data during storage and retrieval. They are essential for reducing storage size and optimizing I/O performance. Zarr supports various compression algorithms and data transformations.
+
+**Key concepts:**
+- **Codecs** (v3) or **Compressors** (v2) reduce data size
+- Applied during writes, reversed during reads
+- Can be chained (v3 only) for multiple transformations
+- Choice impacts storage size, read/write speed, and compatibility
+
 ### Zarr v3 Codecs
+
+Zarr v3 uses a flexible codec pipeline. Configure codecs when creating an array using the `withCodecs()` builder method:
+
+```java
+Array array = Array.create(
+    storeHandle,
+    Array.metadataBuilder()
+        .withShape(1000, 1000)
+        .withDataType(DataType.FLOAT32)
+        .withChunkShape(100, 100)
+        .withCodecs(c -> c.withBlosc("zstd", 5))  // Configure codecs here
+        .build()
+);
+```
 #### Blosc Compression
 ```java
 // Default settings (zstd, level 5)
@@ -412,12 +477,78 @@ Combine multiple chunks into shard files:
 ---
 ## Advanced Topics
 ### Data Types
-**Integer**: `INT8`, `INT16`, `INT32`, `INT64`, `UINT8`, `UINT16`, `UINT32`, `UINT64`  
-**Float**: `FLOAT32`, `FLOAT64`  
-**Other**: `BOOL`, `COMPLEX64`, `COMPLEX128`
+
+Zarr arrays store homogeneous typed data. Choose the appropriate data type based on your data range and precision requirements. The data type is specified when creating an array and cannot be changed later.
+
+#### Supported Data Types
+
+Both Zarr v2 and v3 support the same set of data types:
+
+| Java Enum | v3 Name | v2 Name | Bytes | Range/Description |
+|-----------|---------|---------|-------|-------------------|
+| `BOOL` | `bool` | `\|b1` | 1 | Boolean: true/false |
+| `INT8` | `int8` | `\|i1` | 1 | Signed: -128 to 127 |
+| `INT16` | `int16` | `<i2` | 2 | Signed: -32,768 to 32,767 |
+| `INT32` | `int32` | `<i4` | 4 | Signed: -2³¹ to 2³¹-1 |
+| `INT64` | `int64` | `<i8` | 8 | Signed: -2⁶³ to 2⁶³-1 |
+| `UINT8` | `uint8` | `\|u1` | 1 | Unsigned: 0 to 255 |
+| `UINT16` | `uint16` | `<u2` | 2 | Unsigned: 0 to 65,535 |
+| `UINT32` | `uint32` | `<u4` | 4 | Unsigned: 0 to 2³²-1 |
+| `UINT64` | `uint64` | `<u8` | 8 | Unsigned: 0 to 2⁶⁴-1 |
+| `FLOAT32` | `float32` | `<f4` | 4 | Single precision IEEE 754 |
+| `FLOAT64` | `float64` | `<f8` | 8 | Double precision IEEE 754 |
+
+**Note:** v2 dtype strings use numpy conventions:
+- `<` = little-endian (default for multi-byte types)
+- `|` = not applicable (single-byte types)
+
+#### Usage Examples
+
+**Zarr v3:**
 ```java
 import dev.zarr.zarrjava.v3.DataType;
-.withDataType(DataType.UINT16)
+
+Array array = Array.create(
+    storeHandle,
+    Array.metadataBuilder()
+        .withShape(1000, 1000)
+        .withDataType(DataType.UINT16)  // 16-bit unsigned integer
+        .withChunkShape(100, 100)
+        .withFillValue(0)  // Must match data type
+        .build()
+);
+```
+
+**Zarr v2:**
+```java
+import dev.zarr.zarrjava.v2.DataType;
+
+dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+    storeHandle,
+    dev.zarr.zarrjava.v2.Array.metadataBuilder()
+        .withShape(1000, 1000)
+        .withDataType(DataType.FLOAT32)  // 32-bit float
+        .withChunks(100, 100)
+        .withFillValue(0.0f)
+        .build()
+);
+```
+
+#### Fill Value Type Matching
+
+The fill value must match the array's data type:
+
+```java
+// Integer types
+.withDataType(DataType.INT32).withFillValue(0)
+.withDataType(DataType.UINT8).withFillValue((byte) 0)
+
+// Float types
+.withDataType(DataType.FLOAT32).withFillValue(0.0f)
+.withDataType(DataType.FLOAT64).withFillValue(0.0)
+
+// Boolean
+.withDataType(DataType.BOOL).withFillValue(false)
 ```
 ### Working with Large Arrays
 For arrays exceeding `Integer.MAX_VALUE` elements:
@@ -434,18 +565,43 @@ Array array = Array.create(
 // Read from large offset
 ucar.ma2.Array data = array.read(
     new long[]{5000000000L, 0, 0},  // Beyond int range
-    new int[]{100, 100, 100}
+    new long[]{100, 100, 100}
 );
 ```
 ### Parallel I/O
+
+By default, read and write operations use **parallel processing** for better performance. You can explicitly disable parallelism when needed:
+
 ```java
-// Parallel reading
-array.read(offset, shape, true);
-// Parallel writing
-array.write(offset, data, true);
-// Parallel resize
-array.resize(newShape, false, true);
+// Parallel reading (default)
+ucar.ma2.Array data = array.read(offset, shape);
+
+// Explicitly disable parallelism (sequential)
+ucar.ma2.Array data = array.read(offset, shape, false);
+
+// Parallel writing (default)
+array.write(offset, data);
+
+// Explicitly disable parallelism
+array.write(offset, data, false);
+
+// Resize with parallel cleanup (default)
+array.resize(newShape, true);
+
+// Resize with serial cleanup
+array.resize(newShape, true, false);
 ```
+
+**When to disable parallelism:**
+- Single chunk operations (no benefit from parallelism)
+- Limited system resources (reduce memory/thread usage)
+- Debugging or deterministic behavior needed
+- Working with very small arrays
+
+**Benefits of parallel I/O (enabled by default):**
+- Faster processing for large arrays with multiple chunks
+- Better utilization of multi-core systems
+- Improved throughput for network storage (HTTP/S3)
 ### Chunk-level Operations
 ```java
 // Read single chunk
@@ -455,18 +611,49 @@ ucar.ma2.Array chunk = array.readChunk(chunkCoords);
 array.writeChunk(chunkCoords, chunk);
 ```
 ### Exception Handling
+
+zarr-java uses two main exception types for error reporting:
+
+**1. `ZarrException`** (checked exception)  
+Thrown for Zarr-specific errors:
+- Array or group not found at specified location
+- Invalid metadata or configuration
+- Data access outside array bounds
+- Incompatible Zarr versions
+
+**2. `StoreException`** (runtime exception)  
+Thrown for storage backend failures:
+- Failed to read from store (network issues, missing files)
+- Failed to write to store (permissions, disk full)
+- Failed to delete or list store contents
+
+**3. `IOException`** (checked exception)  
+Standard Java I/O errors during file operations
+
 ```java
 import dev.zarr.zarrjava.ZarrException;
+import dev.zarr.zarrjava.store.StoreException;
 import java.io.IOException;
+
 try {
     Array array = Array.open("/path/to/array");
     ucar.ma2.Array data = array.read();
 } catch (ZarrException e) {
+    // Handle Zarr-specific errors (metadata, bounds, etc.)
     System.err.println("Zarr error: " + e.getMessage());
+} catch (StoreException e) {
+    // Handle storage backend failures (network, permissions, etc.)
+    System.err.println("Storage error: " + e.getMessage());
 } catch (IOException e) {
+    // Handle I/O errors
     System.err.println("I/O error: " + e.getMessage());
 }
 ```
+
+**Common error messages:**
+- `"No Zarr array found at the specified location"` - Check path and ensure `.zarray` (v2) or `zarr.json` (v3) exists
+- `"Requested data is outside of the array's domain"` - Verify that `offset + shape <= array.shape`
+- `"Failed to read from store"` - Check network connectivity, file permissions, or storage availability
 ### Best Practices
 1. **Chunk sizes for Best Performance**: 
    - refer to [Zarr Performance Guide](
@@ -488,21 +675,26 @@ try {
 - `Array.create(StoreHandle, ArrayMetadata)` - Create array
 - `Array.metadataBuilder()` - Get metadata builder
 #### Reading
-- `read()` - Read entire array
-- `read(long[] offset, int[] shape)` - Read subset
-- `read(long[] offset, int[] shape, boolean parallel)` - With parallelism
-- `read(boolean parallel)` - Read entire array with parallelism control
+- `read()` - Read entire array (parallel by default)
+- `read(long[] offset, long[] shape)` - Read subset (parallel by default)
+- `read(boolean parallel)` - Read entire array, specify parallelism
+- `read(long[] offset, long[] shape, boolean parallel)` - Read subset with parallelism control
 - `readChunk(long[] chunkCoords)` - Read single chunk
-#### Writing
-- `write(ucar.ma2.Array)` - Write at origin
-- `write(long[] offset, ucar.ma2.Array)` - Write at offset
-- `write(long[] offset, ucar.ma2.Array, boolean parallel)` - With parallelism
-- `write(ucar.ma2.Array, boolean parallel)` - Write at origin with parallelism
+
+**Note:** Methods without a `parallel` parameter default to **parallel** (`true`) processing.
+
+#### Writing  
+- `write(ucar.ma2.Array)` - Write at origin (parallel by default)
+- `write(long[] offset, ucar.ma2.Array)` - Write at offset (parallel by default)
+- `write(ucar.ma2.Array, boolean parallel)` - Write at origin with parallelism control
+- `write(long[] offset, ucar.ma2.Array, boolean parallel)` - Write at offset with parallelism control
 - `writeChunk(long[] chunkCoords, ucar.ma2.Array)` - Write chunk
+
+**Note:** Methods without a `parallel` parameter default to **parallel** (`true`) processing.
 #### Metadata
 - `resize(long[] newShape)` - Resize (metadata only)
 - `resize(long[] newShape, boolean resizeMetadataOnly)` - Resize with cleanup option
-- `resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel)` - With parallelism
+- `resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel)` - With option to disable parallelism
 - `setAttributes(Attributes)` - Set attributes
 - `updateAttributes(Function<Attributes, Attributes>)` - Update attributes
 - `metadata()` - Get metadata
@@ -514,9 +706,10 @@ try {
 - `Group.create(StoreHandle)` - Create group
 - `Group.create(StoreHandle, Attributes)` - Create with attributes
 #### Navigation
-- `members()` - Get all members
+- `list()` - Get stream of all child nodes
+- `listAsArray()` - Get array of all child nodes
 - `get(String key)` - Get member by key
-- `contains(String key)` - Check existence
+- `get(String[] key)` - Get member by multi-part key
 #### Children
 - `createGroup(String key)` - Create subgroup
 - `createGroup(String key, Attributes)` - Create subgroup with attributes
@@ -619,7 +812,7 @@ public class ReadHttpExample {
         // Read a subset
         ucar.ma2.Array data = array.read(
             new long[]{0, 3073, 3073, 513},
-            new int[]{1, 64, 64, 64}
+            new long[]{1, 64, 64, 64}
         );
         System.out.println("Read " + data.getSize() + " elements");
     }
@@ -688,29 +881,32 @@ public class ShardingExample {
 ```java
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.store.FilesystemStore;
+
 public class ParallelIOExample {
     public static void main(String[] args) throws Exception {
         Array array = Array.open("/path/to/large/array");
-        // Read with parallelism
+        
+        // Parallel reading (default behavior)
         long startTime = System.currentTimeMillis();
         ucar.ma2.Array data = array.read(
             new long[]{0, 0, 0},
-            new int[]{1000, 1000, 100},
-            true  // Enable parallel reading
+            new long[]{1000, 1000, 100}
+            // Parallel by default
         );
         long duration = System.currentTimeMillis() - startTime;
         System.out.println("Read " + data.getSize() + 
                          " elements in " + duration + "ms (parallel)");
-        // Compare with serial reading
+        
+        // Sequential reading (explicitly disable parallelism)
         startTime = System.currentTimeMillis();
         data = array.read(
             new long[]{0, 0, 0},
-            new int[]{1000, 1000, 100},
-            false  // Serial reading
+            new long[]{1000, 1000, 100},
+            false  // Disable parallel
         );
         duration = System.currentTimeMillis() - startTime;
         System.out.println("Read " + data.getSize() + 
-                         " elements in " + duration + "ms (serial)");
+                         " elements in " + duration + "ms (sequential)");
     }
 }
 ```
@@ -726,17 +922,18 @@ java -Xmx8g -jar myapp.jar
 ```
 **Problem**: Slow I/O performance  
 **Solution**: 
-- Enable parallelism: `array.read(offset, shape, true)`
-- Adjust chunk sizes (aim for 1-100 MB per chunk)
+- Parallelism is enabled by default for better performance
+- Ensure chunk sizes are appropriate (aim for 1-100 MB per chunk)
 - Use appropriate compression (Blosc is fastest)
 - Check network bandwidth (for HTTP/S3)
+- For debugging, you can disable parallelism: `array.read(offset, shape, false)`
 **Problem**: `IllegalArgumentException: 'offset' needs to have rank...`  
 **Solution**: Ensure offset and shape arrays match the array's number of dimensions
 ```java
 // Correct
-array.read(new long[]{0, 0, 0}, new int[]{10, 10, 10});  // 3D array
+array.read(new long[]{0, 0, 0}, new long[]{10, 10, 10});  // 3D array
 // Wrong
-array.read(new long[]{0, 0}, new int[]{10, 10});  // Wrong rank!
+array.read(new long[]{0, 0}, new long[]{10, 10});  // Wrong rank!
 ```
 **Problem**: Data appears corrupted  
 **Solution**: 
@@ -748,9 +945,9 @@ array.read(new long[]{0, 0}, new int[]{10, 10});  // Wrong rank!
 ```java
 // Array shape: [1000, 1000]
 // Wrong: offset[0] + shape[0] = 950 + 100 = 1050 > 1000
-array.read(new long[]{950, 0}, new int[]{100, 100});
+array.read(new long[]{950, 0}, new long[]{100, 100});
 // Correct
-array.read(new long[]{900, 0}, new int[]{100, 100});
+array.read(new long[]{900, 0}, new long[]{100, 100});
 ```
 **Problem**: S3Store connection errors  
 **Solution**:
@@ -760,8 +957,14 @@ array.read(new long[]{900, 0}, new int[]{100, 100});
 - Ensure network connectivity
 
 **Problem**: ZIP store not writing changes  
-**Solution**: Always close the store explicitly
+**Solution**: Always close the store, preferably using try-with-resources
 ```java
+// Recommended: try-with-resources
+try (BufferedZipStore store = new BufferedZipStore("/path/to/archive.zip")) {
+    // Use store
+} // Automatically closed
+
+// Alternative: manual close
 BufferedZipStore store = new BufferedZipStore("/path/to/archive.zip");
 try {
     // Use store
