@@ -2,7 +2,20 @@
 
 This repository contains a Java implementation of Zarr version 2 and 3.
 
-## Usage
+## Documentation
+
+For comprehensive documentation, see the [**User Guide**](USERGUIDE.md), which includes:
+
+- Installation instructions
+- Quick start examples
+- Core concepts and API reference
+- Working with arrays and groups
+- Storage backends (Filesystem, HTTP, S3, ZIP, Memory)
+- Compression and codecs
+- Advanced topics and best practices
+- Troubleshooting
+
+## Quick Usage Example
 
 ```java
 import dev.zarr.zarrjava.store.FilesystemStore;
