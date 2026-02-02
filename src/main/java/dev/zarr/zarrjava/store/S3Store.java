@@ -8,7 +8,6 @@ import software.amazon.awssdk.services.s3.model.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -43,8 +42,20 @@ public class S3Store implements Store, Store.ListableStore {
     ByteBuffer get(GetObjectRequest getObjectRequest) {
         try (ResponseInputStream<GetObjectResponse> inputStream = s3client.getObject(getObjectRequest)) {
             return Utils.asByteBuffer(inputStream);
-        } catch (IOException e) {
+        } catch (NoSuchKeyException e) {
+            // Key doesn't exist, return null as per Store contract
             return null;
+        } catch (S3Exception e) {
+            // Include S3-specific error details
+            throw StoreException.readFailed(
+                    this.toString(),
+                    new String[]{getObjectRequest.key()},
+                    new IOException("S3 error (code: " + e.statusCode() + "): " + e.awsErrorDetails().errorMessage(), e));
+        } catch (IOException e) {
+            throw StoreException.readFailed(
+                    this.toString(),
+                    new String[]{getObjectRequest.key()},
+                    new IOException("Failed to read S3 object content", e));
         }
     }
 
@@ -89,18 +100,42 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public void set(String[] keys, ByteBuffer bytes) {
-        try (InputStream byteStream = new ByteArrayInputStream(Utils.toArray(bytes))) {
-            /*AWS SDK for Java v2 migration: When using InputStream to upload with S3Client, Content-Length should be specified and used with RequestBody.fromInputStream(). Otherwise, the entire stream will be buffered in memory. If content length must be unknown, we recommend using the CRT-based S3 client - https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/crt-based-s3-client.html*/
-            s3client.putObject(PutObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys)).build(), RequestBody.fromContentProvider(() -> byteStream, "application/octet-stream"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        // Convert ByteBuffer to byte array and use RequestBody.fromBytes()
+        // This properly sets Content-Length and avoids buffering the entire stream in memory
+        byte[] data = Utils.toArray(bytes);
+        String key = resolveKeys(keys);
+        try {
+            s3client.putObject(
+                    PutObjectRequest.builder()
+                            .bucket(bucketName)
+                            .key(key)
+                            .build(),
+                    RequestBody.fromBytes(data)
+            );
+        } catch (S3Exception e) {
+            throw StoreException.writeFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("S3 putObject failed (code: " + e.statusCode() + ") for key '" + key +
+                            "', bucket '" + bucketName + "': " + e.awsErrorDetails().errorMessage(), e));
         }
     }
 
     @Override
     public void delete(String[] keys) {
-        s3client.deleteObject(DeleteObjectRequest.builder().bucket(bucketName).key(resolveKeys(keys))
-                .build());
+        String key = resolveKeys(keys);
+        try {
+            s3client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build());
+        } catch (S3Exception e) {
+            throw StoreException.deleteFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("S3 deleteObject failed (code: " + e.statusCode() + ") for key '" + key +
+                            "', bucket '" + bucketName + "': " + e.awsErrorDetails().errorMessage(), e));
+        }
     }
 
     @Override
@@ -178,8 +213,7 @@ public class S3Store implements Store, Store.ListableStore {
                 .key(resolveKeys(keys))
                 .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
                 .build();
-        ResponseInputStream<GetObjectResponse> responseInputStream = s3client.getObject(req);
-        return responseInputStream;
+        return s3client.getObject(req);
     }
 
     @Override

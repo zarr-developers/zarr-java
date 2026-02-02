@@ -64,7 +64,11 @@ public class ReadOnlyZipStore extends ZipStore {
                     fileIndex.put(name, entry.getSize());
                 }
             }
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    new String[]{},
+                    new IOException("Failed to read ZIP directory from underlying store", e));
         }
         isCached = true;
     }
@@ -140,7 +144,7 @@ public class ReadOnlyZipStore extends ZipStore {
                 return ByteBuffer.wrap(bytes);
             }
         } catch (IOException e) {
-            return null;
+            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
         }
         return null;
     }
@@ -248,9 +252,9 @@ public class ReadOnlyZipStore extends ZipStore {
                 return new BoundedInputStream(zis, bytesToRead);
             }
             return null;
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
         }
-        return null;
     }
 
     @Override
@@ -268,7 +272,10 @@ public class ReadOnlyZipStore extends ZipStore {
         // if size is not in header/cache, we fallback to reading
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) {
-            throw new RuntimeException(new IOException("Underlying store input stream is null"));
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    keys,
+                    new IOException("Cannot get size - underlying store input stream is null"));
         }
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
             ZipArchiveEntry entry;
@@ -295,7 +302,10 @@ public class ReadOnlyZipStore extends ZipStore {
             }
             return -1; // file not found
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    keys,
+                    new IOException("Failed to read ZIP entry size for key: " + String.join("/", keys), e));
         }
     }
 }

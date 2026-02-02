@@ -2,7 +2,7 @@ package dev.zarr.zarrjava;
 
 
 import dev.zarr.zarrjava.utils.IndexingUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 
 import java.util.Arrays;
@@ -34,7 +34,7 @@ public class TestUtils {
         long[] arrayShape = new long[]{100, 100};
         int[] chunkShape = new int[]{30, 30};
         long[] selOffset = new long[]{50, 20};
-        int[] selShape = new int[]{20, 1};
+        long[] selShape = new long[]{20, 1};
         long[][] chunkCoords = computeChunkCoords(arrayShape, chunkShape, selOffset, selShape);
         long[][] expectedChunkCoords = new long[][]{
                 {1, 0},
@@ -45,7 +45,7 @@ public class TestUtils {
         arrayShape = new long[]{1, 52};
         chunkShape = new int[]{1, 17};
         selOffset = new long[]{0, 32};
-        selShape = new int[]{1, 20};
+        selShape = new long[]{1, 20};
         chunkCoords = computeChunkCoords(arrayShape, chunkShape, selOffset, selShape);
         expectedChunkCoords = new long[][]{
                 {0, 1},
@@ -65,7 +65,7 @@ public class TestUtils {
         final long[] arrayShape = new long[]{1, 52};
         final int[] chunkShape = new int[]{1, 17};
         final long[] selOffset = new long[]{0, 32};
-        final int[] selShape = new int[]{1, 20};
+        final long[] selShape = new long[]{1, 20};
 
         IndexingUtils.ChunkProjection projection = IndexingUtils.computeProjection(
                 chunkCoords, arrayShape, chunkShape, selOffset, selShape
@@ -74,6 +74,22 @@ public class TestUtils {
         Assertions.assertArrayEquals(new int[]{0,0}, projection.chunkOffset);
         Assertions.assertArrayEquals(new int[]{0,2}, projection.outOffset);
         Assertions.assertArrayEquals(new int[]{1, 17}, projection.shape);
+    }
+
+    @Test
+    public void testComputeChunkCoordsOverflow() {
+        // Shape: [100000, 100000]
+        long[] arrayShape = {100000, 100000};
+        // Chunk: [1, 1]
+        int[] chunkShape = {1, 1};
+        // Selection: Full array
+        long[] selOffset = {0, 0};
+        long[] selShape = {100000, 100000};
+
+        // This should cause overflow: 100000 * 100000 = 10,000,000,000 > Integer.MAX_VALUE
+        Assertions.assertThrows(ArithmeticException.class, () -> {
+            IndexingUtils.computeChunkCoords(arrayShape, chunkShape, selOffset, selShape);
+        });
     }
 
 }

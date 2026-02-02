@@ -102,7 +102,7 @@ public abstract class BytesCodec extends ArrayBytesCodec {
                 case BIG:
                     return ByteOrder.BIG_ENDIAN;
                 default:
-                    throw new RuntimeException("Unreachable");
+                    throw new IllegalStateException("Unknown endian type: " + this);
             }
         }
     }

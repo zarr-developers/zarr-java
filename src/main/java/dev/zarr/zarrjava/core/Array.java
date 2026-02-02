@@ -92,7 +92,7 @@ public abstract class Array extends AbstractNode {
             throw new IllegalArgumentException("'array' needs to have rank '" + metadata.ndim() + "'.");
         }
 
-        int[] shape = array.getShape();
+        long[] shape = Utils.toLongArray(array.getShape());
 
         final int[] chunkShape = metadata.chunkShape();
         Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
@@ -122,8 +122,14 @@ public abstract class Array extends AbstractNode {
                             );
                         }
                         writeChunk(chunkCoords, chunkArray);
-                    } catch (ZarrException | InvalidRangeException e) {
-                        throw new RuntimeException(e);
+                    } catch (ZarrException e) {
+                        throw new RuntimeException(
+                                "Failed to write chunk at coordinates " + Arrays.toString(chunkCoords) +
+                                ": " + e.getMessage(), e);
+                    } catch (InvalidRangeException e) {
+                        throw new RuntimeException(
+                                "Invalid array range when writing chunk at coordinates " + Arrays.toString(chunkCoords) +
+                                ": " + e.getMessage(), e);
                     }
                 });
 
@@ -221,7 +227,7 @@ public abstract class Array extends AbstractNode {
      */
     @Nonnull
     public ucar.ma2.Array read() throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape));
+        return read(new long[metadata().ndim()], metadata().shape);
     }
 
     /**
@@ -233,7 +239,7 @@ public abstract class Array extends AbstractNode {
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    public ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
+    public ucar.ma2.Array read(final long[] offset, final long[] shape) throws ZarrException {
         return read(offset, shape, false);
     }
 
@@ -245,7 +251,7 @@ public abstract class Array extends AbstractNode {
      */
     @Nonnull
     public ucar.ma2.Array read(final boolean parallel) throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape), parallel);
+        return read(new long[metadata().ndim()], metadata().shape, parallel);
     }
 
     boolean chunkIsInArray(long[] chunkCoords) {
@@ -268,7 +274,7 @@ public abstract class Array extends AbstractNode {
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    public ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {
+    public ucar.ma2.Array read(final long[] offset, final long[] shape, final boolean parallel) throws ZarrException {
         ArrayMetadata metadata = metadata();
         if (offset.length != metadata.ndim()) {
             throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
@@ -288,7 +294,7 @@ public abstract class Array extends AbstractNode {
         }
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
-                shape);
+                Utils.toIntArray(shape));
         Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
@@ -311,8 +317,6 @@ public abstract class Array extends AbstractNode {
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
                         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
-                        if (!chunkHandle.exists()) return;
-
                         if (codecPipeline.supportsPartialDecode()) {
                             final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
                                     Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
@@ -320,9 +324,12 @@ public abstract class Array extends AbstractNode {
                                     chunkProjection.outOffset, chunkProjection.shape
                             );
                         } else {
-                            MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
-                                    outputArray, chunkProjection.outOffset, chunkProjection.shape
-                            );
+                            ByteBuffer chunkBytes = chunkHandle.read();
+                            if (chunkBytes != null) {
+                                MultiArrayUtils.copyRegion(codecPipeline.decode(chunkBytes), chunkProjection.chunkOffset,
+                                        outputArray, chunkProjection.outOffset, chunkProjection.shape
+                                );
+                            }
                         }
 
                     } catch (ZarrException e) {
@@ -340,7 +347,7 @@ public abstract class Array extends AbstractNode {
         @Nullable
         long[] offset;
         @Nullable
-        int[] shape;
+        long[] shape;
         @Nonnull
         Array array;
 
@@ -357,13 +364,13 @@ public abstract class Array extends AbstractNode {
 
         @Nonnull
         public ArrayAccessor withShape(@Nonnull int... shape) {
-            this.shape = shape;
+            this.shape = Utils.toLongArray(shape);
             return this;
         }
 
         @Nonnull
         public ArrayAccessor withShape(@Nonnull long... shape) {
-            this.shape = Utils.toIntArray(shape);
+            this.shape = shape;
             return this;
         }
 

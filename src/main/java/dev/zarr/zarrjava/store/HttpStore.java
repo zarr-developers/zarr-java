@@ -22,23 +22,41 @@ public class HttpStore implements Store {
     }
 
     String resolveKeys(String[] keys) {
-        StringBuilder newUri = new StringBuilder(uri.replaceAll("\\/+$", ""));
-        for (String key : keys) {
-            newUri.append("/").append(key);
+        HttpUrl url = HttpUrl.parse(uri);
+        if (url == null) {
+            throw new IllegalArgumentException("Invalid base URI: " + uri);
         }
-        return newUri.toString();
+        HttpUrl.Builder builder = url.newBuilder();
+        for (String key : keys) {
+            for (String segment : key.split("/", -1)) {
+                builder.addPathSegment(segment);
+            }
+        }
+        return builder.build().toString();
     }
 
     @Nullable
-    ByteBuffer get(Request request) {
+    ByteBuffer get(Request request, String[] keys) {
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
+            if (!response.isSuccessful()) {
+                if (response.code() == 404) {
+                    return null;
+                }
+                throw StoreException.readFailed(
+                        this.toString(),
+                        keys,
+                        new IOException("HTTP request failed with status code: " + response.code() + " " + response.message()));
+            }
             try (ResponseBody body = response.body()) {
+                if (body == null) {
+                    return null;
+                }
                 return ByteBuffer.wrap(body.bytes());
             }
         } catch (IOException e) {
-            return null;
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
@@ -58,17 +76,17 @@ public class HttpStore implements Store {
     @Override
     public ByteBuffer get(String[] keys) {
         Request request = new Request.Builder().url(resolveKeys(keys)).build();
-        return get(request);
+        return get(request, keys);
     }
 
     @Nullable
     @Override
     public ByteBuffer get(String[] keys, long start) {
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                        "Range", start < 0 ? String.format("Bytes=%d", start) : String.format("Bytes=%d-", start))
+                        "Range", start < 0 ? String.format("bytes=%d", start) : String.format("bytes=%d-", start))
                 .build();
 
-        return get(request);
+        return get(request, keys);
     }
 
     @Nullable
@@ -78,8 +96,8 @@ public class HttpStore implements Store {
             throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
         }
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                "Range", String.format("Bytes=%d-%d", start, end - 1)).build();
-        return get(request);
+                "Range", String.format("bytes=%d-%d", start, end - 1)).build();
+        return get(request, keys);
     }
 
     @Override
@@ -110,10 +128,19 @@ public class HttpStore implements Store {
             throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
         }
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                "Range", String.format("Bytes=%d-%d", start, end - 1)).build();
+                "Range", String.format("bytes=%d-%d", start, end - 1)).build();
         Call call = httpClient.newCall(request);
         try {
             Response response = call.execute();
+            if (!response.isSuccessful()) {
+                if (response.code() == 404) {
+                    return null;
+                }
+                throw StoreException.readFailed(
+                        this.toString(),
+                        keys,
+                        new IOException("HTTP request failed with status code: " + response.code() + " " + response.message()));
+            }
             ResponseBody body = response.body();
             if (body == null) return null;
             InputStream stream = body.byteStream();
@@ -127,17 +154,18 @@ public class HttpStore implements Store {
                 }
             };
         } catch (IOException e) {
-            return null;
+            throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
     @Override
     public long getSize(String[] keys) {
+        String url = resolveKeys(keys);
         // Explicitly request "identity" encoding to prevent OkHttp from adding "gzip"
         // and subsequently stripping the Content-Length header.
         Request request = new Request.Builder()
                 .head()
-                .url(resolveKeys(keys))
+                .url(url)
                 .header("Accept-Encoding", "identity")
                 .build();
 
@@ -153,8 +181,16 @@ public class HttpStore implements Store {
                 return Long.parseLong(contentLength);
             }
             return -1;
+        } catch (NumberFormatException e) {
+            throw StoreException.readFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Invalid Content-Length header value from: " + url, e));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw StoreException.readFailed(
+                    this.toString(),
+                    keys,
+                    new IOException("Failed to get content length from HTTP HEAD request to: " + url, e));
         }
     }
 }
