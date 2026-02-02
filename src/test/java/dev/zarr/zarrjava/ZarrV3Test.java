@@ -858,7 +858,7 @@ public class ZarrV3Test extends ZarrTest {
 
         // Now resize to expand again and check that trimmed area has fill value
         array = array.resize(new long[]{10, 10}, true);
-        ucar.ma2.Array data = array.read(new long[]{7, 0}, new int[]{3, 10});
+        ucar.ma2.Array data = array.read(new long[]{7, 0}, new long[]{3, 10});
         // All values in rows 7-9 should be fill value (99)
         int[] expectedFillData = new int[3 * 10];
         Arrays.fill(expectedFillData, 99);

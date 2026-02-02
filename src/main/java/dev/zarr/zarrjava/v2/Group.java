@@ -27,7 +27,7 @@ import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
 public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     public GroupMetadata metadata;
 
-    protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
+    protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) {
         super(storeHandle);
         this.metadata = groupMetadata;
     }
