@@ -185,8 +185,9 @@ public abstract class Array extends AbstractNode {
      * Deletes chunks that are completely outside the new shape and trims boundary chunks.
      *
      * @param newShape the new shape of the array
+     * @param parallel utilizes parallelism if true
      */
-    protected void cleanupChunksForResize(long[] newShape) {
+    protected void cleanupChunksForResize(long[] newShape, boolean parallel) {
         ArrayMetadata metadata = metadata();
         final int[] chunkShape = metadata.chunkShape();
         final int ndim = metadata.ndim();
@@ -201,7 +202,12 @@ public abstract class Array extends AbstractNode {
         // Iterate over all possible chunk coordinates in the old shape
         long[][] allOldChunkCoords = IndexingUtils.computeChunkCoords(metadata.shape, chunkShape);
 
-        for (long[] chunkCoords : allOldChunkCoords) {
+        Stream<long[]> chunkStream = Arrays.stream(allOldChunkCoords);
+        if (parallel) {
+            chunkStream = chunkStream.parallel();
+        }
+
+        chunkStream.forEach(chunkCoords -> {
             boolean isOutsideBounds = false;
             boolean isOnBoundary = false;
 
@@ -231,7 +237,7 @@ public abstract class Array extends AbstractNode {
                     throw new RuntimeException(e);
                 }
             }
-        }
+        });
     }
 
     /**
@@ -433,6 +439,46 @@ public abstract class Array extends AbstractNode {
                 });
         return outputArray;
     }
+
+    /**
+     * Sets a new shape for the Zarr array. Only the metadata is updated by default.
+     * This method returns a new instance of the Zarr array class and the old instance
+     * becomes invalid.
+     *
+     * @param newShape the new shape of the Zarr array
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape) throws ZarrException, IOException {
+        return resize(newShape, true);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape, boolean resizeMetadataOnly) throws ZarrException, IOException {
+        return resize(newShape, resizeMetadataOnly, DEFAULT_PARALLELISM);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @param parallel           utilizes parallelism if true when cleaning up chunks
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public abstract Array resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel) throws ZarrException, IOException;
 
     public ArrayAccessor access() {
         return new ArrayAccessor(this);
