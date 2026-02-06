@@ -654,20 +654,31 @@ try {
 - `"No Zarr array found at the specified location"` - Check path and ensure `.zarray` (v2) or `zarr.json` (v3) exists
 - `"Requested data is outside of the array's domain"` - Verify that `offset + shape <= array.shape`
 - `"Failed to read from store"` - Check network connectivity, file permissions, or storage availability
+---
+
 ### Best Practices
-1. **Chunk sizes for Best Performance**: 
-   - refer to [Zarr Performance Guide](
-   https://zarr.readthedocs.io/en/latest/user-guide/performance/) for recommendations
+1. **Chunk sizes for Best Performance**:
+    - refer to [Zarr Performance Guide](
+      https://zarr.readthedocs.io/en/latest/user-guide/performance/) for recommendations
 2. **Use compression**: Almost always beneficial for scientific data
-   - Blosc is fast and effective for most use cases
-   - Zstd for better compression ratios
-   - Gzip for compatibility 
+    - Blosc is fast and effective for most use cases
+    - Zstd for better compression ratios
+    - Gzip for compatibility
 3. **Batch writes**: Write larger chunks at once rather than many small writes
 4. **Consider sharding**: For v3 arrays with many small chunks
    ```java
    .withCodecs(c -> c.withSharding(new int[]{10, 10, 10}, inner -> inner.withBlosc()))
    ```
----
+5. **Access patterns**: Align chunk shape with your access pattern
+   ```java
+   // For row-wise access
+   .withChunkShape(1, 1000, 1000)  // Read entire rows efficiently
+   // For column-wise access
+   .withChunkShape(1000, 1, 1000)  // Read entire columns efficiently
+   // For balanced 3D access
+   .withChunkShape(100, 100, 100)  // Balanced for all dimensions
+   ```
+   
 ## API Reference
 ### Array Methods
 #### Creation and Opening
@@ -915,6 +926,7 @@ public class ParallelIOExample {
 ### Common Issues
 **Problem**: `ZarrException: No Zarr array found at the specified location`  
 **Solution**: Check that the path is correct and contains `.zarray` (v2) or `zarr.json` (v3)
+
 **Problem**: `OutOfMemoryError` when reading large arrays  
 **Solution**: Read smaller subsets or increase JVM heap size with `-Xmx`
 ```bash
@@ -927,6 +939,7 @@ java -Xmx8g -jar myapp.jar
 - Use appropriate compression (Blosc is fastest)
 - Check network bandwidth (for HTTP/S3)
 - For debugging, you can disable parallelism: `array.read(offset, shape, false)`
+
 **Problem**: `IllegalArgumentException: 'offset' needs to have rank...`  
 **Solution**: Ensure offset and shape arrays match the array's number of dimensions
 ```java
@@ -939,7 +952,7 @@ array.read(new long[]{0, 0}, new long[]{10, 10});  // Wrong rank!
 **Solution**: 
 - Verify data type matches between write and read
 - Check compression codec compatibility
-- Ensure proper store closing (especially ZIP stores)
+
 **Problem**: `ZarrException: Requested data is outside of the array's domain`  
 **Solution**: Check that `offset + shape <= array.shape` for all dimensions
 ```java
@@ -972,34 +985,7 @@ try {
     store.close();  // Important!
 }
 ```
-### Performance Tips
-1. **Chunk size optimization**:
-   ```java
-   // Too small (many I/O operations)
-   .withChunkShape(10, 10, 10)  // ~1KB chunks
-   // Good balance
-   .withChunkShape(100, 100, 100)  // ~1MB chunks (for UINT8)
-   // May be too large (high memory usage)
-   .withChunkShape(1000, 1000, 1000)  // ~1GB chunks
-   ```
-2. **Access patterns**: Align chunk shape with your access pattern
-   ```java
-   // For row-wise access
-   .withChunkShape(1, 1000, 1000)  // Read entire rows efficiently
-   // For column-wise access
-   .withChunkShape(1000, 1, 1000)  // Read entire columns efficiently
-   // For balanced 3D access
-   .withChunkShape(100, 100, 100)  // Balanced for all dimensions
-   ```
-3. **Compression trade-offs**:
-   ```java
-   // Fastest (minimal compression)
-   .withCodecs(c -> c.withBlosc("lz4", "noshuffle", 1))
-   // Balanced (good speed and compression)
-   .withCodecs(c -> c.withBlosc("zstd", "shuffle", 5))
-   // Best compression (slower)
-   .withCodecs(c -> c.withZstd(22))
-   ```
+
 ### Getting Help
 - **GitHub Issues**: [github.com/zarr-developers/zarr-java/issues](https://github.com/zarr-developers/zarr-java/issues)
 - **Zarr Community**: [zarr.dev](https://zarr.dev/)

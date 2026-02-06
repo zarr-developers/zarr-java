@@ -12,7 +12,7 @@ For comprehensive documentation, see the [**User Guide**](USERGUIDE.md), which i
 - Working with arrays and groups
 - Storage backends (Filesystem, HTTP, S3, ZIP, Memory)
 - Compression and codecs
-- Advanced topics and best practices
+- Best practices
 - Troubleshooting
 
 ## Quick Usage Example
