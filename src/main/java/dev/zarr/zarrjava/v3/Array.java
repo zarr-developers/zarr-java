@@ -201,18 +201,54 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
     }
 
     /**
-     * Sets a new shape for the Zarr array. It only changes the metadata, no array data is modified or
-     * deleted. This method returns a new instance of the Zarr array class and the old instance
+     * Sets a new shape for the Zarr array. Only the metadata is updated by default.
+     * This method returns a new instance of the Zarr array class and the old instance
      * becomes invalid.
      *
      * @param newShape the new shape of the Zarr array
      * @throws ZarrException if the new metadata is invalid
      * @throws IOException   throws IOException if the new metadata cannot be serialized
      */
+    @Override
     public Array resize(long[] newShape) throws ZarrException, IOException {
+        return resize(newShape, true);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    @Override
+    public Array resize(long[] newShape, boolean resizeMetadataOnly) throws ZarrException, IOException {
+        return resize(newShape, resizeMetadataOnly, DEFAULT_PARALLELISM);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @param parallel           utilizes parallelism if true when cleaning up chunks
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    @Override
+    public Array resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel) throws ZarrException, IOException {
         if (newShape.length != metadata.ndim()) {
             throw new IllegalArgumentException(
                     "'newShape' needs to have rank '" + metadata.ndim() + "'.");
+        }
+
+        if (!resizeMetadataOnly) {
+            cleanupChunksForResize(newShape, parallel);
         }
 
         ArrayMetadata newArrayMetadata = ArrayMetadataBuilder.fromArrayMetadata(metadata)
@@ -220,6 +256,7 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
                 .build();
         return writeMetadata(newArrayMetadata);
     }
+
 
     /**
      * Sets the attributes of the Zarr array. It overwrites and removes any existing attributes. This
@@ -248,7 +285,8 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
      * @throws IOException   throws IOException if the new metadata cannot be serialized
      */
     public Array updateAttributes(Function<Attributes, Attributes> attributeMapper) throws ZarrException, IOException {
-        return setAttributes(attributeMapper.apply(metadata.attributes));
+        Attributes currentAttributes = metadata.attributes != null ? new Attributes(metadata.attributes) : new Attributes();
+        return setAttributes(attributeMapper.apply(currentAttributes));
     }
 
     @Override

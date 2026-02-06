@@ -709,6 +709,31 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
+    public void testUpdateAttributesBehavior() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testUpdateAttributesBehaviorV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(5, 5)
+                .withAttributes(new Attributes(b -> b.set("key1", "val1")))
+                .build();
+
+        Array array1 = Array.create(storeHandle, arrayMetadata);
+        Array array2 = array1.updateAttributes(attrs -> attrs.set("key2", "val2"));
+
+        Assertions.assertNotSame(array1, array2);
+        Assertions.assertEquals("val1", array1.metadata().attributes().get("key1"));
+        Assertions.assertNull(array1.metadata().attributes().get("key2"));
+
+        Assertions.assertEquals("val1", array2.metadata().attributes().get("key1"));
+        Assertions.assertEquals("val2", array2.metadata().attributes().get("key2"));
+
+        // Re-opening should show the updated attributes
+        Array array3 = Array.open(storeHandle);
+        Assertions.assertEquals("val2", array3.metadata().attributes().get("key2"));
+    }
+
+    @Test
     public void testResizeArray() throws IOException, ZarrException {
         int[] testData = new int[10 * 10];
         Arrays.setAll(testData, p -> p);
@@ -734,6 +759,110 @@ public class ZarrV3Test extends ZarrTest {
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        Array reopenedArray = Array.open(storeHandle);
+        Assertions.assertArrayEquals(new int[]{20, 15}, reopenedArray.read().getShape());
+    }
+
+    @Test
+    public void testResizeArrayShrink() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        array = array.resize(new long[]{5, 5});
+        Assertions.assertArrayEquals(new int[]{5, 5}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read();
+        int[] expectedData = new int[5 * 5];
+        for (int i = 0; i < 5; i++) {
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
+        }
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testResizeArrayShrinkWithChunkCleanup() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkWithChunkCleanupV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .withFillValue(99)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        // Verify all 4 chunks exist before resize (v3 default encoding has "c" prefix)
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "1").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "1").exists());
+
+        // Resize with chunk cleanup (resizeMetadataOnly=false)
+        array = array.resize(new long[]{5, 5}, false);
+        Assertions.assertArrayEquals(new int[]{5, 5}, array.read().getShape());
+
+        // Verify only chunk (0,0) still exists
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "0").exists());
+        Assertions.assertFalse(storeHandle.resolve("c", "0", "1").exists());
+        Assertions.assertFalse(storeHandle.resolve("c", "1", "0").exists());
+        Assertions.assertFalse(storeHandle.resolve("c", "1", "1").exists());
+
+        ucar.ma2.Array data = array.read();
+        int[] expectedData = new int[5 * 5];
+        for (int i = 0; i < 5; i++) {
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
+        }
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testResizeArrayShrinkWithBoundaryTrimming() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkWithBoundaryTrimmingV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .withFillValue(99)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        // Resize to 7x7 (crosses chunk boundary, should trim boundary chunks)
+        array = array.resize(new long[]{7, 7}, false);
+        Assertions.assertArrayEquals(new int[]{7, 7}, array.read().getShape());
+
+        // Verify chunks (0,0), (0,1), (1,0), (1,1) still exist (boundary trimmed, not deleted)
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "1").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "1").exists());
+
+        // Now resize to expand again and check that trimmed area has fill value
+        array = array.resize(new long[]{10, 10}, true);
+        ucar.ma2.Array data = array.read(new long[]{7, 0}, new long[]{3, 10});
+        // All values in rows 7-9 should be fill value (99)
+        int[] expectedFillData = new int[3 * 10];
+        Arrays.fill(expectedFillData, 99);
+        Assertions.assertArrayEquals(expectedFillData, (int[]) data.get1DJavaArray(ma2DataType));
     }
 
     @Test

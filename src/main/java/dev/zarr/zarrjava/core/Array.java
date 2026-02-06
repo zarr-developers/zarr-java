@@ -3,7 +3,6 @@ package dev.zarr.zarrjava.core;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.codec.CodecPipeline;
 import dev.zarr.zarrjava.store.FilesystemStore;
-import dev.zarr.zarrjava.store.Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.IndexingUtils;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
@@ -17,14 +16,12 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
+    public static final boolean DEFAULT_PARALLELISM = true;
 
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);
@@ -184,6 +181,110 @@ public abstract class Array extends AbstractNode {
         return codecPipeline.decode(chunkBytes);
     }
 
+    /**
+     * Deletes chunks that are completely outside the new shape and trims boundary chunks.
+     *
+     * @param newShape the new shape of the array
+     * @param parallel utilizes parallelism if true
+     */
+    protected void cleanupChunksForResize(long[] newShape, boolean parallel) {
+        ArrayMetadata metadata = metadata();
+        final int[] chunkShape = metadata.chunkShape();
+        final int ndim = metadata.ndim();
+        final dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding chunkKeyEncoding = metadata.chunkKeyEncoding();
+
+        // Calculate max valid chunk coordinates for the new shape
+        long[] newMaxChunkCoords = new long[ndim];
+        for (int i = 0; i < ndim; i++) {
+            newMaxChunkCoords[i] = (newShape[i] + chunkShape[i] - 1) / chunkShape[i];
+        }
+
+        // Iterate over all possible chunk coordinates in the old shape
+        long[][] allOldChunkCoords = IndexingUtils.computeChunkCoords(metadata.shape, chunkShape);
+
+        Stream<long[]> chunkStream = Arrays.stream(allOldChunkCoords);
+        if (parallel) {
+            chunkStream = chunkStream.parallel();
+        }
+
+        chunkStream.forEach(chunkCoords -> {
+            boolean isOutsideBounds = false;
+            boolean isOnBoundary = false;
+
+            for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+                if (chunkCoords[dimIdx] >= newMaxChunkCoords[dimIdx]) {
+                    isOutsideBounds = true;
+                    break;
+                }
+                // Check if this chunk is on the boundary (partially outside new shape)
+                long chunkEnd = (chunkCoords[dimIdx] + 1) * chunkShape[dimIdx];
+                if (chunkEnd > newShape[dimIdx]) {
+                    isOnBoundary = true;
+                }
+            }
+
+            String[] chunkKeys = chunkKeyEncoding.encodeChunkKey(chunkCoords);
+            StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+            if (isOutsideBounds) {
+                // Delete chunk that is completely outside
+                chunkHandle.delete();
+            } else if (isOnBoundary) {
+                // Trim boundary chunk - read, clear out-of-bounds data, write back
+                try {
+                    trimBoundaryChunk(chunkCoords, newShape, chunkShape);
+                } catch (ZarrException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Trims a boundary chunk by reading it, clearing the out-of-bounds portion, and writing it back.
+     *
+     * @param chunkCoords the coordinates of the chunk to trim
+     * @param newShape    the new shape of the array
+     * @param chunkShape  the shape of the chunks
+     * @throws ZarrException if reading or writing the chunk fails
+     */
+    protected void trimBoundaryChunk(long[] chunkCoords, long[] newShape, int[] chunkShape) throws ZarrException {
+        ArrayMetadata metadata = metadata();
+        final int ndim = metadata.ndim();
+
+        // Calculate the valid region within this chunk
+        int[] validShape = new int[ndim];
+        boolean needsTrimming = false;
+        for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+            long chunkStart = chunkCoords[dimIdx] * chunkShape[dimIdx];
+            long chunkEnd = chunkStart + chunkShape[dimIdx];
+            if (chunkEnd > newShape[dimIdx]) {
+                validShape[dimIdx] = (int) (newShape[dimIdx] - chunkStart);
+                needsTrimming = true;
+            } else {
+                validShape[dimIdx] = chunkShape[dimIdx];
+            }
+        }
+
+        if (!needsTrimming) {
+            return;
+        }
+
+        // Read the existing chunk
+        ucar.ma2.Array chunkData = readChunk(chunkCoords);
+
+        // Create a new chunk filled with fill value
+        ucar.ma2.Array newChunkData = metadata.allocateFillValueChunk();
+
+        // Copy only the valid region
+        MultiArrayUtils.copyRegion(
+                chunkData, new int[ndim], newChunkData, new int[ndim], validShape
+        );
+
+        // Write the trimmed chunk back
+        writeChunk(chunkCoords, newChunkData);
+    }
+
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
@@ -205,7 +306,7 @@ public abstract class Array extends AbstractNode {
      * @param array  the data to write
      */
     public void write(long[] offset, ucar.ma2.Array array) {
-        write(offset, array, false);
+        write(offset, array, DEFAULT_PARALLELISM);
     }
 
     /**
@@ -240,7 +341,7 @@ public abstract class Array extends AbstractNode {
      */
     @Nonnull
     public ucar.ma2.Array read(final long[] offset, final long[] shape) throws ZarrException {
-        return read(offset, shape, false);
+        return read(offset, shape, DEFAULT_PARALLELISM);
     }
 
     /**
@@ -338,6 +439,46 @@ public abstract class Array extends AbstractNode {
                 });
         return outputArray;
     }
+
+    /**
+     * Sets a new shape for the Zarr array. Only the metadata is updated by default.
+     * This method returns a new instance of the Zarr array class and the old instance
+     * becomes invalid.
+     *
+     * @param newShape the new shape of the Zarr array
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape) throws ZarrException, IOException {
+        return resize(newShape, true);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape, boolean resizeMetadataOnly) throws ZarrException, IOException {
+        return resize(newShape, resizeMetadataOnly, DEFAULT_PARALLELISM);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @param parallel           utilizes parallelism if true when cleaning up chunks
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public abstract Array resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel) throws ZarrException, IOException;
 
     public ArrayAccessor access() {
         return new ArrayAccessor(this);
