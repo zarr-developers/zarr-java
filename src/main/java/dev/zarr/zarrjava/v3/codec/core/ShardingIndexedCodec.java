@@ -249,7 +249,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
             if (chunkBytes == null) {
                 return arrayMetadata.allocateFillValueChunk();
             }
-            return decodeInternal(new ByteBufferDataProvider(chunkHandle.read()), offset, shape, arrayMetadata);
+            return decodeInternal(new ByteBufferDataProvider(chunkBytes), offset, shape, arrayMetadata);
         }
         return decodeInternal(new StoreHandleDataProvider(chunkHandle), offset, shape, arrayMetadata);
     }
