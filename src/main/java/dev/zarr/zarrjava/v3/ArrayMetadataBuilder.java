@@ -4,6 +4,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.core.codec.core.BytesCodec.Endian;
+import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
@@ -161,9 +162,13 @@ public class ArrayMetadataBuilder {
         if (dataType == null) {
             throw new ZarrException("Data type needs to be provided. Please call `.withDataType`.");
         }
+        
+        // If chunk grid is not specified, calculate default chunks
         if (chunkGrid == null) {
-            throw new ZarrException("Chunk grid needs to be provided. Please call `.withChunkShape`.");
+            int[] defaultChunks = Utils.calculateDefaultChunks(shape);
+            chunkGrid = new RegularChunkGrid(new RegularChunkGrid.Configuration(defaultChunks));
         }
+        
         return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
                 dimensionNames,
                 attributes,

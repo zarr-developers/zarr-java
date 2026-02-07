@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
+import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
@@ -104,6 +105,17 @@ public class ZarrV3Test extends ZarrTest {
         );
 
         return Stream.concat(builders, codecBuilders().map(codecFunc -> b -> b.withCodecs(codecFunc)));
+    }
+
+    static Stream<Arguments> unalignedArrayAccessProvider() {
+        Stream.Builder<Arguments> builder = Stream.builder();
+        builder.add(Arguments.of(52, 17, 32));
+        builder.add(Arguments.of(71, 11, 12));
+        builder.add(Arguments.of(52, 17, 17));
+        builder.add(Arguments.of(50, 3, 7));
+        builder.add(Arguments.of(50, 3, 22));
+        builder.add(Arguments.of(13, 31, 21));
+        return builder.build();
     }
 
     @ParameterizedTest
@@ -233,7 +245,7 @@ public class ZarrV3Test extends ZarrTest {
     public void testShardingReadCutout() throws IOException, ZarrException {
         Array array = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
 
-        ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new long[]{1, 64, 64, 64});
         Assertions.assertEquals(64 * 64 * 64, outArray.getSize());
         Assertions.assertEquals(-98, outArray.getByte(0));
     }
@@ -273,7 +285,7 @@ public class ZarrV3Test extends ZarrTest {
 
     @Test
     public void testCodecs() throws IOException, ZarrException {
-        int[] readShape = new int[]{1, 1, 1024, 1024};
+        long[] readShape = new long[]{1, 1, 1024, 1024};
         Array readArray = Array.open(
                 new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
         ucar.ma2.Array readArrayContent = readArray.read(new long[4], readShape);
@@ -351,7 +363,7 @@ public class ZarrV3Test extends ZarrTest {
         Array array = (Array) color.get("1");
         ucar.ma2.Array outArray = array.read(
                 new long[]{0, 3073, 3073, 513}, // offset
-                new int[]{1, 64, 64, 64} // shape
+                new long[]{1, 64, 64, 64} // shape
         );
         Assertions.assertEquals(64 * 64 * 64, outArray.getSize());
     }
@@ -373,7 +385,7 @@ public class ZarrV3Test extends ZarrTest {
                 new long[]{0, 0, 0, 0}, // offset
                 data
         );
-        ucar.ma2.Array output = array.read(new long[]{0, 0, 0, 0}, new int[]{1, 1, 2, 2});
+        ucar.ma2.Array output = array.read(new long[]{0, 0, 0, 0}, new long[]{1, 1, 2, 2});
         assert MultiArrayUtils.allValuesEqual(data, output);
     }
 
@@ -389,8 +401,8 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertArrayEquals(httpArray.metadata().shape, localArray.metadata().shape);
         Assertions.assertArrayEquals(httpArray.metadata().chunkShape(), localArray.metadata().chunkShape());
 
-        ucar.ma2.Array httpData1 = httpArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
-        ucar.ma2.Array localData1 = localArray.read(new long[]{0, 0, 0, 0}, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array httpData1 = httpArray.read(new long[]{0, 0, 0, 0}, new long[]{1, 64, 64, 64});
+        ucar.ma2.Array localData1 = localArray.read(new long[]{0, 0, 0, 0}, new long[]{1, 64, 64, 64});
 
         assert MultiArrayUtils.allValuesEqual(httpData1, localData1);
 
@@ -403,8 +415,8 @@ public class ZarrV3Test extends ZarrTest {
             offset[i] = originalOffset[i] / (originalShape[i] / arrayShape[i]);
         }
 
-        ucar.ma2.Array httpData2 = httpArray.read(offset, new int[]{1, 64, 64, 64});
-        ucar.ma2.Array localData2 = localArray.read(offset, new int[]{1, 64, 64, 64});
+        ucar.ma2.Array httpData2 = httpArray.read(offset, new long[]{1, 64, 64, 64});
+        ucar.ma2.Array localData2 = localArray.read(offset, new long[]{1, 64, 64, 64});
 
         assert MultiArrayUtils.allValuesEqual(httpData2, localData2);
     }
@@ -553,7 +565,9 @@ public class ZarrV3Test extends ZarrTest {
         );
         array.write(new long[]{2, 2}, ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{8, 8}));
 
-        Assertions.assertArrayEquals(new int[]{5, 5}, ((Array) ((Group) group.listAsArray()[0]).listAsArray()[0]).metadata().chunkShape());
+        Array[] arrays = group.list().filter(n -> n instanceof Array).toArray(Array[]::new);
+        Assertions.assertEquals(1, arrays.length);
+        Assertions.assertArrayEquals(new int[]{5, 5}, arrays[0].metadata().chunkShape());
     }
 
     @Test
@@ -695,6 +709,31 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
+    public void testUpdateAttributesBehavior() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testUpdateAttributesBehaviorV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(5, 5)
+                .withAttributes(new Attributes(b -> b.set("key1", "val1")))
+                .build();
+
+        Array array1 = Array.create(storeHandle, arrayMetadata);
+        Array array2 = array1.updateAttributes(attrs -> attrs.set("key2", "val2"));
+
+        Assertions.assertNotSame(array1, array2);
+        Assertions.assertEquals("val1", array1.metadata().attributes().get("key1"));
+        Assertions.assertNull(array1.metadata().attributes().get("key2"));
+
+        Assertions.assertEquals("val1", array2.metadata().attributes().get("key1"));
+        Assertions.assertEquals("val2", array2.metadata().attributes().get("key2"));
+
+        // Re-opening should show the updated attributes
+        Array array3 = Array.open(storeHandle);
+        Assertions.assertEquals("val2", array3.metadata().attributes().get("key2"));
+    }
+
+    @Test
     public void testResizeArray() throws IOException, ZarrException {
         int[] testData = new int[10 * 10];
         Arrays.setAll(testData, p -> p);
@@ -713,13 +752,117 @@ public class ZarrV3Test extends ZarrTest {
         array = array.resize(new long[]{20, 15});
         Assertions.assertArrayEquals(new int[]{20, 15}, array.read().getShape());
 
-        ucar.ma2.Array data = array.read(new long[]{0, 0}, new int[]{10, 10});
+        ucar.ma2.Array data = array.read(new long[]{0, 0}, new long[]{10, 10});
         Assertions.assertArrayEquals(testData, (int[]) data.get1DJavaArray(ma2DataType));
 
-        data = array.read(new long[]{10, 10}, new int[]{5, 5});
+        data = array.read(new long[]{10, 10}, new long[]{5, 5});
         int[] expectedData = new int[5 * 5];
         Arrays.fill(expectedData, 1);
         Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+
+        Array reopenedArray = Array.open(storeHandle);
+        Assertions.assertArrayEquals(new int[]{20, 15}, reopenedArray.read().getShape());
+    }
+
+    @Test
+    public void testResizeArrayShrink() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        array = array.resize(new long[]{5, 5});
+        Assertions.assertArrayEquals(new int[]{5, 5}, array.read().getShape());
+
+        ucar.ma2.Array data = array.read();
+        int[] expectedData = new int[5 * 5];
+        for (int i = 0; i < 5; i++) {
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
+        }
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testResizeArrayShrinkWithChunkCleanup() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkWithChunkCleanupV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .withFillValue(99)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        // Verify all 4 chunks exist before resize (v3 default encoding has "c" prefix)
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "1").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "1").exists());
+
+        // Resize with chunk cleanup (resizeMetadataOnly=false)
+        array = array.resize(new long[]{5, 5}, false);
+        Assertions.assertArrayEquals(new int[]{5, 5}, array.read().getShape());
+
+        // Verify only chunk (0,0) still exists
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "0").exists());
+        Assertions.assertFalse(storeHandle.resolve("c", "0", "1").exists());
+        Assertions.assertFalse(storeHandle.resolve("c", "1", "0").exists());
+        Assertions.assertFalse(storeHandle.resolve("c", "1", "1").exists());
+
+        ucar.ma2.Array data = array.read();
+        int[] expectedData = new int[5 * 5];
+        for (int i = 0; i < 5; i++) {
+            System.arraycopy(testData, i * 10 + 0, expectedData, i * 5 + 0, 5);
+        }
+        Assertions.assertArrayEquals(expectedData, (int[]) data.get1DJavaArray(ma2DataType));
+    }
+
+    @Test
+    public void testResizeArrayShrinkWithBoundaryTrimming() throws IOException, ZarrException {
+        int[] testData = new int[10 * 10];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testResizeArrayShrinkWithBoundaryTrimmingV3");
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+                .withShape(10, 10)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(5, 5)
+                .withFillValue(99)
+                .build();
+        ucar.ma2.DataType ma2DataType = arrayMetadata.dataType.getMA2DataType();
+        Array array = Array.create(storeHandle, arrayMetadata);
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ma2DataType, new int[]{10, 10}, testData));
+
+        // Resize to 7x7 (crosses chunk boundary, should trim boundary chunks)
+        array = array.resize(new long[]{7, 7}, false);
+        Assertions.assertArrayEquals(new int[]{7, 7}, array.read().getShape());
+
+        // Verify chunks (0,0), (0,1), (1,0), (1,1) still exist (boundary trimmed, not deleted)
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "0", "1").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "0").exists());
+        Assertions.assertTrue(storeHandle.resolve("c", "1", "1").exists());
+
+        // Now resize to expand again and check that trimmed area has fill value
+        array = array.resize(new long[]{10, 10}, true);
+        ucar.ma2.Array data = array.read(new long[]{7, 0}, new long[]{3, 10});
+        // All values in rows 7-9 should be fill value (99)
+        int[] expectedFillData = new int[3 * 10];
+        Arrays.fill(expectedFillData, 99);
+        Assertions.assertArrayEquals(expectedFillData, (int[]) data.get1DJavaArray(ma2DataType));
     }
 
     @Test
@@ -734,5 +877,122 @@ public class ZarrV3Test extends ZarrTest {
 
         group = Group.open(storeHandle);
         Assertions.assertEquals("group_value", group.metadata().attributes().getString("group_attr"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("unalignedArrayAccessProvider")
+    public void testUnalignedArrayAccess(int arrayShape, int chunkShape, int accessShape) throws ZarrException, IOException {
+        Array array = Array.create(
+                new MemoryStore().resolve(),
+                Array.metadataBuilder()
+                        .withShape(arrayShape)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(chunkShape)
+                        .withFillValue(0)
+                        .build()
+        );
+
+        int[] testData = new int[arrayShape];
+        Arrays.setAll(testData, p -> (byte) p);
+        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{arrayShape}, testData);
+        array.write(data);
+
+        for (int i = 0; i < arrayShape; i += accessShape) {
+            accessShape = Math.min(accessShape, arrayShape - i);
+            ucar.ma2.Array result = array.read(new long[]{i}, new long[]{accessShape});
+            int[] expectedData = Arrays.copyOfRange(testData, i, i + accessShape);
+            Assertions.assertArrayEquals(expectedData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        }
+    }
+
+    @Test
+    public void testDefaultChunkShape() throws IOException, ZarrException {
+        // Test with a small array (< 512 elements per dimension)
+        Array smallArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v3_default_chunks_small"),
+                Array.metadataBuilder()
+                        .withShape(100, 50)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(2, smallArray.metadata().chunkShape().length);
+        // Both dimensions < 512, so chunks should equal shape
+        Assertions.assertEquals(100, smallArray.metadata().chunkShape()[0]);
+        Assertions.assertEquals(50, smallArray.metadata().chunkShape()[1]);
+
+        // Test with a larger array (> 512 elements per dimension)
+        Array largeArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v3_default_chunks_large"),
+                Array.metadataBuilder()
+                        .withShape(2000, 1500)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(2, largeArray.metadata().chunkShape().length);
+        // Chunks should be calculated based on division by 512
+        Assertions.assertTrue(largeArray.metadata().chunkShape()[0] > 0);
+        Assertions.assertTrue(largeArray.metadata().chunkShape()[0] < 2000);
+        Assertions.assertTrue(largeArray.metadata().chunkShape()[1] > 0);
+        Assertions.assertTrue(largeArray.metadata().chunkShape()[1] < 1500);
+
+        // Test with mixed dimensions
+        Array mixedArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("v3_default_chunks_mixed"),
+                Array.metadataBuilder()
+                        .withShape(1024, 100, 2048)
+                        .withDataType(DataType.UINT8)
+                        .build()
+        );
+        Assertions.assertEquals(3, mixedArray.metadata().chunkShape().length);
+        // Verify chunks are reasonable
+        Assertions.assertTrue(mixedArray.metadata().chunkShape()[0] > 0);
+        Assertions.assertTrue(mixedArray.metadata().chunkShape()[0] <= 1024);
+        Assertions.assertEquals(100, mixedArray.metadata().chunkShape()[1]);  // < 512, should equal shape
+        Assertions.assertTrue(mixedArray.metadata().chunkShape()[2] > 0);
+        Assertions.assertTrue(mixedArray.metadata().chunkShape()[2] <= 2048);
+    }
+
+    @Test
+    public void testLargeArrayWithOffsetBeyondMaxInt() throws IOException, ZarrException {
+        // Create an array with second dimension exceeding Integer.MAX_VALUE
+        // Shape: [2, 3_000_000_000] - 3 billion elements in second dimension
+        // This array is mostly fillvalue, only write one small chunk
+        long largeSize = 3_000_000_000L; // 3 billion > Integer.MAX_VALUE (2.147B)
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("large_array_beyond_int");
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(largeSize, largeSize)
+                .withDataType(DataType.INT32)
+                .withChunkShape(1000, 1000)
+                .withFillValue(42)
+                .build();
+
+        Array array = Array.create(storeHandle, metadata);
+
+        // Write a small chunk at position [0, 0]
+        int[] testData = new int[1000];
+        Arrays.fill(testData, 100);
+        ucar.ma2.Array smallChunk = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{1, 1000}, testData);
+        array.write(new long[]{0, 0}, smallChunk);
+
+        // Write a small chunk at position [1, Integer.MAX_VALUE + 1]
+        long beyondIntMax = (long)(Integer.MAX_VALUE) + 1;
+        long[] offset = new long[]{1, beyondIntMax};
+        Arrays.fill(testData, 200);
+        smallChunk = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{1, 1000}, testData);
+        array.write(offset, smallChunk);
+
+        // Read from the written region - should get our data
+        ucar.ma2.Array readStart = array.read(new long[]{0, 0}, new long[]{1, 100});
+        Assertions.assertEquals(100, readStart.getInt(0), "Data at start should be written value");
+
+        // Read from position beyond Integer.MAX_VALUE - should get fillvalue
+        ucar.ma2.Array readFar = array.read(offset, new long[]{1, 100});
+        Assertions.assertEquals(200, readFar.getInt(1), "Data beyond Integer.MAX_VALUE should be fillvalue");
+
+        // Verify metadata
+        Assertions.assertEquals(2, array.metadata().shape.length);
+        Assertions.assertEquals(largeSize, array.metadata().shape[0]);
+        Assertions.assertEquals(largeSize, array.metadata().shape[1]);
     }
 }

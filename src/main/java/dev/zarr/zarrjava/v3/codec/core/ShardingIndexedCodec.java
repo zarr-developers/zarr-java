@@ -119,8 +119,6 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                 .forEach(
                         chunkCoords -> {
                             try {
-                                final int i =
-                                        (int) IndexingUtils.cOrderIndex(chunkCoords, Utils.toLongArray(chunksPerShard));
                                 final IndexingUtils.ChunkProjection chunkProjection =
                                         IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
                                                 shardMetadata.chunkShape
@@ -198,12 +196,15 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
             throw new ZarrException("Only index_location \"start\" or \"end\" are supported.");
         }
         if (shardIndexBytes == null) {
-            throw new ZarrException("Could not read shard index.");
+            if (arrayMetadata.parsedFillValue != null) {
+                MultiArrayUtils.fill(outputArray, arrayMetadata.parsedFillValue);
+            }
+            return outputArray;
         }
         final Array shardIndexArray = indexCodecPipeline.decode(shardIndexBytes);
         long[][] allChunkCoords = IndexingUtils.computeChunkCoords(shardMetadata.shape,
                 shardMetadata.chunkShape, offset,
-                shape);
+                Utils.toLongArray(shape));
 
         Arrays.stream(allChunkCoords)
                 // .parallel()
@@ -217,7 +218,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                                 Array chunkArray = null;
                                 final IndexingUtils.ChunkProjection chunkProjection =
                                         IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
-                                                shardMetadata.chunkShape, offset, shape
+                                                shardMetadata.chunkShape, offset, Utils.toLongArray(shape)
                                         );
                                 if (chunkByteOffset != -1 && chunkByteLength != -1) {
                                     final ByteBuffer chunkBytes = dataProvider.read(chunkByteOffset, chunkByteLength);

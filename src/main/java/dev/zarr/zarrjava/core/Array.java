@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 public abstract class Array extends AbstractNode {
 
     protected CodecPipeline codecPipeline;
+    public static final boolean DEFAULT_PARALLELISM = true;
 
     protected Array(StoreHandle storeHandle) throws ZarrException {
         super(storeHandle);
@@ -88,7 +89,7 @@ public abstract class Array extends AbstractNode {
             throw new IllegalArgumentException("'array' needs to have rank '" + metadata.ndim() + "'.");
         }
 
-        int[] shape = array.getShape();
+        long[] shape = Utils.toLongArray(array.getShape());
 
         final int[] chunkShape = metadata.chunkShape();
         Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
@@ -118,8 +119,14 @@ public abstract class Array extends AbstractNode {
                             );
                         }
                         writeChunk(chunkCoords, chunkArray);
-                    } catch (ZarrException | InvalidRangeException e) {
-                        throw new RuntimeException(e);
+                    } catch (ZarrException e) {
+                        throw new RuntimeException(
+                                "Failed to write chunk at coordinates " + Arrays.toString(chunkCoords) +
+                                ": " + e.getMessage(), e);
+                    } catch (InvalidRangeException e) {
+                        throw new RuntimeException(
+                                "Invalid array range when writing chunk at coordinates " + Arrays.toString(chunkCoords) +
+                                ": " + e.getMessage(), e);
                     }
                 });
 
@@ -174,6 +181,110 @@ public abstract class Array extends AbstractNode {
         return codecPipeline.decode(chunkBytes);
     }
 
+    /**
+     * Deletes chunks that are completely outside the new shape and trims boundary chunks.
+     *
+     * @param newShape the new shape of the array
+     * @param parallel utilizes parallelism if true
+     */
+    protected void cleanupChunksForResize(long[] newShape, boolean parallel) {
+        ArrayMetadata metadata = metadata();
+        final int[] chunkShape = metadata.chunkShape();
+        final int ndim = metadata.ndim();
+        final dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding chunkKeyEncoding = metadata.chunkKeyEncoding();
+
+        // Calculate max valid chunk coordinates for the new shape
+        long[] newMaxChunkCoords = new long[ndim];
+        for (int i = 0; i < ndim; i++) {
+            newMaxChunkCoords[i] = (newShape[i] + chunkShape[i] - 1) / chunkShape[i];
+        }
+
+        // Iterate over all possible chunk coordinates in the old shape
+        long[][] allOldChunkCoords = IndexingUtils.computeChunkCoords(metadata.shape, chunkShape);
+
+        Stream<long[]> chunkStream = Arrays.stream(allOldChunkCoords);
+        if (parallel) {
+            chunkStream = chunkStream.parallel();
+        }
+
+        chunkStream.forEach(chunkCoords -> {
+            boolean isOutsideBounds = false;
+            boolean isOnBoundary = false;
+
+            for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+                if (chunkCoords[dimIdx] >= newMaxChunkCoords[dimIdx]) {
+                    isOutsideBounds = true;
+                    break;
+                }
+                // Check if this chunk is on the boundary (partially outside new shape)
+                long chunkEnd = (chunkCoords[dimIdx] + 1) * chunkShape[dimIdx];
+                if (chunkEnd > newShape[dimIdx]) {
+                    isOnBoundary = true;
+                }
+            }
+
+            String[] chunkKeys = chunkKeyEncoding.encodeChunkKey(chunkCoords);
+            StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+            if (isOutsideBounds) {
+                // Delete chunk that is completely outside
+                chunkHandle.delete();
+            } else if (isOnBoundary) {
+                // Trim boundary chunk - read, clear out-of-bounds data, write back
+                try {
+                    trimBoundaryChunk(chunkCoords, newShape, chunkShape);
+                } catch (ZarrException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Trims a boundary chunk by reading it, clearing the out-of-bounds portion, and writing it back.
+     *
+     * @param chunkCoords the coordinates of the chunk to trim
+     * @param newShape    the new shape of the array
+     * @param chunkShape  the shape of the chunks
+     * @throws ZarrException if reading or writing the chunk fails
+     */
+    protected void trimBoundaryChunk(long[] chunkCoords, long[] newShape, int[] chunkShape) throws ZarrException {
+        ArrayMetadata metadata = metadata();
+        final int ndim = metadata.ndim();
+
+        // Calculate the valid region within this chunk
+        int[] validShape = new int[ndim];
+        boolean needsTrimming = false;
+        for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+            long chunkStart = chunkCoords[dimIdx] * chunkShape[dimIdx];
+            long chunkEnd = chunkStart + chunkShape[dimIdx];
+            if (chunkEnd > newShape[dimIdx]) {
+                validShape[dimIdx] = (int) (newShape[dimIdx] - chunkStart);
+                needsTrimming = true;
+            } else {
+                validShape[dimIdx] = chunkShape[dimIdx];
+            }
+        }
+
+        if (!needsTrimming) {
+            return;
+        }
+
+        // Read the existing chunk
+        ucar.ma2.Array chunkData = readChunk(chunkCoords);
+
+        // Create a new chunk filled with fill value
+        ucar.ma2.Array newChunkData = metadata.allocateFillValueChunk();
+
+        // Copy only the valid region
+        MultiArrayUtils.copyRegion(
+                chunkData, new int[ndim], newChunkData, new int[ndim], validShape
+        );
+
+        // Write the trimmed chunk back
+        writeChunk(chunkCoords, newChunkData);
+    }
+
 
     /**
      * Writes a ucar.ma2.Array into the Zarr array at the beginning of the Zarr array. The shape of
@@ -195,7 +306,7 @@ public abstract class Array extends AbstractNode {
      * @param array  the data to write
      */
     public void write(long[] offset, ucar.ma2.Array array) {
-        write(offset, array, false);
+        write(offset, array, DEFAULT_PARALLELISM);
     }
 
     /**
@@ -217,7 +328,7 @@ public abstract class Array extends AbstractNode {
      */
     @Nonnull
     public ucar.ma2.Array read() throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape));
+        return read(new long[metadata().ndim()], metadata().shape);
     }
 
     /**
@@ -229,8 +340,8 @@ public abstract class Array extends AbstractNode {
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    public ucar.ma2.Array read(final long[] offset, final int[] shape) throws ZarrException {
-        return read(offset, shape, false);
+    public ucar.ma2.Array read(final long[] offset, final long[] shape) throws ZarrException {
+        return read(offset, shape, DEFAULT_PARALLELISM);
     }
 
     /**
@@ -241,7 +352,7 @@ public abstract class Array extends AbstractNode {
      */
     @Nonnull
     public ucar.ma2.Array read(final boolean parallel) throws ZarrException {
-        return read(new long[metadata().ndim()], Utils.toIntArray(metadata().shape), parallel);
+        return read(new long[metadata().ndim()], metadata().shape, parallel);
     }
 
     boolean chunkIsInArray(long[] chunkCoords) {
@@ -264,7 +375,7 @@ public abstract class Array extends AbstractNode {
      * @throws ZarrException throws ZarrException if the requested data is outside the array's domain or if the read fails
      */
     @Nonnull
-    public ucar.ma2.Array read(final long[] offset, final int[] shape, final boolean parallel) throws ZarrException {
+    public ucar.ma2.Array read(final long[] offset, final long[] shape, final boolean parallel) throws ZarrException {
         ArrayMetadata metadata = metadata();
         if (offset.length != metadata.ndim()) {
             throw new IllegalArgumentException("'offset' needs to have rank '" + metadata.ndim() + "'.");
@@ -284,7 +395,7 @@ public abstract class Array extends AbstractNode {
         }
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
-                shape);
+                Utils.toIntArray(shape));
         Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
@@ -306,9 +417,7 @@ public abstract class Array extends AbstractNode {
 
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
                         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
-                        if (!chunkHandle.exists()) {
-                            return;
-                        }
+
                         if (codecPipeline.supportsPartialDecode()) {
                             final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
                                     Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
@@ -316,9 +425,12 @@ public abstract class Array extends AbstractNode {
                                     chunkProjection.outOffset, chunkProjection.shape
                             );
                         } else {
-                            MultiArrayUtils.copyRegion(readChunk(chunkCoords), chunkProjection.chunkOffset,
-                                    outputArray, chunkProjection.outOffset, chunkProjection.shape
-                            );
+                            ByteBuffer chunkBytes = chunkHandle.read();
+                            if (chunkBytes != null) {
+                                MultiArrayUtils.copyRegion(codecPipeline.decode(chunkBytes), chunkProjection.chunkOffset,
+                                        outputArray, chunkProjection.outOffset, chunkProjection.shape
+                                );
+                            }
                         }
 
                     } catch (ZarrException e) {
@@ -328,6 +440,46 @@ public abstract class Array extends AbstractNode {
         return outputArray;
     }
 
+    /**
+     * Sets a new shape for the Zarr array. Only the metadata is updated by default.
+     * This method returns a new instance of the Zarr array class and the old instance
+     * becomes invalid.
+     *
+     * @param newShape the new shape of the Zarr array
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape) throws ZarrException, IOException {
+        return resize(newShape, true);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array resize(long[] newShape, boolean resizeMetadataOnly) throws ZarrException, IOException {
+        return resize(newShape, resizeMetadataOnly, DEFAULT_PARALLELISM);
+    }
+
+    /**
+     * Sets a new shape for the Zarr array. This method returns a new instance of the Zarr array class
+     * and the old instance becomes invalid.
+     *
+     * @param newShape           the new shape of the Zarr array
+     * @param resizeMetadataOnly if true, only the metadata is updated; if false, chunks outside the new
+     *                           bounds are deleted and boundary chunks are trimmed
+     * @param parallel           utilizes parallelism if true when cleaning up chunks
+     * @throws ZarrException if the new metadata is invalid
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public abstract Array resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel) throws ZarrException, IOException;
+
     public ArrayAccessor access() {
         return new ArrayAccessor(this);
     }
@@ -336,7 +488,7 @@ public abstract class Array extends AbstractNode {
         @Nullable
         long[] offset;
         @Nullable
-        int[] shape;
+        long[] shape;
         @Nonnull
         Array array;
 
@@ -353,13 +505,13 @@ public abstract class Array extends AbstractNode {
 
         @Nonnull
         public ArrayAccessor withShape(@Nonnull int... shape) {
-            this.shape = shape;
+            this.shape = Utils.toLongArray(shape);
             return this;
         }
 
         @Nonnull
         public ArrayAccessor withShape(@Nonnull long... shape) {
-            this.shape = Utils.toIntArray(shape);
+            this.shape = shape;
             return this;
         }
 

@@ -6,7 +6,7 @@ public class IndexingUtils {
 
     public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape) {
         return computeChunkCoords(arrayShape, chunkShape, new long[arrayShape.length],
-                Utils.toIntArray(arrayShape));
+                arrayShape);
     }
 
     public static long[][] computeChunkCoords(int[] arrayShape, int[] chunkShape) {
@@ -14,11 +14,11 @@ public class IndexingUtils {
     }
 
     public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape, long[] selOffset,
-                                              int[] selShape) {
+                                              long[] selShape) {
         final int ndim = arrayShape.length;
         long[] start = new long[ndim];
         long[] end = new long[ndim];
-        int numChunks = 1;
+        long numChunks = 1;
         for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
             final int staIdx = (int) (selOffset[dimIdx] / chunkShape[dimIdx]);
             final int endIdx = (int) ((selOffset[dimIdx] + selShape[dimIdx] - 1) / chunkShape[dimIdx]);
@@ -27,7 +27,11 @@ public class IndexingUtils {
             end[dimIdx] = endIdx;
         }
 
-        final long[][] chunkCoords = new long[numChunks][];
+        if (numChunks > Integer.MAX_VALUE) {
+            throw new ArithmeticException("Number of chunks exceeds Integer.MAX_VALUE");
+        }
+
+        final long[][] chunkCoords = new long[(int) numChunks][];
 
         final long[] currentIdx = Arrays.copyOf(start, ndim);
         for (int i = 0; i < chunkCoords.length; i++) {
@@ -54,14 +58,14 @@ public class IndexingUtils {
     public static ChunkProjection computeProjection(long[] chunkCoords, long[] arrayShape,
                                                     int[] chunkShape) {
         return computeProjection(chunkCoords, arrayShape, chunkShape, new long[chunkCoords.length],
-                Utils.toIntArray(arrayShape)
+                arrayShape
         );
     }
 
     public static ChunkProjection computeProjection(
             final long[] chunkCoords, final long[] arrayShape,
             final int[] chunkShape, final long[] selOffset,
-            final int[] selShape
+            final long[] selShape
     ) {
         final int ndim = chunkCoords.length;
         final int[] chunkOffset = new int[ndim];
@@ -78,49 +82,38 @@ public class IndexingUtils {
                 // selection starts before current chunk
                 chunkOffset[dimIdx] = 0;
                 // compute number of previous items, provides offset into output array
-                outOffset[dimIdx] = (int) (dimOffset - selOffset[dimIdx]);
+                long outOffsetValue = dimOffset - selOffset[dimIdx];
+                if (outOffsetValue > Integer.MAX_VALUE) {
+                    throw new ArithmeticException(
+                            "Output offset exceeds Integer.MAX_VALUE at dimension " + dimIdx + ": " + outOffsetValue);
+                }
+                outOffset[dimIdx] = (int) outOffsetValue;
             } else {
                 // selection starts within current chunk
-                chunkOffset[dimIdx] = (int) (selOffset[dimIdx] - dimOffset);
+                long chunkOffsetValue = selOffset[dimIdx] - dimOffset;
+                if (chunkOffsetValue > Integer.MAX_VALUE) {
+                    throw new ArithmeticException(
+                            "Chunk offset exceeds Integer.MAX_VALUE at dimension " + dimIdx + ": " + chunkOffsetValue);
+                }
+                chunkOffset[dimIdx] = (int) chunkOffsetValue;
                 outOffset[dimIdx] = 0;
             }
 
             if (selOffset[dimIdx] + selShape[dimIdx] > dimLimit) {
                 // selection ends after current chunk
-                shape[dimIdx] = (int) (chunkShape[dimIdx] - (selOffset[dimIdx] % chunkShape[dimIdx]));
+                shape[dimIdx] = chunkShape[dimIdx] - chunkOffset[dimIdx];
             } else {
                 // selection ends within current chunk
-                shape[dimIdx] = (int) (selOffset[dimIdx] + selShape[dimIdx] - dimOffset
-                        - chunkOffset[dimIdx]);
+                long shapeValue = selOffset[dimIdx] + selShape[dimIdx] - dimOffset - chunkOffset[dimIdx];
+                if (shapeValue > Integer.MAX_VALUE || shapeValue < 0) {
+                    throw new ArithmeticException(
+                            "Shape value exceeds Integer.MAX_VALUE or is negative at dimension " + dimIdx + ": " + shapeValue);
+                }
+                shape[dimIdx] = (int) shapeValue;
             }
         }
 
         return new ChunkProjection(chunkCoords, chunkOffset, outOffset, shape);
-    }
-
-
-    public static long cOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
-        long index = 0;
-        long multiplier = 1;
-
-        for (int i = arrayShape.length - 1; i >= 0; i--) {
-            index += chunkCoords[i] * multiplier;
-            multiplier *= arrayShape[i];
-        }
-
-        return index;
-    }
-
-    public static long fOrderIndex(final long[] chunkCoords, final long[] arrayShape) {
-        int index = 0;
-        int multiplier = 1;
-
-        for (int i = 0; i < arrayShape.length; i++) {
-            index += chunkCoords[i] * multiplier;
-            multiplier *= arrayShape[i];
-        }
-
-        return index;
     }
 
     public static boolean isFullChunk(final int[] selOffset, final int[] selShape,
@@ -141,7 +134,7 @@ public class IndexingUtils {
         return true;
     }
 
-    public static boolean isSingleFullChunk(final long[] selOffset, final int[] selShape,
+    public static boolean isSingleFullChunk(final long[] selOffset, final long[] selShape,
                                             final int[] chunkShape) {
         if (selOffset.length != selShape.length) {
             throw new IllegalArgumentException("'selOffset' and 'selShape' need to have the same rank.");
@@ -186,6 +179,16 @@ public class IndexingUtils {
             this.chunkOffset = chunkOffset;
             this.outOffset = outOffset;
             this.shape = shape;
+        }
+
+        @Override
+        public String toString() {
+            return "ChunkProjection{" +
+                    "chunkCoords=" + Arrays.toString(chunkCoords) +
+                    ", chunkOffset=" + Arrays.toString(chunkOffset) +
+                    ", outOffset=" + Arrays.toString(outOffset) +
+                    ", shape=" + Arrays.toString(shape) +
+                    '}';
         }
     }
 }

@@ -2,8 +2,12 @@ package dev.zarr.zarrjava.store;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -45,7 +49,7 @@ public class MemoryStore implements Store, Store.ListableStore {
         if (bytes == null) return null;
         if (end < 0) end = bytes.length;
         if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
-        return ByteBuffer.wrap(bytes, (int) start, (int) end);
+        return ByteBuffer.wrap(bytes, (int) start, (int) (end - start));
     }
 
 
@@ -59,19 +63,25 @@ public class MemoryStore implements Store, Store.ListableStore {
         map.remove(resolveKeys(keys));
     }
 
-    public Stream<String> list(String[] keys) {
-        List<String> prefix = resolveKeys(keys);
-        Set<String> allKeys = new HashSet<>();
+    @Override
+    public Stream<String[]> list(String[] prefix) {
+        List<String> prefixList = resolveKeys(prefix);
+        int prefixSize = prefixList.size();
 
-        for (List<String> k : map.keySet()) {
-            if (k.size() <= prefix.size() || !k.subList(0, prefix.size()).equals(prefix))
-                continue;
-            for (int i = 0; i < k.size(); i++) {
-                List<String> subKey = k.subList(0, i + 1);
-                allKeys.add(String.join("/", subKey));
-            }
-        }
-        return allKeys.stream();
+        return map.keySet().stream()
+                .filter(key -> key.size() >= prefixSize && key.subList(0, prefixSize).equals(prefixList))
+                .map(key -> key.subList(prefixSize, key.size()).toArray(new String[0]));
+    }
+
+    @Override
+    public Stream<String> listChildren(String[] prefix) {
+        List<String> prefixList = resolveKeys(prefix);
+        int prefixSize = prefixList.size();
+
+        return map.keySet().stream()
+                .filter(key -> key.size() > prefixSize && key.subList(0, prefixSize).equals(prefixList))
+                .map(key -> key.get(prefixSize))
+                .distinct();
     }
 
     @Nonnull
@@ -84,5 +94,22 @@ public class MemoryStore implements Store, Store.ListableStore {
     public String toString() {
         return String.format("<MemoryStore {%s}>", hashCode());
     }
-}
 
+    @Override
+    public InputStream getInputStream(String[] keys, long start, long end) {
+        byte[] bytes = map.get(resolveKeys(keys));
+        if (bytes == null) return null;
+        if (end < 0) end = bytes.length;
+        if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
+        return new java.io.ByteArrayInputStream(bytes, (int) start, (int) (end - start));
+    }
+
+    @Override
+    public long getSize(String[] keys) {
+        byte[] bytes = map.get(resolveKeys(keys));
+        if (bytes == null) {
+            return -1;
+        }
+        return bytes.length;
+    }
+}

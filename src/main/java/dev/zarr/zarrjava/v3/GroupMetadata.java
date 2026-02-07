@@ -47,8 +47,9 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
         try {
             return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new Attributes());
         } catch (ZarrException e) {
-            // This should never happen
-            throw new RuntimeException(e);
+            // This should never happen with default values
+            throw new IllegalStateException(
+                    "Failed to create default GroupMetadata - this indicates a programming error", e);
         }
     }
 

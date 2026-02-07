@@ -4,6 +4,7 @@ import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
+import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v2.codec.core.ZlibCodec;
@@ -146,12 +147,15 @@ public class ArrayMetadataBuilder {
         if (shape == null) {
             throw new IllegalStateException("Please call `withShape` first.");
         }
-        if (chunks == null) {
-            throw new IllegalStateException("Please call `withChunks` first.");
-        }
         if (dataType == null) {
             throw new IllegalStateException("Please call `withDataType` first.");
         }
+        
+        // If chunks are not specified, calculate default chunks
+        if (chunks == null) {
+            chunks = Utils.calculateDefaultChunks(shape);
+        }
+        
         return new ArrayMetadata(
                 2,
                 shape,
