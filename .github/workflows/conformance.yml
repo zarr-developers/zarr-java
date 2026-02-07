@@ -25,7 +25,14 @@ jobs:
       - name: Build
         run: mvn package -DskipTests
 
+      - name: Set JAR path
+        id: jar
+        run: |
+          JAR_PATH=$(ls target/zarr-java-*.jar | grep -v original | grep -v javadoc | grep -v sources | head -1)
+          echo "path=${GITHUB_WORKSPACE}/${JAR_PATH}" >> $GITHUB_OUTPUT
+          echo "Found JAR at: ${GITHUB_WORKSPACE}/${JAR_PATH}"
+
       - name: Run Conformance Tests
         uses: brokkoli71/zarr-conformance-tests@main
         with:
-          zarr-cli: "java -jar ${{ github.workspace }}/target/zarr-java-0.0.10.jar"
+          zarr-cli: "java -jar ${{ steps.jar.outputs.path }}"
