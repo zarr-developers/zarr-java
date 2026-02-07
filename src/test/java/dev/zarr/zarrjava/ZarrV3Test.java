@@ -207,6 +207,27 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
+    public void testShardingWithZstdCodecReadWrite() throws ZarrException, IOException {
+        int[] testData = new int[16 * 16 * 16];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testShardingWithZstdCodecReadWrite");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(16, 16, 16)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(8, 8, 8)
+                .withFillValue(0)
+                .withCodecs(c -> c.withSharding(new int[]{2, 4, 8}, c1 -> c1.withZstd()));
+        Array writeArray = Array.create(storeHandle, builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+    }
+
+    @Test
     public void testTransposeCodec() throws ZarrException {
         ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
