@@ -28,4 +28,4 @@ jobs:
       - name: Run Conformance Tests
         uses: brokkoli71/zarr-conformance-tests@main
         with:
-          zarr-cli: "java -jar target/zarr-java-0.0.10.jar"
+          zarr-cli: "java -jar ${{ github.workspace }}/target/zarr-java-0.0.10.jar"
