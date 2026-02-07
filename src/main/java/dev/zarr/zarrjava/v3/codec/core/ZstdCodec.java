@@ -3,17 +3,13 @@ package dev.zarr.zarrjava.v3.codec.core;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.github.luben.zstd.Zstd;
-import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.v3.codec.Codec;
 
 import javax.annotation.Nonnull;
-import java.nio.ByteBuffer;
 
-public class ZstdCodec extends BytesBytesCodec implements Codec {
+public class ZstdCodec extends dev.zarr.zarrjava.core.codec.core.ZstdCodec implements Codec {
 
     @JsonIgnore
     public final String name = "zstd";
@@ -27,28 +23,13 @@ public class ZstdCodec extends BytesBytesCodec implements Codec {
     }
 
     @Override
-    public ByteBuffer decode(ByteBuffer compressedBytes) throws ZarrException {
-        byte[] compressedArray = compressedBytes.array();
-
-        long originalSize = Zstd.getFrameContentSize(compressedArray);
-        if (originalSize == 0) {
-            throw new ZarrException("Failed to get decompressed size");
-        }
-
-        byte[] decompressed = Zstd.decompress(compressedArray, (int) originalSize);
-        return ByteBuffer.wrap(decompressed);
+    protected int getLevel() {
+        return configuration.level;
     }
 
     @Override
-    public ByteBuffer encode(ByteBuffer chunkBytes) throws ZarrException {
-        byte[] arr = chunkBytes.array();
-        byte[] compressed;
-        try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
-            ctx.setLevel(configuration.level);
-            ctx.setChecksum(configuration.checksum);
-            compressed = ctx.compress(arr);
-        }
-        return ByteBuffer.wrap(compressed);
+    protected boolean getChecksum() {
+        return configuration.checksum;
     }
 
     @Override
