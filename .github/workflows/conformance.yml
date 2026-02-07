@@ -26,6 +26,6 @@ jobs:
         run: mvn package -DskipTests
 
       - name: Run Conformance Tests
-        uses: Bisaloo/zarr-conformance-tests@v0.0.1
+        uses: brokkoli71/zarr-conformance-tests@main
         with:
           zarr-cli: "java -jar target/zarr-java-0.0.9.jar"
