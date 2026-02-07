@@ -42,6 +42,6 @@ jobs:
           fi
 
       - name: Run Conformance Tests
-        uses: Bisaloo/zarr-conformance-tests@main
+        uses: brokkoli71/zarr-conformance-tests@main
         with:
           zarr-cli: "java -jar ${{ env.JAR_PATH }}"
