@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.store;
 
+import dev.zarr.zarrjava.utils.Utils;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -62,13 +64,7 @@ public abstract class ZipStore implements Store, Store.ListableStore {
                 return null;
             }
 
-            byte[] bufArray;
-            if (buffer.hasArray()) {
-                bufArray = buffer.array();
-            } else {
-                bufArray = new byte[buffer.remaining()];
-                buffer.duplicate().get(bufArray);
-            }
+            byte[] bufArray = Utils.toArray(buffer);
 
             String comment = getZipCommentFromBuffer(bufArray);
             if (comment != null) {
