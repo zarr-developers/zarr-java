@@ -32,14 +32,6 @@ jobs:
           FULL_JAR_PATH="${GITHUB_WORKSPACE}/${JAR_PATH}"
           echo "JAR_PATH=${FULL_JAR_PATH}" >> $GITHUB_ENV
           echo "Found JAR at: ${FULL_JAR_PATH}"
-          # Verify it exists
-          if [ -f "$FULL_JAR_PATH" ]; then
-            echo "✓ JAR file exists and is accessible"
-            ls -lh "$FULL_JAR_PATH"
-          else
-            echo "✗ JAR file not found!"
-            exit 1
-          fi
 
       - name: Run Conformance Tests
         uses: brokkoli71/zarr-conformance-tests@main
