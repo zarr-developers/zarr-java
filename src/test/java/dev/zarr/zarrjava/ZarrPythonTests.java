@@ -66,97 +66,8 @@ public class ZarrPythonTests extends ZarrTest {
         }
     }
 
-    static ucar.ma2.Array testdata(dev.zarr.zarrjava.core.DataType dt) {
-        ucar.ma2.DataType ma2Type = dt.getMA2DataType();
-        ucar.ma2.Array array = ucar.ma2.Array.factory(ma2Type, new int[]{16, 16, 16});
-        for (int i = 0; i < array.getSize(); i++) {
-            switch (ma2Type) {
-                case BOOLEAN:
-                    array.setBoolean(i, i % 2 == 0);
-                    break;
-                case BYTE:
-                case UBYTE:
-                    array.setByte(i, (byte) i);
-                    break;
-                case SHORT:
-                case USHORT:
-                    array.setShort(i, (short) i);
-                    break;
-                case INT:
-                    array.setInt(i, i);
-                    break;
-                case UINT:
-                    array.setLong(i, i & 0xFFFFFFFFL);
-                    break;
-                case LONG:
-                case ULONG:
-                    array.setLong(i, i);
-                    break;
-                case FLOAT:
-                    array.setFloat(i, (float) i);
-                    break;
-                case DOUBLE:
-                    array.setDouble(i, i);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid DataType: " + dt);
-            }
-        }
-        return array;
-    }
-
-    static void assertIsTestdata(ucar.ma2.Array result, dev.zarr.zarrjava.core.DataType dt) {
-        // expected values are i for index i
-        ucar.ma2.DataType ma2Type = dt.getMA2DataType();
-        for (int i = 0; i < result.getSize(); i++) {
-            switch (ma2Type) {
-                case BOOLEAN:
-                    Assertions.assertEquals(i % 2 == 0, result.getBoolean(i));
-                    break;
-                case BYTE:
-                case UBYTE:
-                    Assertions.assertEquals((byte) i, result.getByte(i));
-                    break;
-                case SHORT:
-                case USHORT:
-                    Assertions.assertEquals((short) i, result.getShort(i));
-                    break;
-                case INT:
-                    Assertions.assertEquals(i, result.getInt(i));
-                    break;
-                case UINT:
-                    Assertions.assertEquals(i & 0xFFFFFFFFL, result.getLong(i));
-                    break;
-                case LONG:
-                case ULONG:
-                    Assertions.assertEquals(i, result.getLong(i));
-                    break;
-                case FLOAT:
-                    Assertions.assertEquals((float) i, result.getFloat(i), 1e-6);
-                    break;
-                case DOUBLE:
-                    Assertions.assertEquals(i, result.getDouble(i), 1e-12);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Invalid DataType: " + dt);
-            }
-        }
-    }
-
     static Stream<Object[]> compressorAndDataTypeProviderV3() {
-        Stream<Object[]> datatypeTests = Stream.of(
-                DataType.BOOL,
-                DataType.INT8,
-                DataType.UINT8,
-                DataType.INT16,
-                DataType.UINT16,
-                DataType.INT32,
-                DataType.UINT32,
-                DataType.INT64,
-                DataType.UINT64,
-                DataType.FLOAT32,
-                DataType.FLOAT64
-        ).flatMap(dt -> Stream.of(
+        Stream<Object[]> datatypeTests = dataTypeProviderV3().flatMap(dt -> Stream.of(
                 new Object[]{"sharding", "end", dt},
                 new Object[]{"blosc", "blosclz_shuffle_3", dt}
         ));
@@ -185,19 +96,7 @@ public class ZarrPythonTests extends ZarrTest {
     }
 
     static Stream<Object[]> compressorAndDataTypeProviderV2() {
-        Stream<Object[]> datatypeTests = Stream.of(
-                dev.zarr.zarrjava.v2.DataType.BOOL,
-                dev.zarr.zarrjava.v2.DataType.INT8,
-                dev.zarr.zarrjava.v2.DataType.UINT8,
-                dev.zarr.zarrjava.v2.DataType.INT16,
-                dev.zarr.zarrjava.v2.DataType.UINT16,
-                dev.zarr.zarrjava.v2.DataType.INT32,
-                dev.zarr.zarrjava.v2.DataType.UINT32,
-                dev.zarr.zarrjava.v2.DataType.INT64,
-                dev.zarr.zarrjava.v2.DataType.UINT64,
-                dev.zarr.zarrjava.v2.DataType.FLOAT32,
-                dev.zarr.zarrjava.v2.DataType.FLOAT64
-        ).flatMap(dt -> Stream.of(
+        Stream<Object[]> datatypeTests = dataTypeProviderV2().flatMap(dt -> Stream.of(
                 new Object[]{"zlib", "0", dt},
                 new Object[]{"blosc", "blosclz_shuffle_3", dt}
         ));
@@ -305,7 +204,7 @@ public class ZarrPythonTests extends ZarrTest {
     @MethodSource("compressorAndDataTypeProviderV2")
     public void testReadV2(String compressor, String compressorParam, dev.zarr.zarrjava.v2.DataType dt) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testReadV2", compressor, compressorParam, dt.name());
-        run_python_script("zarr_python_write_v2.py", compressor, compressorParam, dt.name().toLowerCase(), storeHandle.toPath().toString());
+        run_python_script("zarr_python_write_v2.py", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
 
         dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.open(storeHandle);
         ucar.ma2.Array result = array.read();
@@ -361,7 +260,7 @@ public class ZarrPythonTests extends ZarrTest {
         assertIsTestdata(result, dt);
 
         //read in zarr_python
-        run_python_script("zarr_python_read_v2.py", compressor, compressorParam, dt.name().toLowerCase(), storeHandle.toPath().toString());
+        run_python_script("zarr_python_read_v2.py", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
     }
 
     @CsvSource({"0,true", "0,false", "5, true", "10, false"})
