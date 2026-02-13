@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.Node.ZARRAY;
+import static dev.zarr.zarrjava.utils.Utils.toLongArray;
 
 public class ZarrV2Test extends ZarrTest {
     static Stream<Function<ArrayMetadataBuilder, ArrayMetadataBuilder>> compressorBuilder() {
@@ -580,5 +581,24 @@ public class ZarrV2Test extends ZarrTest {
         Assertions.assertEquals(100, mixedArray.metadata().chunks[1]);  // < 512, should equal shape
         Assertions.assertTrue(mixedArray.metadata().chunks[2] > 0);
         Assertions.assertTrue(mixedArray.metadata().chunks[2] <= 2048);
+    }
+
+    @ParameterizedTest
+    @MethodSource("dataTypeProviderV2")
+    public void testEndianness(DataType dataType) throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testEndiannessV2").resolve(dataType.name());
+        ucar.ma2.Array testData = testdata(dataType);
+
+        Array array = Array.create(
+                storeHandle,
+                Array.metadataBuilder()
+                        .withShape(toLongArray(testData.getShape()))
+                        .withDataType(dataType)
+                        .build()
+        );
+        array.write(testData);
+        Array reopenedArray = Array.open(storeHandle);
+        ucar.ma2.Array readData = reopenedArray.read();
+        assertIsTestdata(readData, dataType);
     }
 }
