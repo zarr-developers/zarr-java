@@ -196,7 +196,15 @@ public class ZarrPythonTests extends ZarrTest {
                 dev.zarr.zarrjava.v2.DataType.INT64,
                 dev.zarr.zarrjava.v2.DataType.UINT64,
                 dev.zarr.zarrjava.v2.DataType.FLOAT32,
-                dev.zarr.zarrjava.v2.DataType.FLOAT64
+                dev.zarr.zarrjava.v2.DataType.FLOAT64,
+                dev.zarr.zarrjava.v2.DataType.UINT16_BE,
+                dev.zarr.zarrjava.v2.DataType.UINT32_BE,
+                dev.zarr.zarrjava.v2.DataType.UINT64_BE,
+                dev.zarr.zarrjava.v2.DataType.INT16_BE,
+                dev.zarr.zarrjava.v2.DataType.INT32_BE,
+                dev.zarr.zarrjava.v2.DataType.INT64_BE,
+                dev.zarr.zarrjava.v2.DataType.FLOAT32_BE,
+                dev.zarr.zarrjava.v2.DataType.FLOAT64_BE
         ).flatMap(dt -> Stream.of(
                 new Object[]{"zlib", "0", dt},
                 new Object[]{"blosc", "blosclz_shuffle_3", dt}
@@ -305,7 +313,7 @@ public class ZarrPythonTests extends ZarrTest {
     @MethodSource("compressorAndDataTypeProviderV2")
     public void testReadV2(String compressor, String compressorParam, dev.zarr.zarrjava.v2.DataType dt) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testReadV2", compressor, compressorParam, dt.name());
-        run_python_script("zarr_python_write_v2.py", compressor, compressorParam, dt.name().toLowerCase(), storeHandle.toPath().toString());
+        run_python_script("zarr_python_write_v2.py", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
 
         dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.open(storeHandle);
         ucar.ma2.Array result = array.read();
@@ -361,7 +369,7 @@ public class ZarrPythonTests extends ZarrTest {
         assertIsTestdata(result, dt);
 
         //read in zarr_python
-        run_python_script("zarr_python_read_v2.py", compressor, compressorParam, dt.name().toLowerCase(), storeHandle.toPath().toString());
+        run_python_script("zarr_python_read_v2.py", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
     }
 
     @CsvSource({"0,true", "0,false", "5, true", "10, false"})
