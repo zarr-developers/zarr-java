@@ -1,0 +1,39 @@
+name: Zarr Conformance Tests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 0'
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  conformance-tests:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build
+        run: mvn package -DskipTests
+
+      - name: Prepare JAR for testing
+        run: |
+          # Find the JAR
+          JAR_PATH=$(ls target/zarr-java-*.jar | grep -v original | grep -v javadoc | grep -v sources | head -1)
+          FULL_JAR_PATH="${GITHUB_WORKSPACE}/${JAR_PATH}"
+          echo "JAR_PATH=${FULL_JAR_PATH}" >> $GITHUB_ENV
+          echo "Found JAR at: ${FULL_JAR_PATH}"
+
+      - name: Run Conformance Tests
+        uses: Bisaloo/zarr-conformance-tests@main
+        with:
+          zarr-cli: "java -jar ${{ env.JAR_PATH }}"
