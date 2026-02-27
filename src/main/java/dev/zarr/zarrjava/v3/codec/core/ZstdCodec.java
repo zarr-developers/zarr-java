@@ -7,6 +7,7 @@ import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdCompressCtx;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.codec.BytesBytesCodec;
+import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.v3.codec.Codec;
 
@@ -28,7 +29,7 @@ public class ZstdCodec extends BytesBytesCodec implements Codec {
 
     @Override
     public ByteBuffer decode(ByteBuffer compressedBytes) throws ZarrException {
-        byte[] compressedArray = compressedBytes.array();
+        byte[] compressedArray = Utils.toArray(compressedBytes);
 
         long originalSize = Zstd.getFrameContentSize(compressedArray);
         if (originalSize == 0) {
@@ -41,7 +42,7 @@ public class ZstdCodec extends BytesBytesCodec implements Codec {
 
     @Override
     public ByteBuffer encode(ByteBuffer chunkBytes) throws ZarrException {
-        byte[] arr = chunkBytes.array();
+        byte[] arr = Utils.toArray(chunkBytes);
         byte[] compressed;
         try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
             ctx.setLevel(configuration.level);
