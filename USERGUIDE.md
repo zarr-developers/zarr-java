@@ -11,9 +11,8 @@
 7. [Storage Backends](#storage-backends)
 8. [Compression and Codecs](#compression-and-codecs)
 9. [Advanced Topics](#advanced-topics)
-10. [API Reference](#api-reference)
-11. [Examples](#examples)
-12. [Troubleshooting](#troubleshooting)
+10. [Examples](#examples)
+11. [Troubleshooting](#troubleshooting)
 ---
 ## Introduction
 zarr-java is a Java implementation of the [Zarr specification](https://zarr.dev/) for chunked, compressed, N-dimensional arrays. It supports both Zarr version 2 and version 3 formats, providing a unified API for working with large scientific datasets.
@@ -678,93 +677,7 @@ try {
    // For balanced 3D access
    .withChunkShape(100, 100, 100)  // Balanced for all dimensions
    ```
-   
-## API Reference
-### Array Methods
-#### Creation and Opening
-- `Array.open(String/Path/StoreHandle)` - Open array
-- `Array.create(StoreHandle, ArrayMetadata)` - Create array
-- `Array.metadataBuilder()` - Get metadata builder
-#### Reading
-- `read()` - Read entire array (parallel by default)
-- `read(long[] offset, long[] shape)` - Read subset (parallel by default)
-- `read(boolean parallel)` - Read entire array, specify parallelism
-- `read(long[] offset, long[] shape, boolean parallel)` - Read subset with parallelism control
-- `readChunk(long[] chunkCoords)` - Read single chunk
-
-**Note:** Methods without a `parallel` parameter default to **parallel** (`true`) processing.
-
-#### Writing  
-- `write(ucar.ma2.Array)` - Write at origin (parallel by default)
-- `write(long[] offset, ucar.ma2.Array)` - Write at offset (parallel by default)
-- `write(ucar.ma2.Array, boolean parallel)` - Write at origin with parallelism control
-- `write(long[] offset, ucar.ma2.Array, boolean parallel)` - Write at offset with parallelism control
-- `writeChunk(long[] chunkCoords, ucar.ma2.Array)` - Write chunk
-
-**Note:** Methods without a `parallel` parameter default to **parallel** (`true`) processing.
-#### Metadata
-- `resize(long[] newShape)` - Resize (metadata only)
-- `resize(long[] newShape, boolean resizeMetadataOnly)` - Resize with cleanup option
-- `resize(long[] newShape, boolean resizeMetadataOnly, boolean parallel)` - With option to disable parallelism
-- `setAttributes(Attributes)` - Set attributes
-- `updateAttributes(Function<Attributes, Attributes>)` - Update attributes
-- `metadata()` - Get metadata
-#### Utility
-- `access()` - Get fluent accessor API
-### Group Methods
-#### Creation and Opening
-- `Group.open(String/Path/StoreHandle)` - Open group
-- `Group.create(StoreHandle)` - Create group
-- `Group.create(StoreHandle, Attributes)` - Create with attributes
-#### Navigation
-- `list()` - Get stream of all child nodes
-- `listAsArray()` - Get array of all child nodes
-- `get(String key)` - Get member by key
-- `get(String[] key)` - Get member by multi-part key
-#### Children
-- `createGroup(String key)` - Create subgroup
-- `createGroup(String key, Attributes)` - Create subgroup with attributes
-- `createArray(String key, ArrayMetadata)` - Create array
-#### Metadata
-- `setAttributes(Attributes)` - Set group attributes
-- `metadata()` - Get group metadata
-### Store Implementations
-- `FilesystemStore(String/Path)` - Local filesystem
-- `HttpStore(String url)` - HTTP/HTTPS (read-only)
-- `S3Store(S3Client s3client, String bucketName, String prefix)` - AWS S3
-- `MemoryStore()` - In-memory
-- `ReadOnlyZipStore(String path)` - ZIP (read-only)
-- `BufferedZipStore(String path)` - ZIP (read/write)
-### ArrayMetadataBuilder Methods (v3)
-- `withShape(long... shape)` - Set array shape
-- `withDataType(DataType)` - Set data type
-- `withChunkShape(int... chunkShape)` - Set chunk shape
-- `withFillValue(Object)` - Set fill value
-- `withCodecs(Function<CodecBuilder, CodecBuilder>)` - Configure codecs
-- `withAttributes(Attributes)` - Set attributes
-- `build()` - Build metadata
-### CodecBuilder Methods (v3)
-- `withBlosc()` - Add Blosc (default settings)
-- `withBlosc(String cname)` - Add Blosc with compressor
-- `withBlosc(String cname, int clevel)` - Add Blosc with compressor and level
-- `withBlosc(String cname, String shuffle, int clevel)` - Add Blosc fully configured
-- `withGzip(int level)` - Add Gzip
-- `withZstd(int level)` - Add Zstd
-- `withTranspose(int[] order)` - Add transpose
-- `withSharding(int[] chunksPerShard, Function<CodecBuilder, CodecBuilder>)` - Add sharding
-### ArrayMetadataBuilder Methods (v2)
-- `withShape(long... shape)` - Set array shape
-- `withDataType(DataType)` - Set data type
-- `withChunks(int... chunks)` - Set chunk shape
-- `withFillValue(Object)` - Set fill value
-- `withBloscCompressor()` - Use Blosc (default)
-- `withBloscCompressor(String cname)` - Blosc with compressor
-- `withBloscCompressor(String cname, int clevel)` - Blosc with settings
-- `withBloscCompressor(String cname, String shuffle, int clevel)` - Blosc fully configured
-- `withZlibCompressor(int level)` - Use Zlib
-- `withAttributes(Attributes)` - Set attributes
-- `build()` - Build metadata
----
+  
 ## Examples
 ### Complete Example: Creating a 3D Dataset
 ```java
