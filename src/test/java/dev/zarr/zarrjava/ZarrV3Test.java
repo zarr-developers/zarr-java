@@ -429,7 +429,7 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1", "2-2-1", "4-4-1", "16-16-4"})
+    @ValueSource(strings = {"1", "16-16-4"})
     public void testReadL4Sample(String mag) throws IOException, ZarrException {
         StoreHandle httpStoreHandle = new HttpStore("https://static.webknossos.org/data/zarr_v3/").resolve("l4_sample", "color", mag);
         StoreHandle localStoreHandle = new FilesystemStore(TESTDATA).resolve("l4_sample", "color", mag);

@@ -1,6 +1,6 @@
 package dev.zarr.zarrjava.store;
 
-import com.squareup.okhttp.*;
+import okhttp3.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -8,6 +8,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 
 public class HttpStore implements Store {
 
@@ -17,8 +18,16 @@ public class HttpStore implements Store {
     private final String uri;
 
     public HttpStore(@Nonnull String uri) {
-        this.httpClient = new OkHttpClient();
+        this(uri, 60, 3, 1000);
+    }
+
+    public HttpStore(@Nonnull String uri, int timeoutSeconds, int maxRetries, long retryDelayMs) {
         this.uri = uri;
+        this.httpClient = new OkHttpClient.Builder()
+                .connectTimeout(Duration.ofSeconds(timeoutSeconds))
+                .readTimeout(Duration.ofSeconds(timeoutSeconds))
+                .addInterceptor(new RetryInterceptor(maxRetries, retryDelayMs))
+                .build();
     }
 
     String resolveKeys(String[] keys) {
@@ -37,9 +46,7 @@ public class HttpStore implements Store {
 
     @Nullable
     ByteBuffer get(Request request, String[] keys) {
-        Call call = httpClient.newCall(request);
-        try {
-            Response response = call.execute();
+        try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 if (response.code() == 404) {
                     return null;
@@ -49,12 +56,8 @@ public class HttpStore implements Store {
                         keys,
                         new IOException("HTTP request failed with status code: " + response.code() + " " + response.message()));
             }
-            try (ResponseBody body = response.body()) {
-                if (body == null) {
-                    return null;
-                }
-                return ByteBuffer.wrap(body.bytes());
-            }
+            ResponseBody body = response.body();
+            return (body == null) ? null : ByteBuffer.wrap(body.bytes());
         } catch (IOException e) {
             throw StoreException.readFailed(this.toString(), keys, e);
         }
@@ -63,9 +66,7 @@ public class HttpStore implements Store {
     @Override
     public boolean exists(String[] keys) {
         Request request = new Request.Builder().head().url(resolveKeys(keys)).build();
-        Call call = httpClient.newCall(request);
-        try {
-            Response response = call.execute();
+        try (Response response = httpClient.newCall(request).execute()) {
             return response.isSuccessful();
         } catch (IOException e) {
             return false;
@@ -129,28 +130,33 @@ public class HttpStore implements Store {
         }
         Request request = new Request.Builder().url(resolveKeys(keys)).header(
                 "Range", String.format("bytes=%d-%d", start, end - 1)).build();
-        Call call = httpClient.newCall(request);
+
         try {
-            Response response = call.execute();
+            // We do NOT use try-with-resources here because the stream must remain open
+            Response response = httpClient.newCall(request).execute();
             if (!response.isSuccessful()) {
                 if (response.code() == 404) {
+                    response.close();
                     return null;
                 }
-                throw StoreException.readFailed(
-                        this.toString(),
-                        keys,
-                        new IOException("HTTP request failed with status code: " + response.code() + " " + response.message()));
+                int code = response.code();
+                String msg = response.message();
+                response.close();
+                throw StoreException.readFailed(this.toString(), keys,
+                        new IOException("HTTP request failed with status code: " + code + " " + msg));
             }
-            ResponseBody body = response.body();
-            if (body == null) return null;
-            InputStream stream = body.byteStream();
 
-            // Ensure closing the stream also closes the response
-            return new FilterInputStream(stream) {
+            ResponseBody body = response.body();
+            if (body == null) {
+                response.close();
+                return null;
+            }
+
+            return new FilterInputStream(body.byteStream()) {
                 @Override
                 public void close() throws IOException {
                     super.close();
-                    body.close();
+                    response.close(); // Closes both body and underlying connection
                 }
             };
         } catch (IOException e) {
@@ -169,9 +175,7 @@ public class HttpStore implements Store {
                 .header("Accept-Encoding", "identity")
                 .build();
 
-        Call call = httpClient.newCall(request);
-        try {
-            Response response = call.execute();
+        try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 return -1;
             }
@@ -191,6 +195,46 @@ public class HttpStore implements Store {
                     this.toString(),
                     keys,
                     new IOException("Failed to get content length from HTTP HEAD request to: " + url, e));
+        }
+    }
+
+    /**
+     * Internal interceptor to handle retries for all HttpStore requests.
+     */
+    private static class RetryInterceptor implements Interceptor {
+        private final int maxRetries;
+        private final long delay;
+
+        RetryInterceptor(int maxRetries, long delay) {
+            this.maxRetries = maxRetries;
+            this.delay = delay;
+        }
+
+        @Override
+        @Nonnull
+        public Response intercept(@Nonnull Chain chain) throws IOException {
+            Request request = chain.request();
+            IOException lastException = null;
+
+            for (int i = 0; i <= maxRetries; i++) {
+                try {
+                    if (i > 0) Thread.sleep(delay);
+                    Response response = chain.proceed(request);
+
+                    // Retry on common transient server errors (502, 503, 504)
+                    if (response.isSuccessful() || response.code() == 404 || i == maxRetries || response.code() < 500) {
+                        return response;
+                    }
+                    response.close();
+                } catch (IOException e) {
+                    lastException = e;
+                    if (i == maxRetries) throw e;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Retry interrupted", e);
+                }
+            }
+            throw lastException != null ? lastException : new IOException("Request failed after retries");
         }
     }
 }
