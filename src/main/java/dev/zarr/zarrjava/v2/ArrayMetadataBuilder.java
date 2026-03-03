@@ -150,12 +150,12 @@ public class ArrayMetadataBuilder {
         if (dataType == null) {
             throw new IllegalStateException("Please call `withDataType` first.");
         }
-        
+
         // If chunks are not specified, calculate default chunks
         if (chunks == null) {
             chunks = Utils.calculateDefaultChunks(shape);
         }
-        
+
         return new ArrayMetadata(
                 2,
                 shape,
