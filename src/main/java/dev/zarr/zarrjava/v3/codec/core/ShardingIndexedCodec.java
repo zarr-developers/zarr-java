@@ -113,8 +113,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                 extendArrayBy1(chunksPerShard, 2));
         final List<ByteBuffer> chunkBytesList = new ArrayList<>(chunkCount);
 
-        Arrays.stream(
-                        IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape))
+        Arrays.stream(IndexingUtils.computeChunkCoords(shardMetadata.shape, shardMetadata.chunkShape))
                 .parallel()
                 .forEach(
                         chunkCoords -> {
@@ -128,8 +127,10 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                                                 null
                                         );
                                 if (MultiArrayUtils.allValuesEqual(chunkArray, shardMetadata.parsedFillValue)) {
-                                    setValueFromShardIndexArray(shardIndexArray, chunkCoords, 0, -1);
-                                    setValueFromShardIndexArray(shardIndexArray, chunkCoords, 1, -1);
+                                    synchronized (chunkBytesList) {
+                                        setValueFromShardIndexArray(shardIndexArray, chunkCoords, 0, -1);
+                                        setValueFromShardIndexArray(shardIndexArray, chunkCoords, 1, -1);
+                                    }
                                 } else {
                                     final ByteBuffer chunkBytes = codecPipeline.encode(chunkArray);
                                     synchronized (chunkBytesList) {
@@ -207,7 +208,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                 Utils.toLongArray(shape));
 
         Arrays.stream(allChunkCoords)
-                // .parallel()
+                .parallel()
                 .forEach(
                         chunkCoords -> {
                             try {
@@ -215,25 +216,24 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
                                         chunkCoords, 0);
                                 final long chunkByteLength = getValueFromShardIndexArray(shardIndexArray,
                                         chunkCoords, 1);
-                                Array chunkArray = null;
+                                if (chunkByteOffset == -1 || chunkByteLength == -1) {
+                                    return;
+                                }
                                 final IndexingUtils.ChunkProjection chunkProjection =
                                         IndexingUtils.computeProjection(chunkCoords, shardMetadata.shape,
                                                 shardMetadata.chunkShape, offset, Utils.toLongArray(shape)
                                         );
-                                if (chunkByteOffset != -1 && chunkByteLength != -1) {
-                                    final ByteBuffer chunkBytes = dataProvider.read(chunkByteOffset, chunkByteLength);
-                                    if (chunkBytes == null) {
-                                        throw new ZarrException(String.format("Could not load byte data for chunk %s",
-                                                Arrays.toString(chunkCoords)));
-                                    }
-                                    chunkArray = codecPipeline.decode(chunkBytes);
+                                final ByteBuffer chunkBytes = dataProvider.read(chunkByteOffset, chunkByteLength);
+                                if (chunkBytes == null) {
+                                    throw new ZarrException(String.format("Could not load byte data for chunk %s",
+                                            Arrays.toString(chunkCoords)));
                                 }
-                                if (chunkArray == null) {
-                                    chunkArray = shardMetadata.allocateFillValueChunk();
+                                Array chunkArray = codecPipeline.decode(chunkBytes);
+                                synchronized (outputArray) {
+                                    MultiArrayUtils.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray,
+                                            chunkProjection.outOffset, chunkProjection.shape
+                                    );
                                 }
-                                MultiArrayUtils.copyRegion(chunkArray, chunkProjection.chunkOffset, outputArray,
-                                        chunkProjection.outOffset, chunkProjection.shape
-                                );
                             } catch (ZarrException e) {
                                 throw new RuntimeException(e);
                             }
