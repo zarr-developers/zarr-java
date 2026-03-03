@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava;
 
 import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.v3.DataType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -32,6 +33,46 @@ public class ZarrTest {
             }
         }
         Files.createDirectory(TESTOUTPUT);
+    }
+
+    static Stream<DataType> dataTypeProviderV3() {
+        return Stream.of(
+                DataType.BOOL,
+                DataType.INT8,
+                DataType.UINT8,
+                DataType.INT16,
+                DataType.UINT16,
+                DataType.INT32,
+                DataType.UINT32,
+                DataType.INT64,
+                DataType.UINT64,
+                DataType.FLOAT32,
+                DataType.FLOAT64
+        );
+    }
+
+    static Stream<dev.zarr.zarrjava.v2.DataType> dataTypeProviderV2() {
+        return Stream.of(
+                dev.zarr.zarrjava.v2.DataType.BOOL,
+                dev.zarr.zarrjava.v2.DataType.INT8,
+                dev.zarr.zarrjava.v2.DataType.UINT8,
+                dev.zarr.zarrjava.v2.DataType.INT16,
+                dev.zarr.zarrjava.v2.DataType.UINT16,
+                dev.zarr.zarrjava.v2.DataType.INT32,
+                dev.zarr.zarrjava.v2.DataType.UINT32,
+                dev.zarr.zarrjava.v2.DataType.INT64,
+                dev.zarr.zarrjava.v2.DataType.UINT64,
+                dev.zarr.zarrjava.v2.DataType.FLOAT32,
+                dev.zarr.zarrjava.v2.DataType.FLOAT64,
+                dev.zarr.zarrjava.v2.DataType.UINT16_BE,
+                dev.zarr.zarrjava.v2.DataType.UINT32_BE,
+                dev.zarr.zarrjava.v2.DataType.UINT64_BE,
+                dev.zarr.zarrjava.v2.DataType.INT16_BE,
+                dev.zarr.zarrjava.v2.DataType.INT32_BE,
+                dev.zarr.zarrjava.v2.DataType.INT64_BE,
+                dev.zarr.zarrjava.v2.DataType.FLOAT32_BE,
+                dev.zarr.zarrjava.v2.DataType.FLOAT64_BE
+        );
     }
 
     protected void assertListEquals(List<Object> a, List<Object> b) {
@@ -111,5 +152,84 @@ public class ZarrTest {
                 attributes.getArray("array_of_attributes", Attributes.class)
         );
     }
+
+
+    protected ucar.ma2.Array testdata(dev.zarr.zarrjava.core.DataType dt) {
+        ucar.ma2.DataType ma2Type = dt.getMA2DataType();
+        ucar.ma2.Array array = ucar.ma2.Array.factory(ma2Type, new int[]{16, 16, 16});
+        for (int i = 0; i < array.getSize(); i++) {
+            switch (ma2Type) {
+                case BOOLEAN:
+                    array.setBoolean(i, i % 2 == 0);
+                    break;
+                case BYTE:
+                case UBYTE:
+                    array.setByte(i, (byte) i);
+                    break;
+                case SHORT:
+                case USHORT:
+                    array.setShort(i, (short) i);
+                    break;
+                case INT:
+                    array.setInt(i, i);
+                    break;
+                case UINT:
+                    array.setLong(i, i & 0xFFFFFFFFL);
+                    break;
+                case LONG:
+                case ULONG:
+                    array.setLong(i, i);
+                    break;
+                case FLOAT:
+                    array.setFloat(i, (float) i);
+                    break;
+                case DOUBLE:
+                    array.setDouble(i, i);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid DataType: " + dt);
+            }
+        }
+        return array;
+    }
+
+    protected void assertIsTestdata(ucar.ma2.Array result, dev.zarr.zarrjava.core.DataType dt) {
+        // expected values are i for index i
+        ucar.ma2.DataType ma2Type = dt.getMA2DataType();
+        for (int i = 0; i < result.getSize(); i++) {
+            switch (ma2Type) {
+                case BOOLEAN:
+                    Assertions.assertEquals(i % 2 == 0, result.getBoolean(i));
+                    break;
+                case BYTE:
+                case UBYTE:
+                    Assertions.assertEquals((byte) i, result.getByte(i));
+                    break;
+                case SHORT:
+                case USHORT:
+                    Assertions.assertEquals((short) i, result.getShort(i));
+                    break;
+                case INT:
+                    Assertions.assertEquals(i, result.getInt(i));
+                    break;
+                case UINT:
+                    Assertions.assertEquals(i & 0xFFFFFFFFL, result.getLong(i));
+                    break;
+                case LONG:
+                case ULONG:
+                    Assertions.assertEquals(i, result.getLong(i));
+                    break;
+                case FLOAT:
+                    Assertions.assertEquals((float) i, result.getFloat(i), 1e-6);
+                    break;
+                case DOUBLE:
+                    Assertions.assertEquals(i, result.getDouble(i), 1e-12);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Invalid DataType: " + dt);
+            }
+        }
+    }
+
 
 }

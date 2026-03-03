@@ -40,6 +40,7 @@ import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 import static dev.zarr.zarrjava.core.Node.ZARR_JSON;
+import static dev.zarr.zarrjava.utils.Utils.toLongArray;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrV3Test extends ZarrTest {
@@ -116,6 +117,23 @@ public class ZarrV3Test extends ZarrTest {
         builder.add(Arguments.of(50, 3, 22));
         builder.add(Arguments.of(13, 31, 21));
         return builder.build();
+    }
+
+    static Stream<Arguments> dataTypeAndEndianProvider() {
+        return Stream.of(
+                Arguments.of(DataType.INT16, BytesCodec.Endian.LITTLE),
+                Arguments.of(DataType.INT16, BytesCodec.Endian.BIG),
+                Arguments.of(DataType.UINT16, BytesCodec.Endian.LITTLE),
+                Arguments.of(DataType.UINT16, BytesCodec.Endian.BIG),
+                Arguments.of(DataType.INT32, BytesCodec.Endian.LITTLE),
+                Arguments.of(DataType.INT32, BytesCodec.Endian.BIG),
+                Arguments.of(DataType.UINT32, BytesCodec.Endian.LITTLE),
+                Arguments.of(DataType.UINT32, BytesCodec.Endian.BIG),
+                Arguments.of(DataType.FLOAT32, BytesCodec.Endian.LITTLE),
+                Arguments.of(DataType.FLOAT32, BytesCodec.Endian.BIG),
+                Arguments.of(DataType.FLOAT64, BytesCodec.Endian.LITTLE),
+                Arguments.of(DataType.FLOAT64, BytesCodec.Endian.BIG)
+        );
     }
 
     @ParameterizedTest
@@ -997,7 +1015,7 @@ public class ZarrV3Test extends ZarrTest {
         array.write(new long[]{0, 0}, smallChunk);
 
         // Write a small chunk at position [1, Integer.MAX_VALUE + 1]
-        long beyondIntMax = (long)(Integer.MAX_VALUE) + 1;
+        long beyondIntMax = (long) (Integer.MAX_VALUE) + 1;
         long[] offset = new long[]{1, beyondIntMax};
         Arrays.fill(testData, 200);
         smallChunk = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{1, 1000}, testData);
@@ -1015,5 +1033,23 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertEquals(2, array.metadata().shape.length);
         Assertions.assertEquals(largeSize, array.metadata().shape[0]);
         Assertions.assertEquals(largeSize, array.metadata().shape[1]);
+    }
+
+    @ParameterizedTest
+    @MethodSource("dataTypeAndEndianProvider")
+    public void testEndianness(DataType dataType, BytesCodec.Endian endian) throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testEndiannessV3").resolve(dataType.name()).resolve(endian.name());
+        ucar.ma2.Array testData = testdata(dataType);
+
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(toLongArray(testData.getShape()))
+                .withDataType(dataType)
+                .withCodecs(c -> c.withBytes(endian))
+                .build();
+        Array array = Array.create(storeHandle, metadata);
+        array.write(testData);
+        Array reopenedArray = Array.open(storeHandle);
+        ucar.ma2.Array readData = reopenedArray.read();
+        assertIsTestdata(readData, dataType);
     }
 }
