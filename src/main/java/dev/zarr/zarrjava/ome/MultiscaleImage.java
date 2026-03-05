@@ -7,12 +7,19 @@ import dev.zarr.zarrjava.utils.Utils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Unified interface for reading OME-Zarr multiscale images across Zarr format versions.
  */
 public interface MultiscaleImage {
+
+    /**
+     * Returns the store handle for this multiscale image node.
+     */
+    StoreHandle getStoreHandle();
 
     /**
      * Returns the multiscale node descriptor at index {@code i}.
@@ -34,11 +41,60 @@ public interface MultiscaleImage {
      */
     default List<String> getAxisNames() throws ZarrException {
         UnifiedMultiscaleNode node = getMultiscaleNode(0);
-        List<String> names = new java.util.ArrayList<>();
+        List<String> names = new ArrayList<>();
         for (dev.zarr.zarrjava.ome.metadata.Axis axis : node.axes) {
             names.add(axis.name);
         }
         return names;
+    }
+
+    /**
+     * Returns all label names from the {@code labels/} sub-group, or an empty list if none exist.
+     */
+    default List<String> getLabels() throws IOException, ZarrException {
+        StoreHandle labelsHandle = getStoreHandle().resolve("labels");
+
+        // Try v0.5: labels/zarr.json with {"attributes": {"labels": [...]}}
+        StoreHandle zarrJson = labelsHandle.resolve(Node.ZARR_JSON);
+        if (zarrJson.exists()) {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = dev.zarr.zarrjava.v3.Node.makeObjectMapper();
+            byte[] bytes = Utils.toArray(zarrJson.readNonNull());
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
+            com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
+            if (attrs != null && attrs.has("labels")) {
+                com.fasterxml.jackson.databind.JsonNode labelsNode = attrs.get("labels");
+                List<String> result = new ArrayList<>();
+                for (com.fasterxml.jackson.databind.JsonNode item : labelsNode) {
+                    result.add(item.asText());
+                }
+                return result;
+            }
+        }
+
+        // Try v0.4: labels/.zattrs with {"labels": [...]}
+        StoreHandle zattrs = labelsHandle.resolve(Node.ZATTRS);
+        if (zattrs.exists()) {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = dev.zarr.zarrjava.v2.Node.makeObjectMapper();
+            byte[] bytes = Utils.toArray(zattrs.readNonNull());
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
+            if (root.has("labels")) {
+                com.fasterxml.jackson.databind.JsonNode labelsNode = root.get("labels");
+                List<String> result = new ArrayList<>();
+                for (com.fasterxml.jackson.databind.JsonNode item : labelsNode) {
+                    result.add(item.asText());
+                }
+                return result;
+            }
+        }
+
+        return Collections.emptyList();
+    }
+
+    /**
+     * Opens the named label image from the {@code labels/} sub-group.
+     */
+    default MultiscaleImage openLabel(String name) throws IOException, ZarrException {
+        return MultiscaleImage.open(getStoreHandle().resolve("labels").resolve(name));
     }
 
     /**

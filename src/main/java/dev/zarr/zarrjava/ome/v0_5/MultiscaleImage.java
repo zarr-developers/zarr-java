@@ -73,6 +73,11 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
     }
 
     @Override
+    public dev.zarr.zarrjava.store.StoreHandle getStoreHandle() {
+        return this.storeHandle;
+    }
+
+    @Override
     public MultiscalesEntry getMultiscalesEntry(int i) throws ZarrException {
         return omeMetadata.multiscales.get(i);
     }
