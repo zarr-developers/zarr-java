@@ -5,7 +5,6 @@ import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -17,13 +16,13 @@ import java.util.List;
 public interface MultiscalesMetadataImage<M> extends MultiscaleImage {
 
     /**
-     * Returns the raw multiscales entry at index {@code i}.
+     * Returns the raw multiscales entry at index {@code i} — the version-specific type.
      */
     M getMultiscalesEntry(int i) throws ZarrException;
 
     /**
-     * Creates a new scale level array at {@code path} with the given metadata and coordinate transformations,
-     * then registers it in the multiscales metadata.
+     * Creates a new scale level array at {@code path} with the given metadata and coordinate
+     * transformations, then registers it in the multiscales metadata.
      */
     void createScaleLevel(
             String path,
@@ -31,19 +30,19 @@ public interface MultiscalesMetadataImage<M> extends MultiscaleImage {
             List<CoordinateTransformation> coordinateTransformations
     ) throws IOException, ZarrException;
 
+    /**
+     * Default implementation: casts the version-specific entry to the shared {@link MultiscalesEntry}.
+     * Versions whose entry type does not extend {@link MultiscalesEntry} (e.g., v0.6, v1.0) must
+     * override {@link #getMultiscaleNode(int)} directly.
+     */
     @Override
-    default UnifiedMultiscaleNode getMultiscaleNode(int i) throws ZarrException {
+    default MultiscalesEntry getMultiscaleNode(int i) throws ZarrException {
         Object entry = getMultiscalesEntry(i);
         if (!(entry instanceof MultiscalesEntry)) {
             throw new ZarrException(
                     "getMultiscaleNode() not supported for entry type " + entry.getClass().getName()
-                            + "; override getMultiscaleNode() in your MultiscalesMetadataImage implementation.");
+                    + "; override getMultiscaleNode() in your implementation.");
         }
-        MultiscalesEntry mse = (MultiscalesEntry) entry;
-        List<UnifiedSinglescaleNode> nodes = new ArrayList<>();
-        for (dev.zarr.zarrjava.ome.metadata.Dataset dataset : mse.datasets) {
-            nodes.add(new UnifiedSinglescaleNode(dataset.path, dataset.coordinateTransformations));
-        }
-        return new UnifiedMultiscaleNode(mse.name, mse.axes, nodes);
+        return (MultiscalesEntry) entry;
     }
 }

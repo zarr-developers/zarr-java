@@ -1,12 +1,10 @@
 package dev.zarr.zarrjava.ome.v1_0;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.core.Attributes;
-import dev.zarr.zarrjava.ome.UnifiedMultiscaleNode;
-import dev.zarr.zarrjava.ome.UnifiedSinglescaleNode;
+import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.Dataset;
 import dev.zarr.zarrjava.ome.v1_0.metadata.Level;
 import dev.zarr.zarrjava.ome.v1_0.metadata.MultiscaleMetadata;
 import dev.zarr.zarrjava.ome.v1_0.metadata.OmeMetadata;
@@ -20,14 +18,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-
-import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 /**
  * OME-Zarr v1.0 (RFC-8) multiscale image backed by a Zarr v3 group.
  */
-public final class MultiscaleImage extends Group implements dev.zarr.zarrjava.ome.MultiscaleImage {
+public final class MultiscaleImage extends OmeV3Group implements dev.zarr.zarrjava.ome.MultiscaleImage {
 
     private OmeMetadata omeMetadata;
 
@@ -45,12 +40,8 @@ public final class MultiscaleImage extends Group implements dev.zarr.zarrjava.om
      */
     public static MultiscaleImage openMultiscaleImage(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
         Group group = Group.open(storeHandle);
-        ObjectMapper mapper = makeObjectMapper();
-        Attributes attributes = group.metadata.attributes;
-        if (attributes == null || !attributes.containsKey("ome")) {
-            throw new ZarrException("No 'ome' key found in attributes at " + storeHandle);
-        }
-        OmeMetadata omeMetadata = mapper.convertValue(attributes.get("ome"), OmeMetadata.class);
+        OmeMetadata omeMetadata = readOmeAttribute(
+                group.metadata.attributes, storeHandle, OmeMetadata.class);
         if (omeMetadata.multiscale == null) {
             throw new ZarrException("v1.0 store at " + storeHandle + " has no 'multiscale' — is it a Collection?");
         }
@@ -64,13 +55,8 @@ public final class MultiscaleImage extends Group implements dev.zarr.zarrjava.om
             @Nonnull StoreHandle storeHandle,
             @Nonnull MultiscaleMetadata multiscaleMetadata
     ) throws IOException, ZarrException {
-        ObjectMapper mapper = makeObjectMapper();
         OmeMetadata omeMetadata = new OmeMetadata("1.0-dev", multiscaleMetadata);
-        @SuppressWarnings("unchecked")
-        Map<String, Object> omeMap = mapper.convertValue(omeMetadata, Map.class);
-        Attributes attributes = new Attributes();
-        attributes.put("ome", omeMap);
-        Group group = Group.create(storeHandle, attributes);
+        Group group = Group.create(storeHandle, omeAttributes(omeMetadata));
         return new MultiscaleImage(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -87,24 +73,26 @@ public final class MultiscaleImage extends Group implements dev.zarr.zarrjava.om
     }
 
     @Override
-    public UnifiedMultiscaleNode getMultiscaleNode(int i) throws ZarrException {
+    public dev.zarr.zarrjava.ome.metadata.MultiscalesEntry getMultiscaleNode(int i) throws ZarrException {
         if (i != 0) {
             throw new ZarrException("v1.0 has a single multiscale per group; index must be 0, got " + i);
         }
         MultiscaleMetadata m = omeMetadata.multiscale;
-        List<UnifiedSinglescaleNode> nodes = new ArrayList<>();
+        List<Dataset> datasets = new ArrayList<>();
         for (Level level : m.levels) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
             for (dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation ct : level.coordinateTransformations) {
                 mapped.add(new CoordinateTransformation(ct.type, ct.scale, ct.translation, ct.path));
             }
-            nodes.add(new UnifiedSinglescaleNode(level.path, mapped));
+            datasets.add(new Dataset(level.path, mapped));
         }
         List<Axis> axes = m.axes;
         if ((axes == null || axes.isEmpty()) && m.coordinateSystems != null && !m.coordinateSystems.isEmpty()) {
             axes = m.coordinateSystems.get(0).axes;
         }
-        return new UnifiedMultiscaleNode(m.name, axes != null ? axes : Collections.<Axis>emptyList(), nodes);
+        return new dev.zarr.zarrjava.ome.metadata.MultiscalesEntry(
+                axes != null ? axes : Collections.<Axis>emptyList(),
+                datasets, null, m.name, null, null, null);
     }
 
     @Override
@@ -128,12 +116,6 @@ public final class MultiscaleImage extends Group implements dev.zarr.zarrjava.om
         Array.create(storeHandle.resolve(path), arrayMetadata);
         MultiscaleMetadata updated = omeMetadata.multiscale.withLevel(new Level(path, coordinateTransformations));
         omeMetadata = new OmeMetadata(omeMetadata.version, updated);
-
-        ObjectMapper mapper = makeObjectMapper();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> omeMap = mapper.convertValue(omeMetadata, Map.class);
-        Attributes newAttributes = new Attributes();
-        newAttributes.put("ome", omeMap);
-        setAttributes(newAttributes);
+        setAttributes(omeAttributes(omeMetadata));
     }
 }

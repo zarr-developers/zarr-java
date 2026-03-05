@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.ome;
 
 import dev.zarr.zarrjava.ZarrTest;
+import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.v1_0.Collection;
@@ -38,13 +39,13 @@ public class OmeZarrV10Test extends ZarrTest {
     @Test
     void readMultiscaleImage_unifiedInterface() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(TESTDATA.resolve("ome/v1.0/image")));
-        UnifiedMultiscaleNode node = image.getMultiscaleNode(0);
+        MultiscalesEntry entry = image.getMultiscaleNode(0);
 
-        assertEquals("test_image", node.name);
-        assertNotNull(node.axes);
-        assertFalse(node.axes.isEmpty());
-        assertFalse(node.nodes.isEmpty());
-        assertEquals("s0", node.nodes.get(0).path);
+        assertEquals("test_image", entry.name);
+        assertNotNull(entry.axes);
+        assertFalse(entry.axes.isEmpty());
+        assertFalse(entry.datasets.isEmpty());
+        assertEquals("s0", entry.datasets.get(0).path);
     }
 
     @Test

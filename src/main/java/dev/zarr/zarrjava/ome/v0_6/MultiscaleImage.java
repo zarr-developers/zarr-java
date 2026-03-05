@@ -1,15 +1,11 @@
 package dev.zarr.zarrjava.ome.v0_6;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
-import dev.zarr.zarrjava.ome.UnifiedMultiscaleNode;
-import dev.zarr.zarrjava.ome.UnifiedSinglescaleNode;
+import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
-import dev.zarr.zarrjava.ome.v0_6.metadata.Dataset;
 import dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -22,14 +18,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-
-import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 /**
  * OME-Zarr v0.6 (RFC-5) multiscale image backed by a Zarr v3 group.
  */
-public final class MultiscaleImage extends Group implements MultiscalesMetadataImage<MultiscalesEntry> {
+public final class MultiscaleImage extends OmeV3Group implements MultiscalesMetadataImage<MultiscalesEntry> {
 
     private OmeMetadata omeMetadata;
 
@@ -47,12 +40,8 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
      */
     public static MultiscaleImage openMultiscaleImage(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
         Group group = Group.open(storeHandle);
-        ObjectMapper mapper = makeObjectMapper();
-        Attributes attributes = group.metadata.attributes;
-        if (attributes == null || !attributes.containsKey("ome")) {
-            throw new ZarrException("No 'ome' key found in attributes at " + storeHandle);
-        }
-        OmeMetadata omeMetadata = mapper.convertValue(attributes.get("ome"), OmeMetadata.class);
+        OmeMetadata omeMetadata = readOmeAttribute(
+                group.metadata.attributes, storeHandle, OmeMetadata.class);
         if (!omeMetadata.version.startsWith("0.6")) {
             throw new ZarrException(
                     "Expected OME-Zarr version '0.6', got '" + omeMetadata.version + "' at " + storeHandle);
@@ -67,13 +56,8 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
             @Nonnull StoreHandle storeHandle,
             @Nonnull MultiscalesEntry multiscalesEntry
     ) throws IOException, ZarrException {
-        ObjectMapper mapper = makeObjectMapper();
         OmeMetadata omeMetadata = new OmeMetadata("0.6", Collections.singletonList(multiscalesEntry));
-        @SuppressWarnings("unchecked")
-        Map<String, Object> omeMap = mapper.convertValue(omeMetadata, Map.class);
-        Attributes attributes = new Attributes();
-        attributes.put("ome", omeMap);
-        Group group = Group.create(storeHandle, attributes);
+        Group group = Group.create(storeHandle, omeAttributes(omeMetadata));
         return new MultiscaleImage(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -117,35 +101,30 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
         }
 
         MultiscalesEntry current = omeMetadata.multiscales.get(0);
-        MultiscalesEntry updated = current.withDataset(new Dataset(path, v06Transforms));
+        MultiscalesEntry updated = current.withDataset(new dev.zarr.zarrjava.ome.v0_6.metadata.Dataset(path, v06Transforms));
         List<MultiscalesEntry> updatedList = new ArrayList<>(omeMetadata.multiscales);
         updatedList.set(0, updated);
         omeMetadata = new OmeMetadata(omeMetadata.version, updatedList);
-
-        ObjectMapper mapper = makeObjectMapper();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> omeMap = mapper.convertValue(omeMetadata, Map.class);
-        Attributes newAttributes = new Attributes();
-        newAttributes.put("ome", omeMap);
-        setAttributes(newAttributes);
+        setAttributes(omeAttributes(omeMetadata));
     }
 
     @Override
-    public UnifiedMultiscaleNode getMultiscaleNode(int i) throws ZarrException {
+    public dev.zarr.zarrjava.ome.metadata.MultiscalesEntry getMultiscaleNode(int i) throws ZarrException {
         MultiscalesEntry entry = getMultiscalesEntry(i);
-        List<UnifiedSinglescaleNode> nodes = new ArrayList<>();
-        for (Dataset ds : entry.datasets) {
+        List<dev.zarr.zarrjava.ome.metadata.Dataset> mappedDatasets = new ArrayList<>();
+        for (dev.zarr.zarrjava.ome.v0_6.metadata.Dataset ds : entry.datasets) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
             for (dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation ct : ds.coordinateTransformations) {
                 mapped.add(new CoordinateTransformation(ct.type, ct.scale, ct.translation, ct.path));
             }
-            nodes.add(new UnifiedSinglescaleNode(ds.path, mapped));
+            mappedDatasets.add(new dev.zarr.zarrjava.ome.metadata.Dataset(ds.path, mapped));
         }
-        // Axes: prefer entry.axes; fall back to first coordinateSystem's axes
         List<Axis> axes = entry.axes;
         if ((axes == null || axes.isEmpty()) && entry.coordinateSystems != null && !entry.coordinateSystems.isEmpty()) {
             axes = entry.coordinateSystems.get(0).axes;
         }
-        return new UnifiedMultiscaleNode(entry.name, axes != null ? axes : Collections.<Axis>emptyList(), nodes);
+        return new dev.zarr.zarrjava.ome.metadata.MultiscalesEntry(
+                axes != null ? axes : Collections.<Axis>emptyList(),
+                mappedDatasets, null, entry.name, null, null, null);
     }
 }

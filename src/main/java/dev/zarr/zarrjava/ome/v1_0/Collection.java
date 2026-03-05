@@ -1,8 +1,7 @@
 package dev.zarr.zarrjava.ome.v1_0;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.v1_0.metadata.CollectionMetadata;
 import dev.zarr.zarrjava.ome.v1_0.metadata.OmeMetadata;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -11,14 +10,11 @@ import dev.zarr.zarrjava.v3.GroupMetadata;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.Map;
-
-import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 
 /**
  * OME-Zarr v1.0 (RFC-8) collection backed by a Zarr v3 group.
  */
-public final class Collection extends Group {
+public final class Collection extends OmeV3Group {
 
     private OmeMetadata omeMetadata;
 
@@ -36,12 +32,8 @@ public final class Collection extends Group {
      */
     public static Collection openCollection(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
         Group group = Group.open(storeHandle);
-        ObjectMapper mapper = makeObjectMapper();
-        Attributes attributes = group.metadata.attributes;
-        if (attributes == null || !attributes.containsKey("ome")) {
-            throw new ZarrException("No 'ome' key found in attributes at " + storeHandle);
-        }
-        OmeMetadata omeMetadata = mapper.convertValue(attributes.get("ome"), OmeMetadata.class);
+        OmeMetadata omeMetadata = readOmeAttribute(
+                group.metadata.attributes, storeHandle, OmeMetadata.class);
         if (omeMetadata.collection == null) {
             throw new ZarrException("v1.0 store at " + storeHandle + " has no 'collection' — is it a MultiscaleImage?");
         }
@@ -55,13 +47,8 @@ public final class Collection extends Group {
             @Nonnull StoreHandle storeHandle,
             @Nonnull CollectionMetadata collectionMetadata
     ) throws IOException, ZarrException {
-        ObjectMapper mapper = makeObjectMapper();
         OmeMetadata omeMetadata = new OmeMetadata("1.0-dev", collectionMetadata);
-        @SuppressWarnings("unchecked")
-        Map<String, Object> omeMap = mapper.convertValue(omeMetadata, Map.class);
-        Attributes attributes = new Attributes();
-        attributes.put("ome", omeMap);
-        Group group = Group.create(storeHandle, attributes);
+        Group group = Group.create(storeHandle, omeAttributes(omeMetadata));
         return new Collection(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -83,12 +70,8 @@ public final class Collection extends Group {
     public Object openNode(String path) throws IOException, ZarrException {
         StoreHandle child = storeHandle.resolve(path);
         Group group = Group.open(child);
-        ObjectMapper mapper = makeObjectMapper();
-        Attributes attributes = group.metadata.attributes;
-        if (attributes == null || !attributes.containsKey("ome")) {
-            throw new ZarrException("No 'ome' key found in child node at " + child);
-        }
-        OmeMetadata childOme = mapper.convertValue(attributes.get("ome"), OmeMetadata.class);
+        OmeMetadata childOme = readOmeAttribute(
+                group.metadata.attributes, child, OmeMetadata.class);
         if (childOme.multiscale != null) {
             return MultiscaleImage.openMultiscaleImage(child);
         }

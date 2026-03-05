@@ -1,8 +1,7 @@
 package dev.zarr.zarrjava.ome.v0_4;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.ome.OmeV2Group;
 import dev.zarr.zarrjava.ome.metadata.PlateMetadata;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.Group;
@@ -10,14 +9,11 @@ import dev.zarr.zarrjava.v2.GroupMetadata;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.Map;
-
-import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 
 /**
  * OME-Zarr v0.4 HCS plate backed by a Zarr v2 group.
  */
-public final class Plate extends Group implements dev.zarr.zarrjava.ome.Plate {
+public final class Plate extends OmeV2Group implements dev.zarr.zarrjava.ome.Plate {
 
     private PlateMetadata plateMetadata;
 
@@ -35,12 +31,8 @@ public final class Plate extends Group implements dev.zarr.zarrjava.ome.Plate {
      */
     public static Plate openPlate(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
         Group group = Group.open(storeHandle);
-        ObjectMapper mapper = makeObjectMapper();
-        Attributes attributes = group.metadata.attributes;
-        if (attributes == null || !attributes.containsKey("plate")) {
-            throw new ZarrException("No 'plate' key found in attributes at " + storeHandle);
-        }
-        PlateMetadata plateMetadata = mapper.convertValue(attributes.get("plate"), PlateMetadata.class);
+        PlateMetadata plateMetadata = readAttribute(
+                group.metadata.attributes, storeHandle, "plate", PlateMetadata.class);
         return new Plate(storeHandle, group.metadata, plateMetadata);
     }
 
@@ -51,12 +43,7 @@ public final class Plate extends Group implements dev.zarr.zarrjava.ome.Plate {
             @Nonnull StoreHandle storeHandle,
             @Nonnull PlateMetadata plateMetadata
     ) throws IOException, ZarrException {
-        ObjectMapper mapper = makeObjectMapper();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> plateMap = mapper.convertValue(plateMetadata, Map.class);
-        Attributes attributes = new Attributes();
-        attributes.put("plate", plateMap);
-        Group group = Group.create(storeHandle, attributes);
+        Group group = Group.create(storeHandle, buildAttributes("plate", plateMetadata));
         return new Plate(storeHandle, group.metadata, plateMetadata);
     }
 

@@ -1,9 +1,9 @@
 package dev.zarr.zarrjava.ome.v0_4;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.ome.OmeV2Group;
 import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
 import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.Dataset;
@@ -20,14 +20,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-
-import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 
 /**
  * OME-Zarr v0.4 multiscale image backed by a Zarr v2 group.
  */
-public final class MultiscaleImage extends Group implements MultiscalesMetadataImage<MultiscalesEntry> {
+public final class MultiscaleImage extends OmeV2Group implements MultiscalesMetadataImage<MultiscalesEntry> {
 
     private List<MultiscalesEntry> multiscales;
     @Nullable
@@ -53,19 +50,12 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
      */
     public static MultiscaleImage openMultiscaleImage(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
         Group group = Group.open(storeHandle);
-        ObjectMapper mapper = makeObjectMapper();
         Attributes attributes = group.metadata.attributes;
-        if (attributes == null || !attributes.containsKey("multiscales")) {
-            throw new ZarrException("No 'multiscales' key found in attributes at " + storeHandle);
-        }
-        List<MultiscalesEntry> multiscales = mapper.convertValue(
-                attributes.get("multiscales"),
-                new TypeReference<List<MultiscalesEntry>>() {}
-        );
-        OmeroMetadata omeroMetadata = null;
-        if (attributes.containsKey("omero")) {
-            omeroMetadata = mapper.convertValue(attributes.get("omero"), OmeroMetadata.class);
-        }
+        List<MultiscalesEntry> multiscales = readTypedAttribute(
+                attributes, storeHandle, "multiscales", new TypeReference<List<MultiscalesEntry>>() {});
+        OmeroMetadata omeroMetadata = attributes.containsKey("omero")
+                ? readAttribute(attributes, storeHandle, "omero", OmeroMetadata.class)
+                : null;
         Integer bioformats2rawLayout = null;
         if (attributes.containsKey("bioformats2raw.layout")) {
             Object raw = attributes.get("bioformats2raw.layout");
@@ -83,13 +73,8 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
             @Nonnull StoreHandle storeHandle,
             @Nonnull MultiscalesEntry multiscalesEntry
     ) throws IOException, ZarrException {
-        ObjectMapper mapper = makeObjectMapper();
         List<MultiscalesEntry> multiscales = Collections.singletonList(multiscalesEntry);
-        @SuppressWarnings("unchecked")
-        List<Object> multiscalesList = mapper.convertValue(multiscales, List.class);
-        Attributes attributes = new Attributes();
-        attributes.put("multiscales", multiscalesList);
-        Group group = Group.create(storeHandle, attributes);
+        Group group = Group.create(storeHandle, buildAttributes("multiscales", multiscales));
         return new MultiscaleImage(storeHandle, group.metadata, multiscales, null, null);
     }
 
@@ -150,15 +135,9 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
     }
 
     private void persistAttributes() throws IOException, ZarrException {
-        ObjectMapper mapper = makeObjectMapper();
-        @SuppressWarnings("unchecked")
-        List<Object> multiscalesList = mapper.convertValue(multiscales, List.class);
-        Attributes newAttributes = new Attributes();
-        newAttributes.put("multiscales", multiscalesList);
+        Attributes newAttributes = buildAttributes("multiscales", multiscales);
         if (omeroMetadata != null) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> omeroMap = mapper.convertValue(omeroMetadata, Map.class);
-            newAttributes.put("omero", omeroMap);
+            newAttributes.put("omero", serialize(omeroMetadata));
         }
         if (bioformats2rawLayout != null) {
             newAttributes.put("bioformats2raw.layout", bioformats2rawLayout);

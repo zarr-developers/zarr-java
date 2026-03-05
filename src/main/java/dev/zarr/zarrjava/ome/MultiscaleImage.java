@@ -2,11 +2,11 @@ package dev.zarr.zarrjava.ome;
 
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Node;
+import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,9 +22,10 @@ public interface MultiscaleImage {
     StoreHandle getStoreHandle();
 
     /**
-     * Returns the multiscale node descriptor at index {@code i}.
+     * Returns a {@link MultiscalesEntry} view of multiscale {@code i}, normalized to the shared
+     * metadata type. All axis and dataset information is accessible from the returned entry.
      */
-    UnifiedMultiscaleNode getMultiscaleNode(int i) throws ZarrException;
+    MultiscalesEntry getMultiscaleNode(int i) throws ZarrException;
 
     /**
      * Opens the scale level array at index {@code i} within the first multiscale entry.
@@ -40,9 +41,9 @@ public interface MultiscaleImage {
      * Returns the axis names of the first multiscale entry.
      */
     default List<String> getAxisNames() throws ZarrException {
-        UnifiedMultiscaleNode node = getMultiscaleNode(0);
+        MultiscalesEntry entry = getMultiscaleNode(0);
         List<String> names = new ArrayList<>();
-        for (dev.zarr.zarrjava.ome.metadata.Axis axis : node.axes) {
+        for (dev.zarr.zarrjava.ome.metadata.Axis axis : entry.axes) {
             names.add(axis.name);
         }
         return names;
@@ -103,7 +104,7 @@ public interface MultiscaleImage {
      * <p>Tries v0.5 (zarr.json with "ome" key) first, then v0.4 (.zattrs with "multiscales" key).
      */
     static MultiscaleImage open(StoreHandle storeHandle) throws IOException, ZarrException {
-        // Try v0.5: zarr.json with "ome" key
+        // Try version>= 0.5: zarr.json with "ome" key
         StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
         if (zarrJson.exists()) {
             com.fasterxml.jackson.databind.ObjectMapper mapper = dev.zarr.zarrjava.v3.Node.makeObjectMapper();

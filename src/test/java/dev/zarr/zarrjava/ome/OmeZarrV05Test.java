@@ -156,7 +156,7 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.class, reopened);
         assertEquals(Arrays.asList("z", "y"), reopened.getAxisNames());
         assertEquals(1, reopened.getScaleLevelCount());
-        assertEquals("0", reopened.getMultiscaleNode(0).nodes.get(0).path);
+        assertEquals("0", reopened.getMultiscaleNode(0).datasets.get(0).path);
     }
 
     @Test

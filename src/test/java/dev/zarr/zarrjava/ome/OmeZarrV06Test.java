@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava.ome;
 
+import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
-import dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
 
@@ -44,8 +44,9 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
     @SuppressWarnings("unchecked")
     void coordinateSystems_presentInEntry() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
-        MultiscalesMetadataImage<?> mmi = (MultiscalesMetadataImage<?>) image;
-        MultiscalesEntry entry = (MultiscalesEntry) mmi.getMultiscalesEntry(0);
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage v06Image =
+                (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) image;
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry entry = v06Image.getMultiscalesEntry(0);
 
         assertNotNull(entry.coordinateSystems);
         assertEquals(1, entry.coordinateSystems.size());
@@ -62,8 +63,9 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
     @SuppressWarnings("unchecked")
     void datasets_pathsAndTransformations() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
-        MultiscalesMetadataImage<?> mmi = (MultiscalesMetadataImage<?>) image;
-        MultiscalesEntry entry = (MultiscalesEntry) mmi.getMultiscalesEntry(0);
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage v06Image =
+                (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) image;
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry entry = v06Image.getMultiscalesEntry(0);
 
         assertNotNull(entry.datasets);
         assertEquals(3, entry.datasets.size());
@@ -85,12 +87,12 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
     @Test
     void unifiedInterface_nodesAndPaths() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
-        UnifiedMultiscaleNode node = image.getMultiscaleNode(0);
+        MultiscalesEntry entry = image.getMultiscaleNode(0);
 
-        assertEquals("multiscales", node.name);
-        assertEquals(3, node.nodes.size());
-        assertEquals("s0", node.nodes.get(0).path);
-        assertEquals("scale", node.nodes.get(0).coordinateTransformations.get(0).type);
+        assertEquals("multiscales", entry.name);
+        assertEquals(3, entry.datasets.size());
+        assertEquals("s0", entry.datasets.get(0).path);
+        assertEquals("scale", entry.datasets.get(0).coordinateTransformations.get(0).type);
     }
 
     // ── 3D example ───────────────────────────────────────────────────────────
@@ -101,8 +103,9 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(V06_3D));
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.class, image);
 
-        MultiscalesMetadataImage<?> mmi = (MultiscalesMetadataImage<?>) image;
-        MultiscalesEntry entry = (MultiscalesEntry) mmi.getMultiscalesEntry(0);
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage v06Image =
+                (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) image;
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry entry = v06Image.getMultiscalesEntry(0);
 
         assertEquals(3, entry.datasets.size());
         assertNotNull(entry.coordinateSystems);

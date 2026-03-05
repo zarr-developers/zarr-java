@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.ome;
 
 import dev.zarr.zarrjava.ZarrTest;
+import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
@@ -50,19 +51,19 @@ public abstract class OmeZarrBaseTest extends ZarrTest {
     @Test
     void getMultiscaleNode_hasExpectedAxes() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
-        UnifiedMultiscaleNode node = image.getMultiscaleNode(0);
-        assertNotNull(node);
-        assertEquals(expectedAxisNames().size(), node.axes.size());
+        MultiscalesEntry entry = image.getMultiscaleNode(0);
+        assertNotNull(entry);
+        assertEquals(expectedAxisNames().size(), entry.axes.size());
         for (int i = 0; i < expectedAxisNames().size(); i++) {
-            assertEquals(expectedAxisNames().get(i), node.axes.get(i).name);
+            assertEquals(expectedAxisNames().get(i), entry.axes.get(i).name);
         }
     }
 
     @Test
     void getMultiscaleNode_hasExpectedLevelCount() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
-        UnifiedMultiscaleNode node = image.getMultiscaleNode(0);
-        assertEquals(expectedScaleLevelCount(), node.nodes.size());
+        MultiscalesEntry entry = image.getMultiscaleNode(0);
+        assertEquals(expectedScaleLevelCount(), entry.datasets.size());
     }
 
     @Test
