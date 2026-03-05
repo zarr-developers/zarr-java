@@ -82,6 +82,16 @@ public final class MultiscaleImage extends Group implements MultiscalesMetadataI
         return omeMetadata.multiscales.get(i);
     }
 
+    @javax.annotation.Nullable
+    public dev.zarr.zarrjava.ome.metadata.OmeroMetadata getOmeroMetadata() {
+        return omeMetadata.omero;
+    }
+
+    @javax.annotation.Nullable
+    public Integer getBioformats2rawLayout() {
+        return omeMetadata.bioformats2rawLayout;
+    }
+
     @Override
     public dev.zarr.zarrjava.core.Array openScaleLevel(int i) throws IOException, ZarrException {
         String path = getMultiscalesEntry(0).datasets.get(i).path;

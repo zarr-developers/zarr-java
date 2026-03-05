@@ -1,12 +1,21 @@
 package dev.zarr.zarrjava;
 
+import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.ome.MultiscaleImage;
 import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
+import dev.zarr.zarrjava.ome.Plate;
 import dev.zarr.zarrjava.ome.UnifiedMultiscaleNode;
 import dev.zarr.zarrjava.ome.UnifiedSinglescaleNode;
+import dev.zarr.zarrjava.ome.Well;
 import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
+import dev.zarr.zarrjava.ome.metadata.NamedEntry;
+import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;
+import dev.zarr.zarrjava.ome.metadata.PlateMetadata;
+import dev.zarr.zarrjava.ome.metadata.WellImage;
+import dev.zarr.zarrjava.ome.metadata.WellMetadata;
+import dev.zarr.zarrjava.ome.metadata.WellRef;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Array;
@@ -15,7 +24,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -201,5 +212,271 @@ public class OmeZarrTest extends ZarrTest {
 
         MultiscalesEntry entry = image.getMultiscalesEntry(0);
         assertEquals("0.4", entry.version);
+    }
+
+    // ── Omero + bioformats2raw.layout (read from testdata) ──────────────────
+
+    @Test
+    void readV05_omero() throws Exception {
+        dev.zarr.zarrjava.ome.v0_5.MultiscaleImage image =
+                dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.openMultiscaleImage(
+                        storeHandle(TESTDATA.resolve("ome/v0.5")));
+
+        OmeroMetadata omero = image.getOmeroMetadata();
+        assertNotNull(omero);
+        assertEquals(2, omero.channels.size());
+        assertEquals("DAPI", omero.channels.get(0).get("label"));
+        assertEquals("GFP",  omero.channels.get(1).get("label"));
+        assertEquals("color", omero.rdefs.get("model"));
+    }
+
+    @Test
+    void readV04_omero() throws Exception {
+        dev.zarr.zarrjava.ome.v0_4.MultiscaleImage image =
+                dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(
+                        storeHandle(TESTDATA.resolve("ome/v0.4")));
+
+        OmeroMetadata omero = image.getOmeroMetadata();
+        assertNotNull(omero);
+        assertEquals(2, omero.channels.size());
+        assertEquals("DAPI", omero.channels.get(0).get("label"));
+        assertEquals("color", omero.rdefs.get("model"));
+    }
+
+    @Test
+    void readV05_bioformats2rawLayout() throws Exception {
+        dev.zarr.zarrjava.ome.v0_5.MultiscaleImage image =
+                dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.openMultiscaleImage(
+                        storeHandle(TESTDATA.resolve("ome/v0.5")));
+        assertEquals(Integer.valueOf(3), image.getBioformats2rawLayout());
+    }
+
+    @Test
+    void readV04_bioformats2rawLayout() throws Exception {
+        dev.zarr.zarrjava.ome.v0_4.MultiscaleImage image =
+                dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(
+                        storeHandle(TESTDATA.resolve("ome/v0.4")));
+        assertEquals(Integer.valueOf(3), image.getBioformats2rawLayout());
+    }
+
+    // ── Labels (read from testdata) ──────────────────────────────────────────
+
+    @Test
+    void readV05_labels() throws Exception {
+        MultiscaleImage image = MultiscaleImage.open(storeHandle(TESTDATA.resolve("ome/v0.5")));
+
+        List<String> labels = image.getLabels();
+        assertEquals(Collections.singletonList("nuclei"), labels);
+
+        MultiscaleImage nuclei = image.openLabel("nuclei");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.class, nuclei);
+        assertEquals(Arrays.asList("z", "y", "x"), nuclei.getAxisNames());
+    }
+
+    @Test
+    void readV04_labels() throws Exception {
+        MultiscaleImage image = MultiscaleImage.open(storeHandle(TESTDATA.resolve("ome/v0.4")));
+
+        List<String> labels = image.getLabels();
+        assertEquals(Collections.singletonList("nuclei"), labels);
+
+        MultiscaleImage nuclei = image.openLabel("nuclei");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.class, nuclei);
+        assertEquals(Arrays.asList("z", "y", "x"), nuclei.getAxisNames());
+    }
+
+    // ── HCS Plate (read from testdata) ───────────────────────────────────────
+
+    @Test
+    void readV05_plate() throws Exception {
+        Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.5_hcs")));
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_5.Plate.class, plate);
+
+        PlateMetadata meta = plate.getPlateMetadata();
+        assertEquals(2, meta.columns.size());
+        assertEquals(2, meta.rows.size());
+        assertEquals("A", meta.rows.get(0).name);
+        assertEquals("1", meta.columns.get(0).name);
+        assertEquals("A/1", meta.wells.get(0).path);
+    }
+
+    @Test
+    void readV04_plate() throws Exception {
+        Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.4_hcs")));
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.Plate.class, plate);
+
+        PlateMetadata meta = plate.getPlateMetadata();
+        assertEquals(2, meta.columns.size());
+        assertEquals("A", meta.rows.get(0).name);
+        assertEquals("A/1", meta.wells.get(0).path);
+    }
+
+    @Test
+    void readV05_wellViaPlate() throws Exception {
+        Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.5_hcs")));
+        Well well = plate.openWell("A/1");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_5.Well.class, well);
+
+        assertEquals(1, well.getWellMetadata().images.size());
+        assertEquals("0", well.getWellMetadata().images.get(0).path);
+        assertEquals(Integer.valueOf(0), well.getWellMetadata().images.get(0).acquisition);
+    }
+
+    @Test
+    void readV04_wellViaPlate() throws Exception {
+        Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.4_hcs")));
+        Well well = plate.openWell("A/1");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.Well.class, well);
+
+        assertEquals(1, well.getWellMetadata().images.size());
+        assertEquals("0", well.getWellMetadata().images.get(0).path);
+    }
+
+    @Test
+    void readV05_hcsFullNavigation() throws Exception {
+        Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.5_hcs")));
+        Well well = plate.openWell("A/1");
+        MultiscaleImage fov = well.openImage("0");
+
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.class, fov);
+        assertEquals(Arrays.asList("t", "c", "z", "y", "x"), fov.getAxisNames());
+    }
+
+    @Test
+    void readV04_hcsFullNavigation() throws Exception {
+        Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.4_hcs")));
+        Well well = plate.openWell("A/1");
+        MultiscaleImage fov = well.openImage("0");
+
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.class, fov);
+        assertEquals(Arrays.asList("t", "c", "z", "y", "x"), fov.getAxisNames());
+    }
+
+    // ── Omero write round-trip (v0.4) ────────────────────────────────────────
+
+    @Test
+    void writeV04_omeroRoundTrip() throws Exception {
+        List<Axis> axes = Arrays.asList(
+                new Axis("z", "space", "micrometer"),
+                new Axis("y", "space", "micrometer")
+        );
+        MultiscalesEntry entry = new MultiscalesEntry(axes, Collections.emptyList());
+
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v04_omero"));
+        dev.zarr.zarrjava.ome.v0_4.MultiscaleImage created =
+                dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.create(handle, entry);
+
+        dev.zarr.zarrjava.v2.ArrayMetadata arrayMetadata = new dev.zarr.zarrjava.v2.ArrayMetadata(
+                2, new long[]{16, 16}, new int[]{16, 16},
+                dev.zarr.zarrjava.v2.DataType.FLOAT32, 0,
+                dev.zarr.zarrjava.v2.Order.C, null, null, null);
+        created.createScaleLevel("0", arrayMetadata,
+                Collections.singletonList(CoordinateTransformation.scale(Arrays.asList(1.0, 1.0))));
+
+        Map<String, Object> channelMap = new HashMap<String, Object>();
+        channelMap.put("label", "DAPI");
+        channelMap.put("color", "0000FF");
+        Map<String, Object> rdefsMap = new HashMap<String, Object>();
+        rdefsMap.put("model", "color");
+        OmeroMetadata omero = new OmeroMetadata(Collections.singletonList(channelMap), rdefsMap);
+        created.setOmeroMetadata(omero);
+
+        dev.zarr.zarrjava.ome.v0_4.MultiscaleImage reopened =
+                dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(handle);
+        OmeroMetadata got = reopened.getOmeroMetadata();
+        assertNotNull(got);
+        assertEquals("DAPI", got.channels.get(0).get("label"));
+        assertEquals("color", got.rdefs.get("model"));
+    }
+
+    // ── Labels write round-trip (v0.5) ───────────────────────────────────────
+
+    @Test
+    void writeV05_labelsRoundTrip() throws Exception {
+        List<Axis> axes = Arrays.asList(
+                new Axis("z", "space", "micrometer"),
+                new Axis("y", "space", "micrometer")
+        );
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v05_labels"));
+        dev.zarr.zarrjava.ome.v0_5.MultiscaleImage parent =
+                dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.create(handle, new MultiscalesEntry(axes, Collections.emptyList()));
+
+        Attributes labelsAttrs = new Attributes();
+        labelsAttrs.put("labels", Arrays.asList("nuclei"));
+        dev.zarr.zarrjava.v3.Group.create(handle.resolve("labels"), labelsAttrs);
+
+        dev.zarr.zarrjava.ome.v0_5.MultiscaleImage nuclei =
+                dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.create(
+                        handle.resolve("labels").resolve("nuclei"),
+                        new MultiscalesEntry(axes, Collections.emptyList()));
+        nuclei.createScaleLevel("0",
+                Array.metadataBuilder().withShape(16, 16).withChunkShape(16, 16).withDataType(DataType.UINT8).build(),
+                Collections.singletonList(CoordinateTransformation.scale(Arrays.asList(1.0, 1.0))));
+
+        MultiscaleImage reopened = MultiscaleImage.open(handle);
+        assertEquals(Collections.singletonList("nuclei"), reopened.getLabels());
+        assertEquals(Arrays.asList("z", "y"), reopened.openLabel("nuclei").getAxisNames());
+    }
+
+    // ── HCS write round-trips ────────────────────────────────────────────────
+
+    @Test
+    void writeV05_plateRoundTrip() throws Exception {
+        PlateMetadata plateMetadata = new PlateMetadata(
+                Arrays.asList(new NamedEntry("1"), new NamedEntry("2")),
+                Arrays.asList(new NamedEntry("A"), new NamedEntry("B")),
+                Collections.singletonList(new WellRef("A/1", 0, 0)),
+                null, null, null, null);
+
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v05_plate"));
+        dev.zarr.zarrjava.ome.v0_5.Plate.createPlate(handle, plateMetadata);
+
+        Plate reopened = Plate.open(handle);
+        assertEquals(2, reopened.getPlateMetadata().columns.size());
+        assertEquals("A", reopened.getPlateMetadata().rows.get(0).name);
+        assertEquals("A/1", reopened.getPlateMetadata().wells.get(0).path);
+    }
+
+    @Test
+    void writeV04_plateRoundTrip() throws Exception {
+        PlateMetadata plateMetadata = new PlateMetadata(
+                Arrays.asList(new NamedEntry("1"), new NamedEntry("2")),
+                Arrays.asList(new NamedEntry("A"), new NamedEntry("B")),
+                Collections.singletonList(new WellRef("A/1", 0, 0)),
+                null, null, null, null);
+
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v04_plate"));
+        dev.zarr.zarrjava.ome.v0_4.Plate.createPlate(handle, plateMetadata);
+
+        Plate reopened = Plate.open(handle);
+        assertEquals(2, reopened.getPlateMetadata().columns.size());
+        assertEquals("A/1", reopened.getPlateMetadata().wells.get(0).path);
+    }
+
+    @Test
+    void writeV05_hcsFullIntegration() throws Exception {
+        StoreHandle plateHandle = storeHandle(TESTOUTPUT.resolve("ome_v05_hcs_full"));
+
+        dev.zarr.zarrjava.ome.v0_5.Plate.createPlate(plateHandle, new PlateMetadata(
+                Collections.singletonList(new NamedEntry("1")),
+                Collections.singletonList(new NamedEntry("A")),
+                Collections.singletonList(new WellRef("A/1", 0, 0)),
+                null, null, null, null));
+
+        dev.zarr.zarrjava.ome.v0_5.Well.createWell(
+                plateHandle.resolve("A/1"),
+                new WellMetadata(Collections.singletonList(new WellImage("0", null))));
+
+        List<Axis> axes = Arrays.asList(new Axis("z", "space", "micrometer"), new Axis("y", "space", "micrometer"));
+        dev.zarr.zarrjava.ome.v0_5.MultiscaleImage fov = dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.create(
+                plateHandle.resolve("A/1").resolve("0"),
+                new MultiscalesEntry(axes, Collections.emptyList()));
+        fov.createScaleLevel("0",
+                Array.metadataBuilder().withShape(16, 16).withChunkShape(16, 16).withDataType(DataType.FLOAT32).build(),
+                Collections.singletonList(CoordinateTransformation.scale(Arrays.asList(1.0, 1.0))));
+
+        MultiscaleImage image = Plate.open(plateHandle).openWell("A/1").openImage("0");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.class, image);
+        assertEquals(Arrays.asList("z", "y"), image.getAxisNames());
     }
 }
