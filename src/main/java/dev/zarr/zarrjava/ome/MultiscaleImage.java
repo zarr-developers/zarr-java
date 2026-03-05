@@ -111,6 +111,17 @@ public interface MultiscaleImage {
             com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
             com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
             if (attrs != null && attrs.has("ome")) {
+                com.fasterxml.jackson.databind.JsonNode omeNode = attrs.get("ome");
+                String version = omeNode.has("version") ? omeNode.get("version").asText() : "";
+                if (version.startsWith("1.")) {
+                    if (omeNode.has("multiscale")) {
+                        return dev.zarr.zarrjava.ome.v1_0.MultiscaleImage.openMultiscaleImage(storeHandle);
+                    }
+                    throw new ZarrException("v1.0 store at " + storeHandle + " is a Collection, not a MultiscaleImage. Use v1_0.Collection.openCollection() instead.");
+                }
+                if (version.startsWith("0.6")) {
+                    return dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.openMultiscaleImage(storeHandle);
+                }
                 return dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.openMultiscaleImage(storeHandle);
             }
         }

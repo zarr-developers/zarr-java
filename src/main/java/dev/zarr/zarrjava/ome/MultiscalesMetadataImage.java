@@ -12,9 +12,9 @@ import java.util.List;
  * Extension of {@link MultiscaleImage} that provides typed access to OME-Zarr multiscales metadata
  * and supports creating new scale levels.
  *
- * @param <M> the concrete multiscales entry type
+ * @param <M> the concrete multiscales entry type (may be {@link MultiscalesEntry} or a version-specific subtype)
  */
-public interface MultiscalesMetadataImage<M extends MultiscalesEntry> extends MultiscaleImage {
+public interface MultiscalesMetadataImage<M> extends MultiscaleImage {
 
     /**
      * Returns the raw multiscales entry at index {@code i}.
@@ -33,11 +33,17 @@ public interface MultiscalesMetadataImage<M extends MultiscalesEntry> extends Mu
 
     @Override
     default UnifiedMultiscaleNode getMultiscaleNode(int i) throws ZarrException {
-        M entry = getMultiscalesEntry(i);
+        Object entry = getMultiscalesEntry(i);
+        if (!(entry instanceof MultiscalesEntry)) {
+            throw new ZarrException(
+                    "getMultiscaleNode() not supported for entry type " + entry.getClass().getName()
+                            + "; override getMultiscaleNode() in your MultiscalesMetadataImage implementation.");
+        }
+        MultiscalesEntry mse = (MultiscalesEntry) entry;
         List<UnifiedSinglescaleNode> nodes = new ArrayList<>();
-        for (dev.zarr.zarrjava.ome.metadata.Dataset dataset : entry.datasets) {
+        for (dev.zarr.zarrjava.ome.metadata.Dataset dataset : mse.datasets) {
             nodes.add(new UnifiedSinglescaleNode(dataset.path, dataset.coordinateTransformations));
         }
-        return new UnifiedMultiscaleNode(entry.name, entry.axes, nodes);
+        return new UnifiedMultiscaleNode(mse.name, mse.axes, nodes);
     }
 }
