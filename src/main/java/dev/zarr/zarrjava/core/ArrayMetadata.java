@@ -36,11 +36,11 @@ public abstract class ArrayMetadata {
         }
         boolean dataTypeIsBool = dataType == dev.zarr.zarrjava.v3.DataType.BOOL || dataType == dev.zarr.zarrjava.v2.DataType.BOOL;
         boolean dataTypeIsByte = dataType == dev.zarr.zarrjava.v3.DataType.INT8 || dataType == dev.zarr.zarrjava.v2.DataType.INT8 || dataType == dev.zarr.zarrjava.v3.DataType.UINT8 || dataType == dev.zarr.zarrjava.v2.DataType.UINT8;
-        boolean dataTypeIsShort = dataType == dev.zarr.zarrjava.v3.DataType.INT16 || dataType == dev.zarr.zarrjava.v2.DataType.INT16 || dataType == dev.zarr.zarrjava.v3.DataType.UINT16 || dataType == dev.zarr.zarrjava.v2.DataType.UINT16;
-        boolean dataTypeIsInt = dataType == dev.zarr.zarrjava.v3.DataType.INT32 || dataType == dev.zarr.zarrjava.v2.DataType.INT32 || dataType == dev.zarr.zarrjava.v3.DataType.UINT32 || dataType == dev.zarr.zarrjava.v2.DataType.UINT32;
-        boolean dataTypeIsLong = dataType == dev.zarr.zarrjava.v3.DataType.INT64 || dataType == dev.zarr.zarrjava.v2.DataType.INT64 || dataType == dev.zarr.zarrjava.v3.DataType.UINT64 || dataType == dev.zarr.zarrjava.v2.DataType.UINT64;
-        boolean dataTypeIsFloat = dataType == dev.zarr.zarrjava.v3.DataType.FLOAT32 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT32;
-        boolean dataTypeIsDouble = dataType == dev.zarr.zarrjava.v3.DataType.FLOAT64 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT64;
+        boolean dataTypeIsShort = dataType == dev.zarr.zarrjava.v3.DataType.INT16 || dataType == dev.zarr.zarrjava.v2.DataType.INT16 || dataType == dev.zarr.zarrjava.v2.DataType.INT16_BE || dataType == dev.zarr.zarrjava.v3.DataType.UINT16 || dataType == dev.zarr.zarrjava.v2.DataType.UINT16|| dataType == dev.zarr.zarrjava.v2.DataType.UINT16_BE;
+        boolean dataTypeIsInt = dataType == dev.zarr.zarrjava.v3.DataType.INT32 || dataType == dev.zarr.zarrjava.v2.DataType.INT32 || dataType == dev.zarr.zarrjava.v2.DataType.INT32_BE || dataType == dev.zarr.zarrjava.v3.DataType.UINT32 || dataType == dev.zarr.zarrjava.v2.DataType.UINT32 || dataType == dev.zarr.zarrjava.v2.DataType.UINT32_BE;
+        boolean dataTypeIsLong = dataType == dev.zarr.zarrjava.v3.DataType.INT64 || dataType == dev.zarr.zarrjava.v2.DataType.INT64 || dataType == dev.zarr.zarrjava.v2.DataType.INT64_BE || dataType == dev.zarr.zarrjava.v3.DataType.UINT64 || dataType == dev.zarr.zarrjava.v2.DataType.UINT64 || dataType == dev.zarr.zarrjava.v2.DataType.UINT64_BE;
+        boolean dataTypeIsFloat = dataType == dev.zarr.zarrjava.v3.DataType.FLOAT32 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT32 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT32_BE;
+        boolean dataTypeIsDouble = dataType == dev.zarr.zarrjava.v3.DataType.FLOAT64 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT64 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT64_BE;
 
         if (fillValue instanceof Boolean) {
             Boolean fillValueBool = (Boolean) fillValue;

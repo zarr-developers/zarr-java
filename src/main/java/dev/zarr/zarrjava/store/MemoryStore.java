@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.store;
 
+import dev.zarr.zarrjava.utils.Utils;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.InputStream;
@@ -55,7 +57,7 @@ public class MemoryStore implements Store, Store.ListableStore {
 
     @Override
     public void set(String[] keys, ByteBuffer bytes) {
-        map.put(resolveKeys(keys), bytes.array());
+        map.put(resolveKeys(keys), Utils.toArray(bytes));
     }
 
     @Override

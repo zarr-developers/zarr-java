@@ -12,7 +12,7 @@ compressor, serializer, filters = parse_codecs_zarr_python(codec_string, param_s
 dtype = sys.argv[3]
 store_path = Path(sys.argv[4])
 
-if dtype == 'bool':
+if 'b1' in dtype:
     testdata = np.arange(16 * 16 * 16, dtype='uint8').reshape(16, 16, 16) % 2 == 0
 else:
     testdata = np.arange(16 * 16 * 16, dtype=dtype).reshape(16, 16, 16)
