@@ -7,8 +7,6 @@ import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;
 import dev.zarr.zarrjava.ome.metadata.PlateMetadata;
 import dev.zarr.zarrjava.ome.metadata.NamedEntry;
 import dev.zarr.zarrjava.ome.metadata.WellRef;
-import dev.zarr.zarrjava.ome.metadata.WellImage;
-import dev.zarr.zarrjava.ome.metadata.WellMetadata;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
 
