@@ -48,6 +48,9 @@ def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version:
                                                                                 codecs=[BytesCodec(endian="little")]),))
     elif codec_string == "crc32c" and zarr_version == 3:
         compressor = Crc32cCodec()
+    elif codec_string == "zstd" and zarr_version == 2:
+        level, checksum = param_string.split("_")
+        compressor = numcodecs.Zstd(level=int(level), checksum=checksum == 'true')
     else:
         raise ValueError(f"Invalid codec: {codec_string}, zarr_version: {zarr_version}")
 

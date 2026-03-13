@@ -1,0 +1,51 @@
+{
+  "attributes": {
+    "ome": {
+      "version": "1.0-dev",
+      "multiscale": {
+        "name": "test_image",
+        "coordinateSystems": [
+          {
+            "name": "physical",
+            "axes": [
+              {
+                "name": "z",
+                "type": "space",
+                "unit": "micrometer"
+              },
+              {
+                "name": "y",
+                "type": "space",
+                "unit": "micrometer"
+              },
+              {
+                "name": "x",
+                "type": "space",
+                "unit": "micrometer"
+              }
+            ]
+          }
+        ],
+        "levels": [
+          {
+            "path": "s0",
+            "coordinateTransformations": [
+              {
+                "type": "scale",
+                "scale": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "input": "s0",
+                "output": "physical"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

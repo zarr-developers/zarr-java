@@ -1,0 +1,35 @@
+{
+  "attributes": {
+    "ome": {
+      "version": "0.5",
+      "plate": {
+        "columns": [
+          {
+            "name": "1"
+          },
+          {
+            "name": "2"
+          }
+        ],
+        "rows": [
+          {
+            "name": "A"
+          },
+          {
+            "name": "B"
+          }
+        ],
+        "wells": [
+          {
+            "path": "A/1",
+            "rowIndex": 0,
+            "columnIndex": 0
+          }
+        ],
+        "name": "test_plate"
+      }
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

@@ -1,0 +1,17 @@
+{
+  "attributes": {
+    "ome": {
+      "version": "0.5",
+      "well": {
+        "images": [
+          {
+            "path": "0",
+            "acquisition": 0
+          }
+        ]
+      }
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}
