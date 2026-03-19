@@ -244,6 +244,9 @@ public class ZarrPythonTests extends ZarrTest {
             case "zlib":
                 builder = builder.withZlibCompressor(Integer.parseInt(compressorParam));
                 break;
+            case "zstd":
+                builder = builder.withZstdCompressor(Integer.parseInt(compressorParam.split("_")[0]), Boolean.parseBoolean(compressorParam.split("_")[1]));
+                break;
             default:
                 throw new IllegalArgumentException("Invalid compressor: " + compressor);
         }

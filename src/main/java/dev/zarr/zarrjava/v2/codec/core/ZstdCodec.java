@@ -11,6 +11,8 @@ import java.nio.ByteBuffer;
 
 public class ZstdCodec extends dev.zarr.zarrjava.core.codec.core.ZstdCodec implements Codec {
 
+    public static final int DEFAULT_LEVEL = 0;
+    public static final boolean DEFAULT_CHECKSUM = false;
     @JsonIgnore
     public final String id = "zstd";
     public final int level;
@@ -18,8 +20,8 @@ public class ZstdCodec extends dev.zarr.zarrjava.core.codec.core.ZstdCodec imple
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ZstdCodec(
-            @JsonProperty(value = "level", defaultValue = "0") int level,
-            @JsonProperty(value = "checksum", defaultValue = "false") boolean checksum) throws ZarrException {
+            @JsonProperty(value = "level", defaultValue = "" + DEFAULT_LEVEL) int level,
+            @JsonProperty(value = "checksum", defaultValue = "" + DEFAULT_CHECKSUM) boolean checksum) throws ZarrException {
         if (level < -131072 || level > 22) {
             throw new ZarrException("'level' needs to be between -131072 and 22.");
         }
