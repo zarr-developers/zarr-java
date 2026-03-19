@@ -18,6 +18,16 @@ Use these static open methods:
 - `Well.open(StoreHandle)` for HCS wells (v0.4/v0.5)
 - `dev.zarr.zarrjava.ome.v1_0.Collection.openCollection(StoreHandle)` for v1.0 collection roots
 
+### StoreHandle and stores
+
+OME-Zarr APIs are store-agnostic: pass any `StoreHandle` (filesystem, S3, HTTP, ZIP, memory) to `open(...)`.  
+See storage backend setup in [`USERGUIDE.md#storage-backends`](USERGUIDE.md#storage-backends).
+
+```java
+StoreHandle s3 = new S3Store(client, "idr", "zarr/v0.5/idr0083").resolve("9822152.zarr");
+MultiscaleImage image = MultiscaleImage.open(s3);
+```
+
 Important v1.0 behavior:
 
 - `MultiscaleImage.open(...)` throws if the node is a v1.0 collection root (without `ome.multiscale`)
