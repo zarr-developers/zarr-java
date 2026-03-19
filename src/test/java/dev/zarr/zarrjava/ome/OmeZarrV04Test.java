@@ -42,14 +42,14 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     // ── typed metadata ───────────────────────────────────────────────────────
 
     @Test
-    void typedEntry_hasVersion() throws Exception {
+    void typedEntryHasVersion() throws Exception {
         MultiscalesMetadataImage<?> image = (MultiscalesMetadataImage<?>) MultiscaleImage.open(imageStoreHandle());
         MultiscalesEntry entry = (MultiscalesEntry) image.getMultiscalesEntry(0);
         assertEquals("0.4", entry.version);
     }
 
     @Test
-    void typedEntry_level0ScaleValues() throws Exception {
+    void typedEntryLevel0ScaleValues() throws Exception {
         MultiscalesMetadataImage<?> image = (MultiscalesMetadataImage<?>) MultiscaleImage.open(imageStoreHandle());
         MultiscalesEntry entry = (MultiscalesEntry) image.getMultiscalesEntry(0);
         List<Double> expected = Arrays.asList(1.0, 1.0, 0.5, 0.5, 0.5);
@@ -59,7 +59,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     // ── omero + bioformats2raw ───────────────────────────────────────────────
 
     @Test
-    void omero_channels() throws Exception {
+    void omeroChannels() throws Exception {
         dev.zarr.zarrjava.ome.v0_4.MultiscaleImage image =
                 dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(imageStoreHandle());
         OmeroMetadata omero = image.getOmeroMetadata();
@@ -70,7 +70,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void bioformats2rawLayout_value() throws Exception {
+    void bioformats2rawLayoutValue() throws Exception {
         dev.zarr.zarrjava.ome.v0_4.MultiscaleImage image =
                 dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(imageStoreHandle());
         assertEquals(Integer.valueOf(3), image.getBioformats2rawLayout());
@@ -79,13 +79,13 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     // ── labels ───────────────────────────────────────────────────────────────
 
     @Test
-    void labels_list() throws Exception {
+    void labelsList() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         assertEquals(Collections.singletonList("nuclei"), image.getLabels());
     }
 
     @Test
-    void labels_openLabel() throws Exception {
+    void labelsOpenLabel() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         MultiscaleImage nuclei = image.openLabel("nuclei");
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.class, nuclei);
@@ -95,7 +95,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     // ── HCS ──────────────────────────────────────────────────────────────────
 
     @Test
-    void hcs_plate() throws Exception {
+    void hcsPlate() throws Exception {
         Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.4_hcs")));
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.Plate.class, plate);
         PlateMetadata meta = plate.getPlateMetadata();
@@ -105,7 +105,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void hcs_wellViaPlate() throws Exception {
+    void hcsWellViaPlate() throws Exception {
         Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.4_hcs")));
         Well well = plate.openWell("A/1");
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.Well.class, well);
@@ -114,7 +114,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void hcs_fullNavigation() throws Exception {
+    void hcsFullNavigation() throws Exception {
         Plate plate = Plate.open(storeHandle(TESTDATA.resolve("ome/v0.4_hcs")));
         MultiscaleImage fov = plate.openWell("A/1").openImage("0");
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.class, fov);
@@ -124,7 +124,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     // ── write round-trips ────────────────────────────────────────────────────
 
     @Test
-    void write_createAndReopen() throws Exception {
+    void writeCreateAndReopen() throws Exception {
         List<Axis> axes = Arrays.asList(
                 new Axis("z", "space", "micrometer"),
                 new Axis("y", "space", "micrometer"));
@@ -143,7 +143,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void write_omeroRoundTrip() throws Exception {
+    void writeOmeroRoundTrip() throws Exception {
         List<Axis> axes = Arrays.asList(new Axis("z", "space", "micrometer"), new Axis("y", "space", "micrometer"));
         StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v04_omero"));
         dev.zarr.zarrjava.ome.v0_4.MultiscaleImage created =
@@ -167,7 +167,7 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void write_plateRoundTrip() throws Exception {
+    void writePlateRoundTrip() throws Exception {
         PlateMetadata meta = new PlateMetadata(
                 Arrays.asList(new NamedEntry("1"), new NamedEntry("2")),
                 Arrays.asList(new NamedEntry("A"), new NamedEntry("B")),

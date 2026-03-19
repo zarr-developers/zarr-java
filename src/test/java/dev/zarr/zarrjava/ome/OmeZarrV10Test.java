@@ -31,13 +31,13 @@ public class OmeZarrV10Test extends ZarrTest {
     }
 
     @Test
-    void readMultiscaleImage_concreteType() throws Exception {
+    void readMultiscaleImageConcreteType() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(TESTDATA.resolve("ome/v1.0/image")));
         assertInstanceOf(dev.zarr.zarrjava.ome.v1_0.MultiscaleImage.class, image);
     }
 
     @Test
-    void readMultiscaleImage_unifiedInterface() throws Exception {
+    void readMultiscaleImageUnifiedInterface() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(TESTDATA.resolve("ome/v1.0/image")));
         MultiscalesEntry entry = image.getMultiscaleNode(0);
 
@@ -49,14 +49,14 @@ public class OmeZarrV10Test extends ZarrTest {
     }
 
     @Test
-    void readMultiscaleImage_openScaleLevel() throws Exception {
+    void readMultiscaleImageOpenScaleLevel() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(TESTDATA.resolve("ome/v1.0/image")));
         dev.zarr.zarrjava.core.Array array = image.openScaleLevel(0);
         assertArrayEquals(new long[]{8, 16, 16}, array.metadata().shape);
     }
 
     @Test
-    void readCollection_metadata() throws Exception {
+    void readCollectionMetadata() throws Exception {
         Collection collection = Collection.openCollection(storeHandle(TESTDATA.resolve("ome/v1.0")));
         CollectionMetadata meta = collection.getCollectionMetadata();
         assertNotNull(meta);
@@ -67,14 +67,14 @@ public class OmeZarrV10Test extends ZarrTest {
     }
 
     @Test
-    void readCollection_openNodeReturnsMultiscaleImage() throws Exception {
+    void readCollectionOpenNodeReturnsMultiscaleImage() throws Exception {
         Collection collection = Collection.openCollection(storeHandle(TESTDATA.resolve("ome/v1.0")));
         Object node = collection.openNode("image");
         assertInstanceOf(dev.zarr.zarrjava.ome.v1_0.MultiscaleImage.class, node);
     }
 
     @Test
-    void write_roundTrip() throws Exception {
+    void writeRoundTrip() throws Exception {
         StoreHandle collectionHandle = new FilesystemStore(TESTOUTPUT.resolve("v10_collection")).resolve();
         StoreHandle imageHandle = collectionHandle.resolve("image");
 

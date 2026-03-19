@@ -43,13 +43,13 @@ public abstract class OmeZarrBaseTest extends ZarrTest {
     // ── unified interface contract tests ─────────────────────────────────────
 
     @Test
-    void open_returnsCorrectConcreteType() throws Exception {
+    void openReturnsCorrectConcreteType() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         assertInstanceOf(expectedConcreteClass(), image);
     }
 
     @Test
-    void getMultiscaleNode_hasExpectedAxes() throws Exception {
+    void getMultiscaleNodeHasExpectedAxes() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         MultiscalesEntry entry = image.getMultiscaleNode(0);
         assertNotNull(entry);
@@ -60,26 +60,26 @@ public abstract class OmeZarrBaseTest extends ZarrTest {
     }
 
     @Test
-    void getMultiscaleNode_hasExpectedLevelCount() throws Exception {
+    void getMultiscaleNodeHasExpectedLevelCount() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         MultiscalesEntry entry = image.getMultiscaleNode(0);
         assertEquals(expectedScaleLevelCount(), entry.datasets.size());
     }
 
     @Test
-    void getAxisNames_returnsExpected() throws Exception {
+    void getAxisNamesReturnsExpected() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         assertEquals(expectedAxisNames(), image.getAxisNames());
     }
 
     @Test
-    void getScaleLevelCount_returnsExpected() throws Exception {
+    void getScaleLevelCountReturnsExpected() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         assertEquals(expectedScaleLevelCount(), image.getScaleLevelCount());
     }
 
     @Test
-    void openScaleLevel_level0HasExpectedShape() throws Exception {
+    void openScaleLevelLevel0HasExpectedShape() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         dev.zarr.zarrjava.core.Array array = image.openScaleLevel(0);
         assertArrayEquals(expectedLevel0Shape(), array.metadata().shape);

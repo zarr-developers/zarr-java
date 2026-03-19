@@ -23,7 +23,7 @@ Important v1.0 behavior:
 - `MultiscaleImage.open(...)` throws if the node is a v1.0 collection root (without `ome.multiscale`)
 - Open collection roots via `v1_0.Collection.openCollection(...)` and traverse with `openNode(...)`
 
-## Essential methods for visualization tools
+## Essential methods
 
 ### MultiscaleImage
 

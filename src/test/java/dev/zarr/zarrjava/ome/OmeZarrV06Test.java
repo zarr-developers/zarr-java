@@ -42,7 +42,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void coordinateSystems_presentInEntry() throws Exception {
+    void coordinateSystemsPresentInEntry() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         dev.zarr.zarrjava.ome.v0_6.MultiscaleImage v06Image =
                 (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) image;
@@ -61,7 +61,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void datasets_pathsAndTransformations() throws Exception {
+    void datasetsPathsAndTransformations() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         dev.zarr.zarrjava.ome.v0_6.MultiscaleImage v06Image =
                 (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) image;
@@ -85,7 +85,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void unifiedInterface_nodesAndPaths() throws Exception {
+    void unifiedInterfaceNodesAndPaths() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(imageStoreHandle());
         MultiscalesEntry entry = image.getMultiscaleNode(0);
 
@@ -99,7 +99,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void read3d_axesFromCoordinateSystems() throws Exception {
+    void read3dAxesFromCoordinateSystems() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(V06_3D));
         assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.class, image);
 
@@ -119,7 +119,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
     }
 
     @Test
-    void read3d_unifiedAxisNames() throws Exception {
+    void read3dUnifiedAxisNames() throws Exception {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(V06_3D));
         List<String> axisNames = image.getAxisNames();
         assertEquals(Arrays.asList("z", "y", "x"), axisNames);
