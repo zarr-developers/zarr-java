@@ -52,7 +52,7 @@ Navigation:
 - `Plate.openWell(String rowColPath)` (for example `"A/1"`)
 - `Well.openImage(String path)` (for example `"0"`)
 
-## Version-specific typed metadata (when needed)
+## Version-specific typed metadata
 
 If you need the raw version-specific metadata model instead of normalized `MultiscalesEntry`:
 
@@ -72,7 +72,6 @@ import dev.zarr.zarrjava.store.StoreHandle;
 StoreHandle imageHandle = new FilesystemStore("/data/ome/image.zarr").resolve();
 MultiscaleImage image = MultiscaleImage.open(imageHandle);
 
-// Drive viewer model
 int scaleCount = image.getScaleLevelCount();
 java.util.List<String> axisNames = image.getAxisNames();
 dev.zarr.zarrjava.ome.metadata.MultiscalesEntry entry0 = image.getMultiscaleNode(0);
@@ -89,7 +88,7 @@ if (!labels.isEmpty()) {
 StoreHandle plateHandle = new FilesystemStore("/data/ome/plate.zarr").resolve();
 Plate plate = Plate.open(plateHandle);
 Well well = plate.openWell("A/1");
-MultiscaleImage fov = well.openImage("0");
+MultiscaleImage wellImage = well.openImage("0");
 ```
 
 ## Write example
@@ -111,7 +110,7 @@ import java.util.Collections;
 StoreHandle out = new FilesystemStore("/tmp/ome_v05.zarr").resolve();
 MultiscalesEntry ms = new MultiscalesEntry(
     Arrays.asList(new Axis("y", "space", "micrometer"), new Axis("x", "space", "micrometer")),
-    Collections.emptyList()
+    Collections.<Dataset>emptyList());
 );
 dev.zarr.zarrjava.ome.v0_5.MultiscaleImage written = dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.create(out, ms);
 
