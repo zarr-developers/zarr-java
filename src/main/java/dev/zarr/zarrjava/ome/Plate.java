@@ -35,7 +35,7 @@ public interface Plate {
         // Try v0.5: zarr.json with "ome" -> "plate"
         StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
         if (zarrJson.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = dev.zarr.zarrjava.v3.Node.makeObjectMapper();
+            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
             byte[] bytes = Utils.toArray(zarrJson.readNonNull());
             com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
             com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
@@ -47,7 +47,7 @@ public interface Plate {
         // Try v0.4: .zattrs with "plate"
         StoreHandle zattrs = storeHandle.resolve(Node.ZATTRS);
         if (zattrs.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = dev.zarr.zarrjava.v2.Node.makeObjectMapper();
+            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
             byte[] bytes = Utils.toArray(zattrs.readNonNull());
             com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
             if (root.has("plate")) {

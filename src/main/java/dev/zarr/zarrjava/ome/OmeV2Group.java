@@ -30,7 +30,7 @@ public abstract class OmeV2Group extends Group {
         if (attributes == null || !attributes.containsKey(key)) {
             throw new ZarrException("No '" + key + "' key found in attributes at " + storeHandle);
         }
-        return dev.zarr.zarrjava.v2.Node.makeObjectMapper().convertValue(attributes.get(key), cls);
+        return OmeObjectMappers.makeV2Mapper().convertValue(attributes.get(key), cls);
     }
 
     /** Reads and converts a named attribute using a {@link TypeReference} (e.g. for {@code List<T>}). */
@@ -40,7 +40,7 @@ public abstract class OmeV2Group extends Group {
         if (attributes == null || !attributes.containsKey(key)) {
             throw new ZarrException("No '" + key + "' key found in attributes at " + storeHandle);
         }
-        return dev.zarr.zarrjava.v2.Node.makeObjectMapper().convertValue(attributes.get(key), typeRef);
+        return OmeObjectMappers.makeV2Mapper().convertValue(attributes.get(key), typeRef);
     }
 
     /**

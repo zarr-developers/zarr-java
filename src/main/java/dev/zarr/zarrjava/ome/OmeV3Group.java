@@ -31,7 +31,7 @@ public abstract class OmeV3Group extends Group {
         if (attributes == null || !attributes.containsKey("ome")) {
             throw new ZarrException("No 'ome' key found in attributes at " + storeHandle);
         }
-        return dev.zarr.zarrjava.v3.Node.makeObjectMapper().convertValue(attributes.get("ome"), cls);
+        return OmeObjectMappers.makeV3Mapper().convertValue(attributes.get("ome"), cls);
     }
 
     /**
