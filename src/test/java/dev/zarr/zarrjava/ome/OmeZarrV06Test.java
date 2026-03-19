@@ -16,6 +16,8 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
             TESTDATA.resolve("ome/v0.6/examples/2d/basic/scale_multiscale.zarr");
     private static final java.nio.file.Path V06_3D =
             TESTDATA.resolve("ome/v0.6/examples/3d/basic/scale_multiscale.zarr");
+    private static final java.nio.file.Path V06_HUMAN_ORGAN_ATLAS_OVERVIEW =
+            TESTDATA.resolve("ome/v0.6/examples/user_stories/human_organ_atlas.zarr/overview.ome.zarr");
 
     @Override
     StoreHandle imageStoreHandle() throws Exception {
@@ -123,5 +125,28 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         MultiscaleImage image = MultiscaleImage.open(storeHandle(V06_3D));
         List<String> axisNames = image.getAxisNames();
         assertEquals(Arrays.asList("z", "y", "x"), axisNames);
+    }
+
+    @Test
+    void readHumanOrganAtlasOverview() throws Exception {
+        MultiscaleImage image = MultiscaleImage.open(storeHandle(V06_HUMAN_ORGAN_ATLAS_OVERVIEW));
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.class, image);
+
+        assertEquals(2, image.getScaleLevelCount());
+        assertEquals(Arrays.asList("x", "y", "z"), image.getAxisNames());
+        assertEquals(Arrays.asList("0", "1"), Arrays.asList(
+                image.getMultiscaleNode(0).datasets.get(0).path,
+                image.getMultiscaleNode(0).datasets.get(1).path));
+
+        dev.zarr.zarrjava.core.Array level0 = image.openScaleLevel(0);
+        assertArrayEquals(new long[]{8308, 8308, 9564}, level0.metadata().shape);
+
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage typed = (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) image;
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry entry = typed.getMultiscalesEntry(0);
+        assertNotNull(entry.coordinateSystems);
+        assertEquals(2, entry.coordinateSystems.size());
+        assertEquals("physical", entry.coordinateSystems.get(0).name);
+        assertEquals("anatomical", entry.coordinateSystems.get(1).name);
+        assertEquals("sequence", entry.datasets.get(0).coordinateTransformations.get(0).type);
     }
 }

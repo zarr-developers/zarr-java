@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.ome.v0_6.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ome.metadata.Axis;
@@ -10,11 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class MultiscalesEntry {
 
     @Nullable public final List<Axis> axes;
     public final List<Dataset> datasets;
+    @Nullable public final List<CoordinateTransformation> coordinateTransformations;
     @Nullable public final List<CoordinateSystem> coordinateSystems;
     @Nullable public final String name;
     @Nullable public final String type;
@@ -24,6 +27,7 @@ public final class MultiscalesEntry {
     public MultiscalesEntry(
             @Nullable @JsonProperty("axes") List<Axis> axes,
             @JsonProperty(value = "datasets", required = true) List<Dataset> datasets,
+            @Nullable @JsonProperty("coordinateTransformations") List<CoordinateTransformation> coordinateTransformations,
             @Nullable @JsonProperty("coordinateSystems") List<CoordinateSystem> coordinateSystems,
             @Nullable @JsonProperty("name") String name,
             @Nullable @JsonProperty("type") String type,
@@ -31,6 +35,7 @@ public final class MultiscalesEntry {
     ) {
         this.axes = axes;
         this.datasets = datasets;
+        this.coordinateTransformations = coordinateTransformations;
         this.coordinateSystems = coordinateSystems;
         this.name = name;
         this.type = type;
@@ -38,13 +43,13 @@ public final class MultiscalesEntry {
     }
 
     public MultiscalesEntry(List<Dataset> datasets, List<CoordinateSystem> coordinateSystems, String name) {
-        this(null, datasets, coordinateSystems, name, null, null);
+        this(null, datasets, null, coordinateSystems, name, null, null);
     }
 
     /** Returns a new MultiscalesEntry with the given dataset appended. */
     public MultiscalesEntry withDataset(Dataset dataset) {
         List<Dataset> updated = new ArrayList<>(this.datasets);
         updated.add(dataset);
-        return new MultiscalesEntry(axes, updated, coordinateSystems, name, type, metadata);
+        return new MultiscalesEntry(axes, updated, coordinateTransformations, coordinateSystems, name, type, metadata);
     }
 }

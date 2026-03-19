@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.ome.v1_0.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation;
@@ -8,6 +9,7 @@ import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation;
 import java.util.List;
 
 /** A single resolution level within a v1.0 multiscale image (replaces v0.6 Dataset). */
+@JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class Level {
 
