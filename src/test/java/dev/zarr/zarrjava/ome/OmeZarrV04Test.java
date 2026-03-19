@@ -7,16 +7,35 @@ import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;
 import dev.zarr.zarrjava.ome.metadata.PlateMetadata;
 import dev.zarr.zarrjava.ome.metadata.NamedEntry;
 import dev.zarr.zarrjava.ome.metadata.WellRef;
+import dev.zarr.zarrjava.store.S3Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class OmeZarrV04Test extends OmeZarrBaseTest {
+    private static final String UK1_S3_ENDPOINT = "https://uk1s3.embassy.ebi.ac.uk";
+
+    private static StoreHandle publicIrdV04Store(String key) {
+        S3Client client = S3Client.builder()
+                .endpointOverride(URI.create(UK1_S3_ENDPOINT))
+                .region(Region.US_EAST_1)
+                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
+                .credentialsProvider(AnonymousCredentialsProvider.create())
+                .build();
+        return new S3Store(client, "idr", "zarr/v0.4/idr0048A").resolve(key);
+    }
 
     @Override
     StoreHandle imageStoreHandle() throws Exception {
@@ -178,5 +197,39 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
         Plate reopened = Plate.open(handle);
         assertEquals(2, reopened.getPlateMetadata().columns.size());
         assertEquals("A/1", reopened.getPlateMetadata().wells.get(0).path);
+    }
+
+    @Test
+    void openS3Idr0048AV04() throws Exception {
+        StoreHandle handle = publicIrdV04Store("9846152.zarr");
+        MultiscaleImage image = MultiscaleImage.open(handle);
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.class, image);
+        assertEquals(9, image.getScaleLevelCount());
+
+        MultiscalesMetadataImage<?> typed = (MultiscalesMetadataImage<?>) image;
+        MultiscalesEntry entry = (MultiscalesEntry) typed.getMultiscalesEntry(0);
+        assertEquals("0.4", entry.version);
+        assertEquals(Arrays.asList("c", "z", "y", "x"), image.getAxisNames());
+        assertEquals(9, entry.datasets.size());
+        for (int i = 0; i < entry.datasets.size(); i++) {
+            dev.zarr.zarrjava.ome.metadata.Dataset ds = entry.datasets.get(i);
+            assertEquals(Integer.toString(i), ds.path);
+            assertEquals("scale", ds.coordinateTransformations.get(0).type);
+            assertEquals(4, ds.coordinateTransformations.get(0).scale.size());
+        }
+
+        dev.zarr.zarrjava.core.Array level0 = image.openScaleLevel(0);
+        long[] shape = level0.metadata().shape;
+        assertEquals(4, shape.length);
+        // IDR sample catalog (idr0048A/9846152): X=19120, Y=13350, Z=91, C=3.
+        assertArrayEquals(new long[]{3, 91, 13350, 19120}, shape);
+        long[] offset = new long[shape.length];
+        long[] readShape = new long[shape.length];
+        Arrays.fill(readShape, 1L);
+        assertEquals(1L, level0.read(offset, readShape).getSize());
+        long[] shape1 = image.openScaleLevel(1).metadata().shape;
+        for (int i = 0; i < shape.length; i++) {
+            assertTrue(shape1[i] <= shape[i], "expected downsampled-or-equal shape at dim " + i);
+        }
     }
 }
