@@ -1,6 +1,9 @@
 package dev.zarr.zarrjava.ome;
 
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
+import dev.zarr.zarrjava.ome.metadata.OmeroChannel;
+import dev.zarr.zarrjava.ome.metadata.OmeroRdefs;
+import dev.zarr.zarrjava.ome.metadata.OmeroWindow;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
@@ -173,22 +176,29 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
                         null,
                         null);
 
-        java.util.Map<String, Object> ch = new java.util.HashMap<>();
-        ch.put("label", "LaminB1");
-        ch.put("color", "0000FF");
-        java.util.Map<String, Object> win = new java.util.HashMap<>();
-        win.put("min", 0);
-        win.put("max", 65535);
-        win.put("start", 0);
-        win.put("end", 1500);
-        ch.put("window", win);
+        OmeroChannel ch = new OmeroChannel(
+                true,
+                1.0,
+                "0000FF",
+                "linear",
+                false,
+                "LaminB1",
+                new OmeroWindow(0.0, 65535.0, 0.0, 1500.0));
+        OmeroChannel ch2 = new OmeroChannel(
+                true,
+                1.0,
+                "00FF00",
+                "linear",
+                false,
+                "Actin",
+                new OmeroWindow(10.0, 4096.0, 50.0, 2000.0));
         dev.zarr.zarrjava.ome.metadata.OmeroMetadata omero =
                 new dev.zarr.zarrjava.ome.metadata.OmeroMetadata(
                         1,
                         "0.5",
                         "example.tif",
-                        java.util.Collections.singletonList(ch),
-                        java.util.Collections.singletonMap("model", "color"));
+                        Arrays.asList(ch, ch2),
+                        new OmeroRdefs(0, 0, "color"));
 
         dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata ome =
                 new dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata("0.6", java.util.Collections.singletonList(ms), omero);
@@ -207,6 +217,9 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals(Integer.valueOf(1), read.getOmeroMetadata().id);
         assertEquals("0.5", read.getOmeroMetadata().version);
         assertEquals("example.tif", read.getOmeroMetadata().name);
-        assertEquals("LaminB1", read.getOmeroMetadata().channels.get(0).get("label"));
+        assertEquals(2, read.getOmeroMetadata().channels.size());
+        assertEquals("LaminB1", read.getOmeroMetadata().channels.get(0).label);
+        assertEquals("Actin", read.getOmeroMetadata().channels.get(1).label);
+        assertEquals("color", read.getOmeroMetadata().rdefs.model);
     }
 }

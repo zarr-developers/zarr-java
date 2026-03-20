@@ -98,9 +98,9 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
         assertNull(omero.version);
         assertNull(omero.name);
         assertEquals(2, omero.channels.size());
-        assertEquals("DAPI", omero.channels.get(0).get("label"));
-        assertEquals("GFP",  omero.channels.get(1).get("label"));
-        assertEquals("color", omero.rdefs.get("model"));
+        assertEquals("DAPI", omero.channels.get(0).label);
+        assertEquals("GFP",  omero.channels.get(1).label);
+        assertEquals("color", omero.rdefs.model);
     }
 
     @Test

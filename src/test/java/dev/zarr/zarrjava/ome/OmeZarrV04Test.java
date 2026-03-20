@@ -4,6 +4,9 @@ import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;
+import dev.zarr.zarrjava.ome.metadata.OmeroChannel;
+import dev.zarr.zarrjava.ome.metadata.OmeroRdefs;
+import dev.zarr.zarrjava.ome.metadata.OmeroWindow;
 import dev.zarr.zarrjava.ome.metadata.PlateMetadata;
 import dev.zarr.zarrjava.ome.metadata.NamedEntry;
 import dev.zarr.zarrjava.ome.metadata.WellRef;
@@ -85,8 +88,8 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
         assertNull(omero.version);
         assertNull(omero.name);
         assertEquals(2, omero.channels.size());
-        assertEquals("DAPI", omero.channels.get(0).get("label"));
-        assertEquals("color", omero.rdefs.get("model"));
+        assertEquals("DAPI", omero.channels.get(0).label);
+        assertEquals("color", omero.rdefs.model);
     }
 
     @Test
@@ -173,10 +176,10 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
                         dev.zarr.zarrjava.v2.DataType.FLOAT32, 0, dev.zarr.zarrjava.v2.Order.C, null, null, null),
                 Collections.singletonList(CoordinateTransformation.scale(Arrays.asList(1.0, 1.0))));
 
-        java.util.Map<String, Object> ch = new java.util.HashMap<String, Object>();
-        ch.put("label", "DAPI");
-        java.util.Map<String, Object> rd = new java.util.HashMap<String, Object>();
-        rd.put("model", "color");
+        OmeroChannel ch = new OmeroChannel(
+                true, 1.0, "0000FF", "linear", false, "DAPI",
+                new OmeroWindow(0.0, 65535.0, 0.0, 1500.0));
+        OmeroRdefs rd = new OmeroRdefs(0, 0, "color");
         created.setOmeroMetadata(new OmeroMetadata(1, "0.5", "example.tif", Collections.singletonList(ch), rd));
 
         dev.zarr.zarrjava.ome.v0_4.MultiscaleImage reopened =
@@ -186,7 +189,8 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
         assertEquals(Integer.valueOf(1), got.id);
         assertEquals("0.5", got.version);
         assertEquals("example.tif", got.name);
-        assertEquals("DAPI", got.channels.get(0).get("label"));
+        assertEquals("DAPI", got.channels.get(0).label);
+        assertEquals("color", got.rdefs.model);
     }
 
     @Test
