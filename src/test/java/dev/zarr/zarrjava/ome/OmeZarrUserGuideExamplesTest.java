@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.ome;
 import dev.zarr.zarrjava.ZarrTest;
 import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.ScaleCoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.Dataset;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -85,6 +86,6 @@ class OmeZarrUserGuideExamplesTest extends ZarrTest {
         assertEquals("s0", reopened.getMultiscaleNode(0).datasets.get(0).path);
         assertEquals("s1", reopened.getMultiscaleNode(0).datasets.get(1).path);
         assertEquals(Arrays.asList(2.0, 2.0),
-                reopened.getMultiscaleNode(0).datasets.get(1).coordinateTransformations.get(0).scale);
+                ((ScaleCoordinateTransformation) reopened.getMultiscaleNode(0).datasets.get(1).coordinateTransformations.get(0)).scale);
     }
 }

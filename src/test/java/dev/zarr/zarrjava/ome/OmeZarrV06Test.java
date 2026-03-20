@@ -83,10 +83,13 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals("scale", ct.type);
         assertEquals("s0", ct.input);
         assertEquals("physical", ct.output);
-        assertNotNull(ct.scale);
-        assertEquals(2, ct.scale.size());
-        assertEquals(6.0, ct.scale.get(0), 1e-9);
-        assertEquals(4.0, ct.scale.get(1), 1e-9);
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation.class, ct);
+        dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation scaleCt =
+                (dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) ct;
+        assertNotNull(scaleCt.scale);
+        assertEquals(2, scaleCt.scale.size());
+        assertEquals(6.0, scaleCt.scale.get(0), 1e-9);
+        assertEquals(4.0, scaleCt.scale.get(1), 1e-9);
     }
 
     @Test

@@ -24,23 +24,11 @@ import java.util.List;
 public abstract class CoordinateTransformation {
 
     public final String type;
-    @Nullable
-    public final List<Double> scale;
-    @Nullable
-    public final List<Double> translation;
-    @Nullable
-    public final String path;
 
     protected CoordinateTransformation(
-            @JsonProperty(value = "type", required = true) String type,
-            @Nullable @JsonProperty("scale") List<Double> scale,
-            @Nullable @JsonProperty("translation") List<Double> translation,
-            @Nullable @JsonProperty("path") String path
+            @JsonProperty(value = "type", required = true) String type
     ) {
         this.type = type;
-        this.scale = scale;
-        this.translation = translation;
-        this.path = path;
     }
 
     public static CoordinateTransformation scale(List<Double> scale) {
@@ -70,6 +58,16 @@ public abstract class CoordinateTransformation {
         if ("identity".equals(type)) {
             return new IdentityCoordinateTransformation(path);
         }
-        return new GenericCoordinateTransformation(type, scale, translation, path);
+        GenericCoordinateTransformation generic = new GenericCoordinateTransformation(type);
+        if (scale != null) {
+            generic.raw.put("scale", scale);
+        }
+        if (translation != null) {
+            generic.raw.put("translation", translation);
+        }
+        if (path != null) {
+            generic.raw.put("path", path);
+        }
+        return generic;
     }
 }

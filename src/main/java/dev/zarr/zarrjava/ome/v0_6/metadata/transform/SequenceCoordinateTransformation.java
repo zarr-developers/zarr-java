@@ -7,6 +7,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 public final class SequenceCoordinateTransformation extends CoordinateTransformation {
+    @Nullable public final List<CoordinateTransformation> transformations;
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public SequenceCoordinateTransformation(
             @Nullable @JsonProperty("input") String input,
@@ -14,6 +16,7 @@ public final class SequenceCoordinateTransformation extends CoordinateTransforma
             @Nullable @JsonProperty("name") String name,
             @Nullable @JsonProperty("transformations") List<CoordinateTransformation> transformations
     ) {
-        super("sequence", input, output, name, null, null, null, transformations, null, null, null);
+        super("sequence", input, output, name);
+        this.transformations = transformations;
     }
 }

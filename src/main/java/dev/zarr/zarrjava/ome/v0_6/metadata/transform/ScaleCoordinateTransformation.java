@@ -7,6 +7,9 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 public final class ScaleCoordinateTransformation extends CoordinateTransformation {
+    @Nullable public final List<Double> scale;
+    @Nullable public final String path;
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ScaleCoordinateTransformation(
             @Nullable @JsonProperty("input") String input,
@@ -15,6 +18,8 @@ public final class ScaleCoordinateTransformation extends CoordinateTransformatio
             @Nullable @JsonProperty("scale") List<Double> scale,
             @Nullable @JsonProperty("path") String path
     ) {
-        super("scale", input, output, name, scale, null, path, null, null, null, null);
+        super("scale", input, output, name);
+        this.scale = scale;
+        this.path = path;
     }
 }

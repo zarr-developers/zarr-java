@@ -7,11 +7,16 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 public final class TranslationCoordinateTransformation extends CoordinateTransformation {
+    @Nullable public final List<Double> translation;
+    @Nullable public final String path;
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public TranslationCoordinateTransformation(
             @Nullable @JsonProperty("translation") List<Double> translation,
             @Nullable @JsonProperty("path") String path
     ) {
-        super("translation", null, translation, path);
+        super("translation");
+        this.translation = translation;
+        this.path = path;
     }
 }

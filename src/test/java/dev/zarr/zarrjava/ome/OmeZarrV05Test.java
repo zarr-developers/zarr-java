@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.ome;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.ScaleCoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.metadata.NamedEntry;
 import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;
@@ -76,7 +77,7 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
         MultiscalesMetadataImage<?> image = (MultiscalesMetadataImage<?>) MultiscaleImage.open(imageStoreHandle());
         MultiscalesEntry entry = (MultiscalesEntry) image.getMultiscalesEntry(0);
         List<Double> expected = Arrays.asList(1.0, 1.0, 0.5, 0.5, 0.5);
-        assertEquals(expected, entry.datasets.get(0).coordinateTransformations.get(0).scale);
+        assertEquals(expected, ((ScaleCoordinateTransformation) entry.datasets.get(0).coordinateTransformations.get(0)).scale);
     }
 
     @Test
@@ -258,7 +259,7 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
             dev.zarr.zarrjava.ome.metadata.Dataset ds = entry.datasets.get(i);
             assertEquals(Integer.toString(i), ds.path);
             assertEquals("scale", ds.coordinateTransformations.get(0).type);
-            assertEquals(5, ds.coordinateTransformations.get(0).scale.size());
+            assertEquals(5, ((ScaleCoordinateTransformation) ds.coordinateTransformations.get(0)).scale.size());
         }
 
         dev.zarr.zarrjava.core.Array level0 = image.openScaleLevel(0);

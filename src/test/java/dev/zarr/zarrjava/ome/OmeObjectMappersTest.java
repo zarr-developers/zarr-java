@@ -110,6 +110,93 @@ class OmeObjectMappersTest {
         }
     }
 
+    @Test
+    void v3MapperParsesUnknownTransformAsGenericAndPreservesRawFields() {
+        Map<String, Object> unknownTransform = new HashMap<>();
+        unknownTransform.put("type", "vendorWarp");
+        unknownTransform.put("strength", 3.5);
+        unknownTransform.put("axes", Arrays.asList("y", "x"));
+        Map<String, Object> vendorPayload = new HashMap<>();
+        vendorPayload.put("mode", "spline");
+        vendorPayload.put("order", 3);
+        unknownTransform.put("vendor", vendorPayload);
+
+        Map<String, Object> dataset = new HashMap<>();
+        dataset.put("path", "0");
+        dataset.put("coordinateTransformations", Arrays.asList(unknownTransform));
+
+        Map<String, Object> axisY = new HashMap<>();
+        axisY.put("name", "y");
+        axisY.put("type", "space");
+        Map<String, Object> axisX = new HashMap<>();
+        axisX.put("name", "x");
+        axisX.put("type", "space");
+
+        Map<String, Object> entryRaw = new HashMap<>();
+        entryRaw.put("axes", Arrays.asList(axisY, axisX));
+        entryRaw.put("datasets", Arrays.asList(dataset));
+
+        ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
+        MultiscalesEntry entry = mapper.convertValue(entryRaw, MultiscalesEntry.class);
+
+        assertNotNull(entry);
+        assertEquals(1, entry.datasets.size());
+        assertEquals(1, entry.datasets.get(0).coordinateTransformations.size());
+        assertTrue(
+                entry.datasets.get(0).coordinateTransformations.get(0)
+                        instanceof dev.zarr.zarrjava.ome.metadata.transform.GenericCoordinateTransformation);
+
+        dev.zarr.zarrjava.ome.metadata.transform.GenericCoordinateTransformation generic =
+                (dev.zarr.zarrjava.ome.metadata.transform.GenericCoordinateTransformation)
+                        entry.datasets.get(0).coordinateTransformations.get(0);
+        assertEquals("vendorWarp", generic.type);
+        assertEquals(3.5, generic.raw.get("strength"));
+        assertEquals(Arrays.asList("y", "x"), generic.raw.get("axes"));
+        assertEquals(vendorPayload, generic.raw.get("vendor"));
+    }
+
+    @Test
+    void v2MapperParsesUnknownV06TransformAsGenericAndPreservesRawFields() {
+        Map<String, Object> unknownTransform = new HashMap<>();
+        unknownTransform.put("type", "customNonLinear");
+        unknownTransform.put("input", "s0");
+        unknownTransform.put("output", "physical");
+        unknownTransform.put("name", "custom-stage");
+        unknownTransform.put("lut", Arrays.asList(1, 4, 9));
+        Map<String, Object> extension = new HashMap<>();
+        extension.put("author", "vendor");
+        extension.put("version", 2);
+        unknownTransform.put("extension", extension);
+
+        Map<String, Object> dataset = new HashMap<>();
+        dataset.put("path", "s0");
+        dataset.put("coordinateTransformations", Arrays.asList(unknownTransform));
+
+        Map<String, Object> entryRaw = new HashMap<>();
+        entryRaw.put("datasets", Arrays.asList(dataset));
+
+        ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry entry =
+                mapper.convertValue(entryRaw, dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry.class);
+
+        assertNotNull(entry);
+        assertEquals(1, entry.datasets.size());
+        assertEquals(1, entry.datasets.get(0).coordinateTransformations.size());
+        assertTrue(
+                entry.datasets.get(0).coordinateTransformations.get(0)
+                        instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.GenericCoordinateTransformation);
+
+        dev.zarr.zarrjava.ome.v0_6.metadata.transform.GenericCoordinateTransformation generic =
+                (dev.zarr.zarrjava.ome.v0_6.metadata.transform.GenericCoordinateTransformation)
+                        entry.datasets.get(0).coordinateTransformations.get(0);
+        assertEquals("customNonLinear", generic.type);
+        assertEquals("s0", generic.input);
+        assertEquals("physical", generic.output);
+        assertEquals("custom-stage", generic.name);
+        assertEquals(Arrays.asList(1, 4, 9), generic.raw.get("lut"));
+        assertEquals(extension, generic.raw.get("extension"));
+    }
+
     private static final class CapturingHandler extends Handler {
         private final List<String> warnings = new ArrayList<>();
 

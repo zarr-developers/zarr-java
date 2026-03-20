@@ -7,6 +7,9 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 public final class MapAxisCoordinateTransformation extends CoordinateTransformation {
+    @Nullable public final List<Integer> mapAxis;
+    @Nullable public final CoordinateTransformation transformation;
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public MapAxisCoordinateTransformation(
             @Nullable @JsonProperty("input") String input,
@@ -15,6 +18,8 @@ public final class MapAxisCoordinateTransformation extends CoordinateTransformat
             @Nullable @JsonProperty("mapAxis") List<Integer> mapAxis,
             @Nullable @JsonProperty("transformation") CoordinateTransformation transformation
     ) {
-        super("mapAxis", input, output, name, null, null, null, null, mapAxis, null, transformation);
+        super("mapAxis", input, output, name);
+        this.mapAxis = mapAxis;
+        this.transformation = transformation;
     }
 }
