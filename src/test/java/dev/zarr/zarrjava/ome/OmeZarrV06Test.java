@@ -149,4 +149,64 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals("anatomical", entry.coordinateSystems.get(1).name);
         assertEquals("sequence", entry.datasets.get(0).coordinateTransformations.get(0).type);
     }
+
+    @Test
+    void readV06WithOmeroMetadata() throws Exception {
+        java.nio.file.Path out = TESTOUTPUT.resolve("ome_v06_with_omero");
+        StoreHandle outHandle = storeHandle(out);
+        java.util.List<dev.zarr.zarrjava.ome.metadata.Axis> axes = Arrays.asList(
+                new dev.zarr.zarrjava.ome.metadata.Axis("y", "space", "micrometer"),
+                new dev.zarr.zarrjava.ome.metadata.Axis("x", "space", "micrometer"));
+        java.util.List<dev.zarr.zarrjava.ome.v0_6.metadata.Dataset> datasets =
+                java.util.Collections.singletonList(new dev.zarr.zarrjava.ome.v0_6.metadata.Dataset(
+                        "s0",
+                        java.util.Collections.singletonList(
+                                dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation.scale(
+                                        Arrays.asList(1.0, 1.0), "s0", "physical"))));
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry ms =
+                new dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry(
+                        null,
+                        datasets,
+                        null,
+                        java.util.Collections.singletonList(new CoordinateSystem("physical", axes)),
+                        "multiscales",
+                        null,
+                        null);
+
+        java.util.Map<String, Object> ch = new java.util.HashMap<>();
+        ch.put("label", "LaminB1");
+        ch.put("color", "0000FF");
+        java.util.Map<String, Object> win = new java.util.HashMap<>();
+        win.put("min", 0);
+        win.put("max", 65535);
+        win.put("start", 0);
+        win.put("end", 1500);
+        ch.put("window", win);
+        dev.zarr.zarrjava.ome.metadata.OmeroMetadata omero =
+                new dev.zarr.zarrjava.ome.metadata.OmeroMetadata(
+                        1,
+                        "0.5",
+                        "example.tif",
+                        java.util.Collections.singletonList(ch),
+                        java.util.Collections.singletonMap("model", "color"));
+
+        dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata ome =
+                new dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata("0.6", java.util.Collections.singletonList(ms), omero);
+        dev.zarr.zarrjava.v3.Group.create(outHandle, dev.zarr.zarrjava.ome.OmeV3Group.omeAttributes(ome));
+        dev.zarr.zarrjava.v3.Array.create(
+                outHandle.resolve("s0"),
+                dev.zarr.zarrjava.v3.Array.metadataBuilder()
+                        .withShape(16, 16)
+                        .withChunkShape(8, 8)
+                        .withDataType(dev.zarr.zarrjava.v3.DataType.UINT16)
+                        .build());
+
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage read =
+                (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) MultiscaleImage.open(outHandle);
+        assertNotNull(read.getOmeroMetadata());
+        assertEquals(Integer.valueOf(1), read.getOmeroMetadata().id);
+        assertEquals("0.5", read.getOmeroMetadata().version);
+        assertEquals("example.tif", read.getOmeroMetadata().name);
+        assertEquals("LaminB1", read.getOmeroMetadata().channels.get(0).get("label"));
+    }
 }
