@@ -61,6 +61,21 @@ If you need the raw version-specific metadata model instead of normalized `Multi
 
 - Cast to `MultiscalesMetadataImage<?>` and call `getMultiscalesEntry(i)`
 
+
+## v0.6 Scene metadata
+
+Scene roots (groups with `ome.scene`) are supported via `dev.zarr.zarrjava.ome.v0_6.Scene`:
+
+- `Scene.openScene(StoreHandle)` / `Scene.open(StoreHandle)`
+- `Scene.createScene(StoreHandle, SceneMetadata)` / `Scene.create(...)`
+- `listImageNodes()` and `openImageNode(String)` for sibling multiscale images
+- `getCoordinateTransformationGraph()` for lightweight metadata graph inspection
+
+Notes:
+- Parsing is permissive and explicit (no strict full-spec validation).
+- Scene-level references (`input`/`output`) are resolved against scene-root coordinate systems and child image coordinate systems for graph inspection.
+- Path-based transform assets can be normalized with `Scene.normalizeCoordinateTransformPath(...)` and grouped under `coordinateTransformations/` via `createCoordinateTransformationsGroup()`.
+
 ## Read example
 
 ```java

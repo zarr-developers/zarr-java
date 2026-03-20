@@ -1,14 +1,20 @@
 package dev.zarr.zarrjava.ome;
 
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
+import dev.zarr.zarrjava.ome.metadata.NamedEntry;
 import dev.zarr.zarrjava.ome.metadata.OmeroChannel;
 import dev.zarr.zarrjava.ome.metadata.OmeroRdefs;
 import dev.zarr.zarrjava.ome.metadata.OmeroWindow;
+import dev.zarr.zarrjava.ome.metadata.PlateMetadata;
+import dev.zarr.zarrjava.ome.metadata.WellImage;
+import dev.zarr.zarrjava.ome.metadata.WellMetadata;
+import dev.zarr.zarrjava.ome.metadata.WellRef;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -224,5 +230,100 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals("LaminB1", read.getOmeroMetadata().channels.get(0).label);
         assertEquals("Actin", read.getOmeroMetadata().channels.get(1).label);
         assertEquals("color", read.getOmeroMetadata().rdefs.model);
+    }
+
+    @Test
+    void readV06WithBioformats2rawLayout() throws Exception {
+        java.nio.file.Path out = TESTOUTPUT.resolve("ome_v06_with_layout");
+        StoreHandle outHandle = storeHandle(out);
+
+        java.util.List<dev.zarr.zarrjava.ome.metadata.Axis> axes = Arrays.asList(
+                new dev.zarr.zarrjava.ome.metadata.Axis("y", "space", "micrometer"),
+                new dev.zarr.zarrjava.ome.metadata.Axis("x", "space", "micrometer"));
+        java.util.List<dev.zarr.zarrjava.ome.v0_6.metadata.Dataset> datasets =
+                java.util.Collections.singletonList(new dev.zarr.zarrjava.ome.v0_6.metadata.Dataset(
+                        "s0",
+                        java.util.Collections.singletonList(
+                                dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
+                                        Arrays.asList(1.0, 1.0), "s0", "physical"))));
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry ms =
+                new dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry(
+                        null,
+                        datasets,
+                        null,
+                        java.util.Collections.singletonList(new CoordinateSystem("physical", axes)),
+                        "multiscales",
+                        null,
+                        null);
+        dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata ome =
+                new dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata(
+                        "0.6",
+                        java.util.Collections.singletonList(ms),
+                        null,
+                        7,
+                        null,
+                        null,
+                        null);
+        dev.zarr.zarrjava.v3.Group.create(outHandle, dev.zarr.zarrjava.ome.OmeV3Group.omeAttributes(ome));
+        dev.zarr.zarrjava.v3.Array.create(
+                outHandle.resolve("s0"),
+                dev.zarr.zarrjava.v3.Array.metadataBuilder()
+                        .withShape(16, 16)
+                        .withChunkShape(8, 8)
+                        .withDataType(dev.zarr.zarrjava.v3.DataType.UINT16)
+                        .build());
+
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage read =
+                (dev.zarr.zarrjava.ome.v0_6.MultiscaleImage) MultiscaleImage.open(outHandle);
+        assertEquals(Integer.valueOf(7), read.getBioformats2rawLayout());
+    }
+
+    @Test
+    void hcsV06PlateWellDispatchAndNavigation() throws Exception {
+        StoreHandle plateHandle = storeHandle(TESTOUTPUT.resolve("ome_v06_hcs_full"));
+        dev.zarr.zarrjava.ome.v0_6.Plate.createPlate(plateHandle, new PlateMetadata(
+                Collections.singletonList(new NamedEntry("1")),
+                Collections.singletonList(new NamedEntry("A")),
+                Collections.singletonList(new WellRef("A/1", 0, 0)),
+                null, null, null, null));
+        dev.zarr.zarrjava.ome.v0_6.Well.createWell(
+                plateHandle.resolve("A/1"),
+                new WellMetadata(Collections.singletonList(new WellImage("0", null))));
+
+        List<dev.zarr.zarrjava.ome.metadata.Axis> axes = Arrays.asList(
+                new dev.zarr.zarrjava.ome.metadata.Axis("y", "space", "micrometer"),
+                new dev.zarr.zarrjava.ome.metadata.Axis("x", "space", "micrometer"));
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry ms =
+                new dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry(
+                        null,
+                        Collections.emptyList(),
+                        null,
+                        Collections.singletonList(new CoordinateSystem("physical", axes)),
+                        "multiscales",
+                        null,
+                        null);
+        dev.zarr.zarrjava.ome.v0_6.MultiscaleImage fov = dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.create(
+                plateHandle.resolve("A/1").resolve("0"), ms);
+        fov.createScaleLevel(
+                "s0",
+                dev.zarr.zarrjava.v3.Array.metadataBuilder()
+                        .withShape(16, 16)
+                        .withChunkShape(8, 8)
+                        .withDataType(dev.zarr.zarrjava.v3.DataType.FLOAT32)
+                        .build(),
+                Collections.singletonList(dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation.scale(
+                        Arrays.asList(1.0, 1.0))));
+
+        Plate plate = Plate.open(plateHandle);
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.Plate.class, plate);
+        assertEquals("A/1", plate.getPlateMetadata().wells.get(0).path);
+        Well well = plate.openWell("A/1");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.Well.class, well);
+        assertEquals("0", well.getWellMetadata().images.get(0).path);
+        MultiscaleImage image = well.openImage("0");
+        assertInstanceOf(dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.class, image);
+        assertEquals(Collections.singletonList("s0"),
+                Collections.singletonList(image.getMultiscaleNode(0).datasets.get(0).path));
+        assertEquals(Arrays.asList("y", "x"), image.getAxisNames());
     }
 }

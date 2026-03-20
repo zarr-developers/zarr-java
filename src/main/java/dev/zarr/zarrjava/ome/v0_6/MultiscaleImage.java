@@ -52,6 +52,14 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             throw new ZarrException(
                     "Expected OME-Zarr version '0.6', got '" + omeMetadata.version + "' at " + storeHandle);
         }
+        if (omeMetadata.multiscales == null || omeMetadata.multiscales.isEmpty()) {
+            if (omeMetadata.scene != null) {
+                throw new ZarrException(
+                        "OME-Zarr v0.6 scene metadata found at " + storeHandle
+                                + "; use dev.zarr.zarrjava.ome.v0_6.Scene.open(...)");
+            }
+            throw new ZarrException("No 'multiscales' found in ome metadata at " + storeHandle);
+        }
         return new MultiscaleImage(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -80,6 +88,15 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
     @javax.annotation.Nullable
     public dev.zarr.zarrjava.ome.metadata.OmeroMetadata getOmeroMetadata() {
         return omeMetadata.omero;
+    }
+
+    @javax.annotation.Nullable
+    public Integer getBioformats2rawLayout() {
+        return omeMetadata.bioformats2rawLayout;
+    }
+
+    OmeMetadata getRawOmeMetadata() {
+        return omeMetadata;
     }
 
     @Override
@@ -198,7 +215,14 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         MultiscalesEntry updated = current.withDataset(new dev.zarr.zarrjava.ome.v0_6.metadata.Dataset(path, v06Transforms));
         List<MultiscalesEntry> updatedList = new ArrayList<>(omeMetadata.multiscales);
         updatedList.set(0, updated);
-        omeMetadata = new OmeMetadata(omeMetadata.version, updatedList);
+        omeMetadata = new OmeMetadata(
+                omeMetadata.version,
+                updatedList,
+                omeMetadata.omero,
+                omeMetadata.bioformats2rawLayout,
+                omeMetadata.scene,
+                omeMetadata.plate,
+                omeMetadata.well);
         setAttributes(omeAttributes(omeMetadata));
     }
 

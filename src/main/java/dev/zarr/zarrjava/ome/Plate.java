@@ -32,7 +32,7 @@ public interface Plate {
      * Opens an OME-Zarr plate at the given store handle, auto-detecting the Zarr version.
      */
     static Plate open(StoreHandle storeHandle) throws IOException, ZarrException {
-        // Try v0.5: zarr.json with "ome" -> "plate"
+        // Try version >= 0.5: zarr.json with "ome" -> "plate"
         StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
         if (zarrJson.exists()) {
             com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
@@ -40,6 +40,11 @@ public interface Plate {
             com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
             com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
             if (attrs != null && attrs.has("ome") && attrs.get("ome").has("plate")) {
+                com.fasterxml.jackson.databind.JsonNode omeNode = attrs.get("ome");
+                String version = omeNode.has("version") ? omeNode.get("version").asText() : "";
+                if (version.startsWith("0.6")) {
+                    return dev.zarr.zarrjava.ome.v0_6.Plate.openPlate(storeHandle);
+                }
                 return dev.zarr.zarrjava.ome.v0_5.Plate.openPlate(storeHandle);
             }
         }

@@ -19,6 +19,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OmeObjectMappersTest {
@@ -261,6 +262,83 @@ class OmeObjectMappersTest {
         assertEquals(Arrays.asList(0), byDimensionParsed.transformations.get(0).outputAxes);
         assertTrue(byDimensionParsed.transformations.get(0).transformation
                 instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation);
+    }
+
+    @Test
+    void v3MapperParsesV06SceneMetadataRefsAndNestedTransforms() {
+        Map<String, Object> sceneTranslation = new HashMap<>();
+        sceneTranslation.put("type", "translation");
+        sceneTranslation.put("input", new HashMap<String, Object>() {{
+            put("path", "imgA");
+            put("name", "physical");
+        }});
+        sceneTranslation.put("output", new HashMap<String, Object>() {{
+            put("name", "world");
+        }});
+        sceneTranslation.put("translation", Arrays.asList(1.0, 2.0));
+
+        Map<String, Object> byDimInner = new HashMap<>();
+        byDimInner.put("type", "identity");
+        Map<String, Object> byDimStep = new HashMap<>();
+        byDimStep.put("input_axes", Arrays.asList(0));
+        byDimStep.put("output_axes", Arrays.asList(0));
+        byDimStep.put("transformation", byDimInner);
+        Map<String, Object> byDim = new HashMap<>();
+        byDim.put("type", "byDimension");
+        byDim.put("input", new HashMap<String, Object>() {{
+            put("path", "imgB");
+            put("name", "physical");
+        }});
+        byDim.put("output", new HashMap<String, Object>() {{
+            put("name", "world");
+        }});
+        byDim.put("transformations", Arrays.asList(byDimStep));
+
+        Map<String, Object> sequence = new HashMap<>();
+        sequence.put("type", "sequence");
+        sequence.put("input", new HashMap<String, Object>() {{
+            put("path", "imgC");
+            put("name", "physical");
+        }});
+        sequence.put("output", new HashMap<String, Object>() {{
+            put("name", "world");
+        }});
+        sequence.put("transformations", Arrays.asList(sceneTranslation, byDim));
+
+        Map<String, Object> scene = new HashMap<>();
+        scene.put("coordinateTransformations", Arrays.asList(sequence));
+
+        Map<String, Object> omeRaw = new HashMap<>();
+        omeRaw.put("version", "0.6.dev3");
+        omeRaw.put("scene", scene);
+
+        ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
+        dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata parsed =
+                mapper.convertValue(omeRaw, dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata.class);
+
+        assertNotNull(parsed.scene);
+        assertEquals(1, parsed.scene.coordinateTransformations.size());
+        dev.zarr.zarrjava.ome.v0_6.metadata.SceneCoordinateTransformation parsedSequence =
+                parsed.scene.coordinateTransformations.get(0);
+        assertEquals("sequence", parsedSequence.type);
+        assertNotNull(parsedSequence.sequenceTransformations);
+        assertEquals(2, parsedSequence.sequenceTransformations.size());
+
+        dev.zarr.zarrjava.ome.v0_6.metadata.SceneCoordinateTransformation parsedTranslation =
+                parsedSequence.sequenceTransformations.get(0);
+        assertEquals("translation", parsedTranslation.type);
+        assertEquals("imgA", parsedTranslation.input.path);
+        assertEquals("physical", parsedTranslation.input.name);
+        assertNull(parsedTranslation.output.path);
+        assertEquals("world", parsedTranslation.output.name);
+
+        dev.zarr.zarrjava.ome.v0_6.metadata.SceneCoordinateTransformation parsedByDim =
+                parsedSequence.sequenceTransformations.get(1);
+        assertEquals("byDimension", parsedByDim.type);
+        assertNotNull(parsedByDim.byDimensionTransformations);
+        assertEquals(1, parsedByDim.byDimensionTransformations.size());
+        assertEquals(Arrays.asList(0), parsedByDim.byDimensionTransformations.get(0).inputAxes);
+        assertEquals("identity", parsedByDim.byDimensionTransformations.get(0).transformation.type);
     }
 
     private static final class CapturingHandler extends Handler {
