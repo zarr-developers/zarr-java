@@ -2,8 +2,13 @@ package dev.zarr.zarrjava.ome.v0_6;
 
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.ome.OmeV3Group;
-import dev.zarr.zarrjava.ome.v0_6.metadata.SceneCoordinateTransformation;
 import dev.zarr.zarrjava.ome.v0_6.metadata.SceneMetadata;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.BijectionCoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.GenericCoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.MapAxisCoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.SequenceCoordinateTransformation;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
@@ -128,7 +133,7 @@ public final class Scene extends OmeV3Group {
         }
 
         if (omeMetadata.scene != null && omeMetadata.scene.coordinateTransformations != null) {
-            for (SceneCoordinateTransformation transformation : omeMetadata.scene.coordinateTransformations) {
+            for (CoordinateTransformation transformation : omeMetadata.scene.coordinateTransformations) {
                 addTransformationEdges(transformation, resolver, edges, warnings, null);
             }
         }
@@ -155,7 +160,7 @@ public final class Scene extends OmeV3Group {
     }
 
     private static void addTransformationEdges(
-            SceneCoordinateTransformation transformation,
+            CoordinateTransformation transformation,
             SceneReferenceResolver resolver,
             List<SceneTransformationGraph.Edge> edges,
             List<String> warnings,
@@ -169,10 +174,10 @@ public final class Scene extends OmeV3Group {
         SceneReferenceResolver.ResolvedCoordinateSystem output = resolver.resolve(transformation.output);
 
         if (transformation.input != null && input == null) {
-            warnings.add("Unresolved scene input coordinate system: " + transformation.input.canonicalId());
+            warnings.add("Unresolved scene input coordinate system: " + transformation.input);
         }
         if (transformation.output != null && output == null) {
-            warnings.add("Unresolved scene output coordinate system: " + transformation.output.canonicalId());
+            warnings.add("Unresolved scene output coordinate system: " + transformation.output);
         }
 
         edges.add(new SceneTransformationGraph.Edge(
@@ -180,27 +185,91 @@ public final class Scene extends OmeV3Group {
                 transformation.type,
                 input != null ? input.id : null,
                 output != null ? output.id : null,
-                normalizeCoordinateTransformPath(transformation.path)));
+                normalizeCoordinateTransformPath(extractPath(transformation))));
 
-        if (transformation.sequenceTransformations != null) {
-            for (SceneCoordinateTransformation nested : transformation.sequenceTransformations) {
+        if (transformation instanceof SequenceCoordinateTransformation) {
+            SequenceCoordinateTransformation seq = (SequenceCoordinateTransformation) transformation;
+            if (seq.transformations != null) for (CoordinateTransformation nested : seq.transformations) {
                 addTransformationEdges(nested, resolver, edges, warnings, edgeName);
             }
         }
-        if (transformation.byDimensionTransformations != null) {
-            for (SceneCoordinateTransformation.ByDimensionTransformation byDim : transformation.byDimensionTransformations) {
-                addTransformationEdges(byDim.transformation, resolver, edges, warnings, edgeName);
+        if (transformation instanceof ByDimensionCoordinateTransformation) {
+            ByDimensionCoordinateTransformation byDim = (ByDimensionCoordinateTransformation) transformation;
+            if (byDim.transformations != null) for (ByDimensionCoordinateTransformation.ByDimensionTransformation item : byDim.transformations) {
+                addTransformationEdges(item.transformation, resolver, edges, warnings, edgeName);
             }
         }
-        if (transformation.transformation != null) {
-            addTransformationEdges(transformation.transformation, resolver, edges, warnings, edgeName);
+        if (transformation instanceof MapAxisCoordinateTransformation) {
+            MapAxisCoordinateTransformation mapAxis = (MapAxisCoordinateTransformation) transformation;
+            if (mapAxis.transformation != null) {
+                addTransformationEdges(mapAxis.transformation, resolver, edges, warnings, edgeName);
+            }
         }
-        if (transformation.forward != null) {
-            addTransformationEdges(transformation.forward, resolver, edges, warnings, edgeName);
+        if (transformation instanceof BijectionCoordinateTransformation) {
+            BijectionCoordinateTransformation b = (BijectionCoordinateTransformation) transformation;
+            if (b.forward != null) {
+                addTransformationEdges(b.forward, resolver, edges, warnings, edgeName);
+            }
+            if (b.inverse != null) {
+                addTransformationEdges(b.inverse, resolver, edges, warnings, edgeName);
+            }
         }
-        if (transformation.inverse != null) {
-            addTransformationEdges(transformation.inverse, resolver, edges, warnings, edgeName);
+        if (transformation instanceof GenericCoordinateTransformation) {
+            GenericCoordinateTransformation generic = (GenericCoordinateTransformation) transformation;
+            Object nested = generic.raw.get("transformations");
+            if (nested instanceof List) {
+                for (Object item : (List<?>) nested) {
+                    if (item instanceof CoordinateTransformation) {
+                        addTransformationEdges((CoordinateTransformation) item, resolver, edges, warnings, edgeName);
+                    } else if (item instanceof ByDimensionCoordinateTransformation.ByDimensionTransformation) {
+                        addTransformationEdges(
+                                ((ByDimensionCoordinateTransformation.ByDimensionTransformation) item).transformation,
+                                resolver, edges, warnings, edgeName);
+                    }
+                }
+            }
+            Object inner = generic.raw.get("transformation");
+            if (inner instanceof CoordinateTransformation) {
+                addTransformationEdges((CoordinateTransformation) inner, resolver, edges, warnings, edgeName);
+            }
+            Object forward = generic.raw.get("forward");
+            if (forward instanceof CoordinateTransformation) {
+                addTransformationEdges((CoordinateTransformation) forward, resolver, edges, warnings, edgeName);
+            }
+            Object inverse = generic.raw.get("inverse");
+            if (inverse instanceof CoordinateTransformation) {
+                addTransformationEdges((CoordinateTransformation) inverse, resolver, edges, warnings, edgeName);
+            }
         }
+    }
+
+    private static String extractPath(CoordinateTransformation transformation) {
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.TranslationCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.TranslationCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.IdentityCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.IdentityCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.AffineCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.AffineCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.RotationCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.RotationCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinatesCoordinateTransformation) {
+            return ((dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinatesCoordinateTransformation) transformation).path;
+        }
+        if (transformation instanceof GenericCoordinateTransformation) {
+            Object p = ((GenericCoordinateTransformation) transformation).raw.get("path");
+            return p instanceof String ? (String) p : null;
+        }
+        return null;
     }
 
     private static List<String> asList(java.util.stream.Stream<String> stream) {

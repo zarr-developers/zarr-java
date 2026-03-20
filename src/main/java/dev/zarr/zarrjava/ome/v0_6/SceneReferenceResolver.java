@@ -1,7 +1,6 @@
 package dev.zarr.zarrjava.ome.v0_6;
 
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
-import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystemRef;
 import dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.v0_6.metadata.SceneMetadata;
 
@@ -42,12 +41,14 @@ final class SceneReferenceResolver {
     }
 
     @Nullable
-    ResolvedCoordinateSystem resolve(@Nullable CoordinateSystemRef reference) {
-        if (reference == null) {
+    ResolvedCoordinateSystem resolve(@Nullable String reference) {
+        if (reference == null || reference.isEmpty()) {
             return null;
         }
-        String canonicalPath = reference.path == null || reference.path.isEmpty() ? "." : reference.path;
-        return index.get(canonicalPath + "#" + reference.name);
+        if (!reference.contains("#")) {
+            return null;
+        }
+        return index.get(reference);
     }
 
     List<ResolvedCoordinateSystem> list() {

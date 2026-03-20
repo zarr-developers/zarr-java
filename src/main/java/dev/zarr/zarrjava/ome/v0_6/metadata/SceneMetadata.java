@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.ome.v0_6.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -11,7 +12,7 @@ import java.util.List;
 public final class SceneMetadata {
 
     @Nullable @JsonProperty("coordinateTransformations")
-    public final List<SceneCoordinateTransformation> coordinateTransformations;
+    public final List<CoordinateTransformation> coordinateTransformations;
 
     @Nullable @JsonProperty("coordinateSystems")
     public final List<CoordinateSystem> coordinateSystems;
@@ -19,7 +20,7 @@ public final class SceneMetadata {
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public SceneMetadata(
             @Nullable @JsonProperty("coordinateTransformations")
-            List<SceneCoordinateTransformation> coordinateTransformations,
+            List<CoordinateTransformation> coordinateTransformations,
             @Nullable @JsonProperty("coordinateSystems")
             List<CoordinateSystem> coordinateSystems
     ) {
