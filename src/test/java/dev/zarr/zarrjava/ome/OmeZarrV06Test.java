@@ -78,7 +78,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals("s1", entry.datasets.get(1).path);
         assertEquals("s2", entry.datasets.get(2).path);
 
-        dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation ct =
+        dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 entry.datasets.get(0).coordinateTransformations.get(0);
         assertEquals("scale", ct.type);
         assertEquals("s0", ct.input);
@@ -164,7 +164,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
                 java.util.Collections.singletonList(new dev.zarr.zarrjava.ome.v0_6.metadata.Dataset(
                         "s0",
                         java.util.Collections.singletonList(
-                                dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation.scale(
+                                dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
                                         Arrays.asList(1.0, 1.0), "s0", "physical"))));
         dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry ms =
                 new dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry(

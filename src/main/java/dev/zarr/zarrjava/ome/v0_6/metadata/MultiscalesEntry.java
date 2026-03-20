@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ome.metadata.Axis;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;

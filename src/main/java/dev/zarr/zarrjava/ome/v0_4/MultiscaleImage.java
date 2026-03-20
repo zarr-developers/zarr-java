@@ -5,7 +5,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.ome.OmeV2Group;
 import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
-import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.Dataset;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;

@@ -4,7 +4,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
 import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.metadata.Axis;
-import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
 import dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.v0_6.metadata.OmeMetadata;
@@ -99,9 +99,9 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         Array.create(storeHandle.resolve(path), (dev.zarr.zarrjava.v3.ArrayMetadata) arrayMetadata);
 
         // Convert ome.metadata.CoordinateTransformation to v0.6 CoordinateTransformation
-        List<dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation> v06Transforms = new ArrayList<>();
+        List<dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation> v06Transforms = new ArrayList<>();
         for (CoordinateTransformation ct : coordinateTransformations) {
-            v06Transforms.add(new dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation(
+            v06Transforms.add(dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation.fromRaw(
                     ct.type, null, null, null, ct.scale, ct.translation, ct.path, null, null, null, null));
         }
 
@@ -119,8 +119,8 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         List<dev.zarr.zarrjava.ome.metadata.Dataset> mappedDatasets = new ArrayList<>();
         for (dev.zarr.zarrjava.ome.v0_6.metadata.Dataset ds : entry.datasets) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
-            for (dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation ct : ds.coordinateTransformations) {
-                mapped.add(new CoordinateTransformation(ct.type, ct.scale, ct.translation, ct.path));
+            for (dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation ct : ds.coordinateTransformations) {
+                mapped.add(CoordinateTransformation.fromRaw(ct.type, ct.scale, ct.translation, ct.path));
             }
             mappedDatasets.add(new dev.zarr.zarrjava.ome.metadata.Dataset(ds.path, mapped));
         }

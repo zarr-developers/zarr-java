@@ -2,6 +2,7 @@ package dev.zarr.zarrjava.ome.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
 
 import java.util.List;
 

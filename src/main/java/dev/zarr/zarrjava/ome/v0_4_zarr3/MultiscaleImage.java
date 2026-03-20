@@ -4,7 +4,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
 import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.metadata.Axis;
-import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.Group;
@@ -81,8 +81,8 @@ public final class MultiscaleImage extends OmeV3Group
         List<dev.zarr.zarrjava.ome.metadata.Dataset> mappedDatasets = new ArrayList<>();
         for (dev.zarr.zarrjava.ome.v0_6.metadata.Dataset ds : entry.datasets) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
-            for (dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation ct : ds.coordinateTransformations) {
-                mapped.add(new CoordinateTransformation(ct.type, ct.scale, ct.translation, ct.path));
+            for (dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation ct : ds.coordinateTransformations) {
+                mapped.add(CoordinateTransformation.fromRaw(ct.type, ct.scale, ct.translation, ct.path));
             }
             mappedDatasets.add(new dev.zarr.zarrjava.ome.metadata.Dataset(ds.path, mapped));
         }

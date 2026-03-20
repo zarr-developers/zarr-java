@@ -3,7 +3,7 @@ package dev.zarr.zarrjava.ome.v1_0;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.metadata.Axis;
-import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.Dataset;
 import dev.zarr.zarrjava.ome.v1_0.metadata.Level;
 import dev.zarr.zarrjava.ome.v1_0.metadata.MultiscaleMetadata;
@@ -81,8 +81,8 @@ public final class MultiscaleImage extends OmeV3Group implements dev.zarr.zarrja
         List<Dataset> datasets = new ArrayList<>();
         for (Level level : m.levels) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
-            for (dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation ct : level.coordinateTransformations) {
-                mapped.add(new CoordinateTransformation(ct.type, ct.scale, ct.translation, ct.path));
+            for (dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation ct : level.coordinateTransformations) {
+                mapped.add(CoordinateTransformation.fromRaw(ct.type, ct.scale, ct.translation, ct.path));
             }
             datasets.add(new Dataset(level.path, mapped));
         }
@@ -111,7 +111,7 @@ public final class MultiscaleImage extends OmeV3Group implements dev.zarr.zarrja
     public void createLevel(
             String path,
             dev.zarr.zarrjava.v3.ArrayMetadata arrayMetadata,
-            List<dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation> coordinateTransformations
+            List<dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation> coordinateTransformations
     ) throws IOException, ZarrException {
         Array.create(storeHandle.resolve(path), arrayMetadata);
         MultiscaleMetadata updated = omeMetadata.multiscale.withLevel(new Level(path, coordinateTransformations));

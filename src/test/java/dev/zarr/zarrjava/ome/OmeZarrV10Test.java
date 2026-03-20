@@ -3,7 +3,7 @@ package dev.zarr.zarrjava.ome;
 import dev.zarr.zarrjava.ZarrTest;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateSystem;
-import dev.zarr.zarrjava.ome.v0_6.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.v1_0.Collection;
 import dev.zarr.zarrjava.ome.v1_0.metadata.CollectionMetadata;
 import dev.zarr.zarrjava.ome.v1_0.metadata.Level;

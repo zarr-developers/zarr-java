@@ -2,7 +2,7 @@ package dev.zarr.zarrjava.ome;
 
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.ome.metadata.Axis;
-import dev.zarr.zarrjava.ome.metadata.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
 import dev.zarr.zarrjava.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.ome.metadata.NamedEntry;
 import dev.zarr.zarrjava.ome.metadata.OmeroMetadata;
