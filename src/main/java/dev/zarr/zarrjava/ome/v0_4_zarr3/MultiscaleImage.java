@@ -5,6 +5,10 @@ import dev.zarr.zarrjava.ome.MultiscalesMetadataImage;
 import dev.zarr.zarrjava.ome.OmeV3Group;
 import dev.zarr.zarrjava.ome.metadata.Axis;
 import dev.zarr.zarrjava.ome.metadata.transform.CoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.IdentityCoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.ScaleCoordinateTransformation;
+import dev.zarr.zarrjava.ome.metadata.transform.TranslationCoordinateTransformation;
+import dev.zarr.zarrjava.ome.v0_6.metadata.transform.GenericCoordinateTransformation;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.Group;
@@ -82,7 +86,7 @@ public final class MultiscaleImage extends OmeV3Group
         for (dev.zarr.zarrjava.ome.v0_6.metadata.Dataset ds : entry.datasets) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
             for (dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation ct : ds.coordinateTransformations) {
-                mapped.add(CoordinateTransformation.fromRaw(ct.type, ct.scale, ct.translation, ct.path));
+                mapped.add(mapTransform(ct));
             }
             mappedDatasets.add(new dev.zarr.zarrjava.ome.metadata.Dataset(ds.path, mapped));
         }
@@ -100,5 +104,32 @@ public final class MultiscaleImage extends OmeV3Group
                 null,
                 null,
                 "0.4-zarr3");
+    }
+
+    private static CoordinateTransformation mapTransform(
+            dev.zarr.zarrjava.ome.v0_6.metadata.transform.CoordinateTransformation ct) {
+        if (ct instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) {
+            dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation t =
+                    (dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) ct;
+            return new ScaleCoordinateTransformation(t.scale, t.path);
+        }
+        if (ct instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.TranslationCoordinateTransformation) {
+            dev.zarr.zarrjava.ome.v0_6.metadata.transform.TranslationCoordinateTransformation t =
+                    (dev.zarr.zarrjava.ome.v0_6.metadata.transform.TranslationCoordinateTransformation) ct;
+            return new TranslationCoordinateTransformation(t.translation, t.path);
+        }
+        if (ct instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.IdentityCoordinateTransformation) {
+            dev.zarr.zarrjava.ome.v0_6.metadata.transform.IdentityCoordinateTransformation t =
+                    (dev.zarr.zarrjava.ome.v0_6.metadata.transform.IdentityCoordinateTransformation) ct;
+            return new IdentityCoordinateTransformation(t.path);
+        }
+        if (ct instanceof GenericCoordinateTransformation) {
+            GenericCoordinateTransformation t = (GenericCoordinateTransformation) ct;
+            dev.zarr.zarrjava.ome.metadata.transform.GenericCoordinateTransformation generic =
+                    new dev.zarr.zarrjava.ome.metadata.transform.GenericCoordinateTransformation(ct.type);
+            generic.raw.putAll(t.raw);
+            return generic;
+        }
+        return new dev.zarr.zarrjava.ome.metadata.transform.GenericCoordinateTransformation(ct.type);
     }
 }

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -43,31 +42,4 @@ public abstract class CoordinateTransformation {
         return new IdentityCoordinateTransformation(null);
     }
 
-    public static CoordinateTransformation fromRaw(
-            String type,
-            @Nullable List<Double> scale,
-            @Nullable List<Double> translation,
-            @Nullable String path
-    ) {
-        if ("scale".equals(type)) {
-            return new ScaleCoordinateTransformation(scale, path);
-        }
-        if ("translation".equals(type)) {
-            return new TranslationCoordinateTransformation(translation, path);
-        }
-        if ("identity".equals(type)) {
-            return new IdentityCoordinateTransformation(path);
-        }
-        GenericCoordinateTransformation generic = new GenericCoordinateTransformation(type);
-        if (scale != null) {
-            generic.raw.put("scale", scale);
-        }
-        if (translation != null) {
-            generic.raw.put("translation", translation);
-        }
-        if (path != null) {
-            generic.raw.put("path", path);
-        }
-        return generic;
-    }
 }

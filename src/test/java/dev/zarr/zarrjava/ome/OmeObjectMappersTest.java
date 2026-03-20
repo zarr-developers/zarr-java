@@ -197,6 +197,72 @@ class OmeObjectMappersTest {
         assertEquals(extension, generic.raw.get("extension"));
     }
 
+    @Test
+    void v2MapperParsesTypedV06AffineAndByDimensionTransforms() {
+        Map<String, Object> affine = new HashMap<>();
+        affine.put("type", "affine");
+        affine.put("input", "s0");
+        affine.put("output", "physical");
+        affine.put("name", "affine-stage");
+        affine.put("affine", Arrays.asList(
+                Arrays.asList(1.0, 0.0, 3.0),
+                Arrays.asList(0.0, 1.0, 4.0)));
+        affine.put("path", "coordinateTransformations/affine");
+
+        Map<String, Object> childScale = new HashMap<>();
+        childScale.put("type", "scale");
+        childScale.put("scale", Arrays.asList(2.0));
+
+        Map<String, Object> byDimItem = new HashMap<>();
+        byDimItem.put("input_axes", Arrays.asList(1));
+        byDimItem.put("output_axes", Arrays.asList(0));
+        byDimItem.put("transformation", childScale);
+
+        Map<String, Object> byDimension = new HashMap<>();
+        byDimension.put("type", "byDimension");
+        byDimension.put("input", "s0");
+        byDimension.put("output", "physical");
+        byDimension.put("transformations", Arrays.asList(byDimItem));
+
+        Map<String, Object> dataset = new HashMap<>();
+        dataset.put("path", "s0");
+        dataset.put("coordinateTransformations", Arrays.asList(affine, byDimension));
+
+        Map<String, Object> entryRaw = new HashMap<>();
+        entryRaw.put("datasets", Arrays.asList(dataset));
+
+        ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
+        dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry entry =
+                mapper.convertValue(entryRaw, dev.zarr.zarrjava.ome.v0_6.metadata.MultiscalesEntry.class);
+
+        assertNotNull(entry);
+        assertEquals(2, entry.datasets.get(0).coordinateTransformations.size());
+
+        assertTrue(
+                entry.datasets.get(0).coordinateTransformations.get(0)
+                        instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.AffineCoordinateTransformation);
+        dev.zarr.zarrjava.ome.v0_6.metadata.transform.AffineCoordinateTransformation affineParsed =
+                (dev.zarr.zarrjava.ome.v0_6.metadata.transform.AffineCoordinateTransformation)
+                        entry.datasets.get(0).coordinateTransformations.get(0);
+        assertEquals("affine-stage", affineParsed.name);
+        assertEquals("coordinateTransformations/affine", affineParsed.path);
+        assertEquals(2, affineParsed.affine.size());
+        assertEquals(Arrays.asList(1.0, 0.0, 3.0), affineParsed.affine.get(0));
+
+        assertTrue(
+                entry.datasets.get(0).coordinateTransformations.get(1)
+                        instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation);
+        dev.zarr.zarrjava.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation byDimensionParsed =
+                (dev.zarr.zarrjava.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation)
+                        entry.datasets.get(0).coordinateTransformations.get(1);
+        assertNotNull(byDimensionParsed.transformations);
+        assertEquals(1, byDimensionParsed.transformations.size());
+        assertEquals(Arrays.asList(1), byDimensionParsed.transformations.get(0).inputAxes);
+        assertEquals(Arrays.asList(0), byDimensionParsed.transformations.get(0).outputAxes);
+        assertTrue(byDimensionParsed.transformations.get(0).transformation
+                instanceof dev.zarr.zarrjava.ome.v0_6.metadata.transform.ScaleCoordinateTransformation);
+    }
+
     private static final class CapturingHandler extends Handler {
         private final List<String> warnings = new ArrayList<>();
 
