@@ -120,6 +120,9 @@ public interface MultiscaleImage {
                     }
                     throw new ZarrException("v1.0 store at " + storeHandle + " is a Collection, not a MultiscaleImage. Use v1_0.Collection.openCollection() instead.");
                 }
+                if (version.startsWith("0.4-zarr3")) {
+                    return dev.zarr.zarrjava.ome.v0_4_zarr3.MultiscaleImage.openMultiscaleImage(storeHandle);
+                }
                 if (version.startsWith("0.6")) {
                     return dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.openMultiscaleImage(storeHandle);
                 }
