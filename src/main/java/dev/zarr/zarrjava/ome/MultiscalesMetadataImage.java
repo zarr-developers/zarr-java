@@ -32,7 +32,7 @@ public interface MultiscalesMetadataImage<M> extends MultiscaleImage {
 
     /**
      * Default implementation: casts the version-specific entry to the shared {@link MultiscalesEntry}.
-     * Versions whose entry type does not extend {@link MultiscalesEntry} (e.g., v0.6, v1.0) must
+     * Versions whose entry type does not extend {@link MultiscalesEntry} (e.g., v0.6) must
      * override {@link #getMultiscaleNode(int)} directly.
      */
     @Override

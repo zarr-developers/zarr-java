@@ -7,16 +7,14 @@
 - v0.4 (Zarr v2 layout)
 - v0.5 (Zarr v3 layout)
 - v0.6 / RFC-5
-- v1.0 / RFC-8
 
 ## Primary entry points
 
 Use these static open methods:
 
-- `MultiscaleImage.open(StoreHandle)` for multiscale images (auto-detects v0.4/v0.5/v0.6/v1.0 image nodes)
+- `MultiscaleImage.open(StoreHandle)` for multiscale images (auto-detects v0.4/v0.5/v0.6 image nodes)
 - `Plate.open(StoreHandle)` for HCS plates (v0.4/v0.5)
 - `Well.open(StoreHandle)` for HCS wells (v0.4/v0.5)
-- `dev.zarr.zarrjava.ome.v1_0.Collection.openCollection(StoreHandle)` for v1.0 collection roots
 
 ### StoreHandle and stores
 
@@ -27,11 +25,6 @@ See storage backend setup in [`USERGUIDE.md#storage-backends`](USERGUIDE.md#stor
 StoreHandle s3 = new S3Store(client, "idr", "zarr/v0.5/idr0083").resolve("9822152.zarr");
 MultiscaleImage image = MultiscaleImage.open(s3);
 ```
-
-Important v1.0 behavior:
-
-- `MultiscaleImage.open(...)` throws if the node is a v1.0 collection root (without `ome.multiscale`)
-- Open collection roots via `v1_0.Collection.openCollection(...)` and traverse with `openNode(...)`
 
 ## Essential methods
 
@@ -67,8 +60,6 @@ Navigation:
 If you need the raw version-specific metadata model instead of normalized `MultiscalesEntry`:
 
 - Cast to `MultiscalesMetadataImage<?>` and call `getMultiscalesEntry(i)`
-- For v1.0 image-specific metadata, cast to `dev.zarr.zarrjava.ome.v1_0.MultiscaleImage` and use `getMultiscaleMetadata()`
-- For v1.0 collections, use `dev.zarr.zarrjava.ome.v1_0.Collection.getCollectionMetadata()`
 
 ## Read example
 
@@ -141,7 +132,5 @@ written.createScaleLevel(
 - `ome.v0_4.MultiscaleImage.create(...)`
 - `ome.v0_5.MultiscaleImage.create(...)`
 - `ome.v0_6.MultiscaleImage.create(...)`
-- `ome.v1_0.MultiscaleImage.create(...)`
-- `ome.v1_0.Collection.createCollection(...)`
 
 Use the corresponding metadata classes for each version package.

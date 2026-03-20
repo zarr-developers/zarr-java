@@ -101,10 +101,10 @@ public interface MultiscaleImage {
     /**
      * Opens an OME-Zarr multiscale image at the given store handle, auto-detecting the Zarr version.
      *
-     * <p>Tries v0.5 (zarr.json with "ome" key) first, then v0.4 (.zattrs with "multiscales" key).
+     * <p>Tries v0.6 (zarr.json with version "0.6"), then v0.5 (zarr.json with "ome" key), then v0.4 (.zattrs with "multiscales" key).
      */
     static MultiscaleImage open(StoreHandle storeHandle) throws IOException, ZarrException {
-        // Try version>= 0.5: zarr.json with "ome" key
+        // Try version >= 0.5: zarr.json with "ome" key
         StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
         if (zarrJson.exists()) {
             com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
@@ -114,15 +114,6 @@ public interface MultiscaleImage {
             if (attrs != null && attrs.has("ome")) {
                 com.fasterxml.jackson.databind.JsonNode omeNode = attrs.get("ome");
                 String version = omeNode.has("version") ? omeNode.get("version").asText() : "";
-                if (version.startsWith("1.")) {
-                    if (omeNode.has("multiscale")) {
-                        return dev.zarr.zarrjava.ome.v1_0.MultiscaleImage.openMultiscaleImage(storeHandle);
-                    }
-                    throw new ZarrException("v1.0 store at " + storeHandle + " is a Collection, not a MultiscaleImage. Use v1_0.Collection.openCollection() instead.");
-                }
-                if (version.startsWith("0.4-zarr3")) {
-                    return dev.zarr.zarrjava.ome.v0_4_zarr3.MultiscaleImage.openMultiscaleImage(storeHandle);
-                }
                 if (version.startsWith("0.6")) {
                     return dev.zarr.zarrjava.ome.v0_6.MultiscaleImage.openMultiscaleImage(storeHandle);
                 }

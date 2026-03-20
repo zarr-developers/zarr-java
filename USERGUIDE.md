@@ -11,7 +11,7 @@
 7. [Storage Backends](#storage-backends)
 8. [Compression and Codecs](#compression-and-codecs)
 9. [Advanced Topics](#advanced-topics)
-10. [OME-Zarr](#ome-zarr-v04-v05-v06-v10)
+10. [OME-Zarr](#ome-zarr-v04-v05-v06)
 11. [Examples](#examples)
 12. [Troubleshooting](#troubleshooting)
 ---
@@ -678,7 +678,7 @@ try {
    .withChunkShape(100, 100, 100)  // Balanced for all dimensions
    ```
 
-## OME-Zarr (v0.4, v0.5, v0.6, v1.0)
+## OME-Zarr (v0.4, v0.5, v0.6)
 
 For a focused OME-Zarr API guide (metadata access, array access, version behavior, and concise examples),
 see:
