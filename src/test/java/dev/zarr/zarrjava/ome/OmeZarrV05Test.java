@@ -94,6 +94,9 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
                 dev.zarr.zarrjava.ome.v0_5.MultiscaleImage.openMultiscaleImage(imageStoreHandle());
         OmeroMetadata omero = image.getOmeroMetadata();
         assertNotNull(omero);
+        assertNull(omero.id);
+        assertNull(omero.version);
+        assertNull(omero.name);
         assertEquals(2, omero.channels.size());
         assertEquals("DAPI", omero.channels.get(0).get("label"));
         assertEquals("GFP",  omero.channels.get(1).get("label"));

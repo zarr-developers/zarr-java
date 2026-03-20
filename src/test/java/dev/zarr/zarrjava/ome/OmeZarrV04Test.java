@@ -81,6 +81,9 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
                 dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(imageStoreHandle());
         OmeroMetadata omero = image.getOmeroMetadata();
         assertNotNull(omero);
+        assertNull(omero.id);
+        assertNull(omero.version);
+        assertNull(omero.name);
         assertEquals(2, omero.channels.size());
         assertEquals("DAPI", omero.channels.get(0).get("label"));
         assertEquals("color", omero.rdefs.get("model"));
@@ -174,12 +177,15 @@ public class OmeZarrV04Test extends OmeZarrBaseTest {
         ch.put("label", "DAPI");
         java.util.Map<String, Object> rd = new java.util.HashMap<String, Object>();
         rd.put("model", "color");
-        created.setOmeroMetadata(new OmeroMetadata(Collections.singletonList(ch), rd));
+        created.setOmeroMetadata(new OmeroMetadata(1, "0.5", "example.tif", Collections.singletonList(ch), rd));
 
         dev.zarr.zarrjava.ome.v0_4.MultiscaleImage reopened =
                 dev.zarr.zarrjava.ome.v0_4.MultiscaleImage.openMultiscaleImage(handle);
         OmeroMetadata got = reopened.getOmeroMetadata();
         assertNotNull(got);
+        assertEquals(Integer.valueOf(1), got.id);
+        assertEquals("0.5", got.version);
+        assertEquals("example.tif", got.name);
         assertEquals("DAPI", got.channels.get(0).get("label"));
     }
 
