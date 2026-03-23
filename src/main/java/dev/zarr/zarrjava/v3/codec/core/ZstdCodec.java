@@ -8,7 +8,6 @@ import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.v3.codec.Codec;
 
 import javax.annotation.Nonnull;
-import java.nio.ByteBuffer;
 
 public class ZstdCodec extends dev.zarr.zarrjava.core.codec.core.ZstdCodec implements Codec {
 
