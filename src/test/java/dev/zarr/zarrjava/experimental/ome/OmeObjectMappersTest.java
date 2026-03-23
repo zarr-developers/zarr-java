@@ -320,7 +320,7 @@ class OmeObjectMappersTest {
         assertEquals(1, parsed.scene.coordinateTransformations.size());
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation parsedSequence =
                 parsed.scene.coordinateTransformations.get(0);
-        assertEquals("sequence", parsedSequence.type);
+        assertEquals("sequence", parsedSequence.getType());
         assertTrue(parsedSequence instanceof dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.SequenceCoordinateTransformation);
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.SequenceCoordinateTransformation seq =
                 (dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.SequenceCoordinateTransformation) parsedSequence;
@@ -329,20 +329,20 @@ class OmeObjectMappersTest {
 
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation parsedTranslation =
                 seq.transformations.get(0);
-        assertEquals("translation", parsedTranslation.type);
-        assertEquals("imgA#physical", parsedTranslation.input);
-        assertEquals(".#world", parsedTranslation.output);
+        assertEquals("translation", parsedTranslation.getType());
+        assertEquals("imgA#physical", parsedTranslation.getInput());
+        assertEquals(".#world", parsedTranslation.getOutput());
 
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation parsedByDim =
                 seq.transformations.get(1);
-        assertEquals("byDimension", parsedByDim.type);
+        assertEquals("byDimension", parsedByDim.getType());
         assertTrue(parsedByDim instanceof dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation);
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation parsedByDimension =
                 (dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation) parsedByDim;
         assertNotNull(parsedByDimension.transformations);
         assertEquals(1, parsedByDimension.transformations.size());
         assertEquals(Arrays.asList(0), parsedByDimension.transformations.get(0).inputAxes);
-        assertEquals("identity", parsedByDimension.transformations.get(0).transformation.type);
+        assertEquals("identity", parsedByDimension.transformations.get(0).transformation.getType());
     }
 
     private static final class CapturingHandler extends Handler {

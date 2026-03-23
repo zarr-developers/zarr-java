@@ -56,9 +56,9 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
 
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation top =
                 scene.getSceneMetadata().coordinateTransformations.get(0);
-        assertEquals("bijection", top.type);
-        assertEquals("JRC2018F#physical", top.input);
-        assertEquals("FCWB#physical", top.output);
+        assertEquals("bijection", top.getType());
+        assertEquals("JRC2018F#physical", top.getInput());
+        assertEquals("FCWB#physical", top.getOutput());
 
         assertTrue(scene.listImageNodes().contains("FCWB"));
         assertTrue(scene.listImageNodes().contains("JRC2018F"));
@@ -125,7 +125,7 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
         dev.zarr.zarrjava.experimental.ome.v0_6.Scene reopened = dev.zarr.zarrjava.experimental.ome.v0_6.Scene.openScene(root);
         assertEquals(Collections.singletonList("imageA"), reopened.listImageNodes());
         assertEquals("world", reopened.getSceneMetadata().coordinateSystems.get(0).name);
-        assertEquals("imageA#physical", reopened.getSceneMetadata().coordinateTransformations.get(0).input);
+        assertEquals("imageA#physical", reopened.getSceneMetadata().coordinateTransformations.get(0).getInput());
 
         dev.zarr.zarrjava.experimental.ome.v0_6.MultiscaleImage imageA = reopened.openImageNode("imageA");
         assertEquals(1, imageA.getScaleLevelCount());
@@ -148,9 +148,9 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
         assertEquals(1, scene.getSceneMetadata().coordinateTransformations.size());
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 scene.getSceneMetadata().coordinateTransformations.get(0);
-        assertEquals("affine", ct.type);
-        assertEquals("sampleA_instrument2#physical_instrument2", ct.input);
-        assertEquals("sampleA_instrument1#physical_instrument1", ct.output);
+        assertEquals("affine", ct.getType());
+        assertEquals("sampleA_instrument2#physical_instrument2", ct.getInput());
+        assertEquals("sampleA_instrument1#physical_instrument1", ct.getOutput());
         assertTrue(ct instanceof dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation);
         assertEquals("coordinateTransformations/sampleA_instrument2-to-instrument1",
                 ((dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation) ct).path);
@@ -177,12 +177,12 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
                 scene.getSceneMetadata().coordinateTransformations.get(0);
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation t1 =
                 scene.getSceneMetadata().coordinateTransformations.get(1);
-        assertEquals("affine", t0.type);
-        assertEquals("affine", t1.type);
-        assertEquals("instrument1#physical", t0.input);
-        assertEquals("instrument2#physical", t0.output);
-        assertEquals("instrument3#physical", t1.input);
-        assertEquals("instrument2#physical", t1.output);
+        assertEquals("affine", t0.getType());
+        assertEquals("affine", t1.getType());
+        assertEquals("instrument1#physical", t0.getInput());
+        assertEquals("instrument2#physical", t0.getOutput());
+        assertEquals("instrument3#physical", t1.getInput());
+        assertEquals("instrument2#physical", t1.getOutput());
         assertTrue(t0 instanceof dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation);
         assertTrue(((dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation) t0).affine.size() > 0);
 

@@ -14,7 +14,7 @@ import java.util.Map;
  * <p>Readers can deserialize and retain metadata for unknown/extension transform types
  * without failing hard.
  */
-public final class GenericCoordinateTransformation extends CoordinateTransformation {
+public class GenericCoordinateTransformation extends CoordinateTransformation {
     public final Map<String, Object> raw = new LinkedHashMap<>();
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)

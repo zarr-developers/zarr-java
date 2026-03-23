@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
 
-public final class IdentityCoordinateTransformation extends CoordinateTransformation {
+public class IdentityCoordinateTransformation extends CoordinateTransformation {
     @Nullable public final String path;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)

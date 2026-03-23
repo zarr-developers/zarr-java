@@ -169,20 +169,20 @@ public final class Scene extends OmeV3Group {
         if (transformation == null) {
             return;
         }
-        String edgeName = transformation.name != null ? transformation.name : inheritedName;
-        SceneReferenceResolver.ResolvedCoordinateSystem input = resolver.resolve(transformation.input);
-        SceneReferenceResolver.ResolvedCoordinateSystem output = resolver.resolve(transformation.output);
+        String edgeName = transformation.getName() != null ? transformation.getName() : inheritedName;
+        SceneReferenceResolver.ResolvedCoordinateSystem input = resolver.resolve(transformation.getInput());
+        SceneReferenceResolver.ResolvedCoordinateSystem output = resolver.resolve(transformation.getOutput());
 
-        if (transformation.input != null && input == null) {
-            warnings.add("Unresolved scene input coordinate system: " + transformation.input);
+        if (transformation.getInput() != null && input == null) {
+            warnings.add("Unresolved scene input coordinate system: " + transformation.getInput());
         }
-        if (transformation.output != null && output == null) {
-            warnings.add("Unresolved scene output coordinate system: " + transformation.output);
+        if (transformation.getOutput() != null && output == null) {
+            warnings.add("Unresolved scene output coordinate system: " + transformation.getOutput());
         }
 
         edges.add(new SceneTransformationGraph.Edge(
                 edgeName,
-                transformation.type,
+                transformation.getType(),
                 input != null ? input.id : null,
                 output != null ? output.id : null,
                 normalizeCoordinateTransformPath(extractPath(transformation))));

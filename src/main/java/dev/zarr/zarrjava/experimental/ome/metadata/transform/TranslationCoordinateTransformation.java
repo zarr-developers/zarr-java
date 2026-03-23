@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public final class TranslationCoordinateTransformation extends CoordinateTransformation {
+public class TranslationCoordinateTransformation extends CoordinateTransformation {
     @Nullable public final List<Double> translation;
     @Nullable public final String path;
 

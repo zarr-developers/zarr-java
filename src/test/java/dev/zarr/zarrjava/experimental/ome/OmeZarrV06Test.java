@@ -86,9 +86,9 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
 
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 entry.datasets.get(0).coordinateTransformations.get(0);
-        assertEquals("scale", ct.type);
-        assertEquals("s0", ct.input);
-        assertEquals("physical", ct.output);
+        assertEquals("scale", ct.getType());
+        assertEquals("s0", ct.getInput());
+        assertEquals("physical", ct.getOutput());
         assertInstanceOf(dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.ScaleCoordinateTransformation.class, ct);
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.ScaleCoordinateTransformation scaleCt =
                 (dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) ct;
@@ -159,7 +159,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals(2, entry.coordinateSystems.size());
         assertEquals("physical", entry.coordinateSystems.get(0).name);
         assertEquals("anatomical", entry.coordinateSystems.get(1).name);
-        assertEquals("sequence", entry.datasets.get(0).coordinateTransformations.get(0).type);
+        assertEquals("sequence", entry.datasets.get(0).coordinateTransformations.get(0).getType());
     }
 
     @Test

@@ -266,7 +266,7 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         if (ct instanceof GenericCoordinateTransformation) {
             GenericCoordinateTransformation t = (GenericCoordinateTransformation) ct;
             dev.zarr.zarrjava.experimental.ome.metadata.transform.GenericCoordinateTransformation generic =
-                    new dev.zarr.zarrjava.experimental.ome.metadata.transform.GenericCoordinateTransformation(ct.type);
+                    new dev.zarr.zarrjava.experimental.ome.metadata.transform.GenericCoordinateTransformation(ct.getType());
             for (Map.Entry<String, Object> entry : t.raw.entrySet()) {
                 generic.raw.put(entry.getKey(), convertRawValue(entry.getValue()));
             }
@@ -360,7 +360,7 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             }
             return generic;
         }
-        return new dev.zarr.zarrjava.experimental.ome.metadata.transform.GenericCoordinateTransformation(ct.type);
+        return new dev.zarr.zarrjava.experimental.ome.metadata.transform.GenericCoordinateTransformation(ct.getType());
     }
 
     private static Object convertRawValue(Object value) {
