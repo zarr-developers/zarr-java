@@ -1,0 +1,19 @@
+{
+  "zarr_format": 3,
+  "node_type": "group",
+  "attributes": {
+    "ome": {
+      "version": "0.6.dev3",
+      "scene": {
+        "coordinateTransformations": [
+          {
+            "type": "affine",
+            "path": "coordinateTransformations/sampleA_instrument2-to-instrument1",
+            "input": { "path": "sampleA_instrument2", "name": "physical_instrument2" },
+            "output": { "path": "sampleA_instrument1", "name": "physical_instrument1" }
+          }
+        ]
+      }
+    }
+  }
+}

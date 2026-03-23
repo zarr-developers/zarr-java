@@ -8,6 +8,7 @@ import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v2.codec.core.ZlibCodec;
+import dev.zarr.zarrjava.v2.codec.core.ZstdCodec;
 
 public class ArrayMetadataBuilder {
     long[] shape = null;
@@ -127,6 +128,23 @@ public class ArrayMetadataBuilder {
 
     public ArrayMetadataBuilder withZlibCompressor() {
         return withZlibCompressor(5);
+    }
+
+    public ArrayMetadataBuilder withZstdCompressor(int level, boolean checksum) {
+        try {
+            this.compressor = new ZstdCodec(level, checksum);
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    public  ArrayMetadataBuilder withZstdCompressor(int level) {
+        return withZstdCompressor(level, ZstdCodec.DEFAULT_CHECKSUM);
+    }
+
+    public  ArrayMetadataBuilder withZstdCompressor() {
+        return withZstdCompressor(ZstdCodec.DEFAULT_LEVEL);
     }
 
     public ArrayMetadataBuilder putAttribute(String key, Object value) {

@@ -11,8 +11,9 @@
 7. [Storage Backends](#storage-backends)
 8. [Compression and Codecs](#compression-and-codecs)
 9. [Advanced Topics](#advanced-topics)
-10. [Examples](#examples)
-11. [Troubleshooting](#troubleshooting)
+10. [OME-Zarr](#ome-zarr-v04-v05-v06)
+11. [Examples](#examples)
+12. [Troubleshooting](#troubleshooting)
 ---
 ## Introduction
 zarr-java is a Java implementation of the [Zarr specification](https://zarr.dev/) for chunked, compressed, N-dimensional arrays. It supports both Zarr version 2 and version 3 formats, providing a unified API for working with large scientific datasets.
@@ -653,7 +654,6 @@ try {
 - `"No Zarr array found at the specified location"` - Check path and ensure `.zarray` (v2) or `zarr.json` (v3) exists
 - `"Requested data is outside of the array's domain"` - Verify that `offset + shape <= array.shape`
 - `"Failed to read from store"` - Check network connectivity, file permissions, or storage availability
----
 
 ### Best Practices
 1. **Chunk sizes for Best Performance**:
@@ -677,7 +677,14 @@ try {
    // For balanced 3D access
    .withChunkShape(100, 100, 100)  // Balanced for all dimensions
    ```
-  
+
+## OME-Zarr (v0.4, v0.5, v0.6)
+
+For a focused OME-Zarr API guide (metadata access, array access, version behavior, and concise examples),
+see:
+
+- [`USERGUIDE-OME-ZARR.md`](USERGUIDE-OME-ZARR.md)
+   
 ## Examples
 ### Complete Example: Creating a 3D Dataset
 ```java

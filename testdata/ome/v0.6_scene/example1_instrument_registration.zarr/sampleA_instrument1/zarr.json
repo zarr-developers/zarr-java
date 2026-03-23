@@ -1,0 +1,37 @@
+{
+  "zarr_format": 3,
+  "node_type": "group",
+  "attributes": {
+    "ome": {
+      "version": "0.6.dev3",
+      "multiscales": [
+        {
+          "name": "multiscales",
+          "coordinateSystems": [
+            {
+              "name": "physical_instrument1",
+              "axes": [
+                { "name": "z", "type": "space", "unit": "micrometer" },
+                { "name": "y", "type": "space", "unit": "micrometer" },
+                { "name": "x", "type": "space", "unit": "micrometer" }
+              ]
+            }
+          ],
+          "datasets": [
+            {
+              "path": "s0",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "input": "s0",
+                  "output": "physical_instrument1",
+                  "scale": [1.0, 1.0, 1.0]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
