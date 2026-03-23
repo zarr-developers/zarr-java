@@ -1,0 +1,101 @@
+{
+  "attributes": {
+    "ome": {
+      "version": "0.5",
+      "multiscales": [
+        {
+          "name": "test_image",
+          "axes": [
+            {
+              "name": "t",
+              "type": "time",
+              "unit": "millisecond"
+            },
+            {
+              "name": "c",
+              "type": "channel"
+            },
+            {
+              "name": "z",
+              "type": "space",
+              "unit": "micrometer"
+            },
+            {
+              "name": "y",
+              "type": "space",
+              "unit": "micrometer"
+            },
+            {
+              "name": "x",
+              "type": "space",
+              "unit": "micrometer"
+            }
+          ],
+          "datasets": [
+            {
+              "path": "0",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    1.0,
+                    1.0,
+                    0.5,
+                    0.5,
+                    0.5
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "1",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0
+                  ]
+                }
+              ]
+            }
+          ],
+          "coordinateTransformations": [
+            {
+              "type": "scale",
+              "scale": [
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            }
+          ],
+          "type": "gaussian"
+        }
+      ],
+      "omero": {
+        "channels": [
+          {
+            "label": "DAPI",
+            "color": "0000FF"
+          },
+          {
+            "label": "GFP",
+            "color": "00FF00"
+          }
+        ],
+        "rdefs": {
+          "model": "color"
+        }
+      },
+      "bioformats2raw.layout": 3
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

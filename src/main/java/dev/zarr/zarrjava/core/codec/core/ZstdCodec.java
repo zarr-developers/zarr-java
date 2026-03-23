@@ -10,30 +10,24 @@ import java.nio.ByteBuffer;
 
 public abstract class ZstdCodec extends BytesBytesCodec {
 
-    protected abstract int getLevel();
-
-    protected abstract boolean getChecksum();
-
     @Override
     public ByteBuffer decode(ByteBuffer compressedBytes) throws ZarrException {
         byte[] compressedArray = Utils.toArray(compressedBytes);
-
         long originalSize = Zstd.getFrameContentSize(compressedArray);
-        if (originalSize == 0) {
-            throw new ZarrException("Failed to get decompressed size");
+        if (originalSize < 0) {
+            throw new ZarrException("Failed to get decompressed zstd size.");
         }
-
         byte[] decompressed = Zstd.decompress(compressedArray, (int) originalSize);
         return ByteBuffer.wrap(decompressed);
     }
 
-    @Override
-    public ByteBuffer encode(ByteBuffer chunkBytes) throws ZarrException {
+    protected ByteBuffer encodeInternal(int level, boolean checksum, ByteBuffer chunkBytes)
+            throws ZarrException {
         byte[] arr = Utils.toArray(chunkBytes);
         byte[] compressed;
         try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
-            ctx.setLevel(getLevel());
-            ctx.setChecksum(getChecksum());
+            ctx.setLevel(level);
+            ctx.setChecksum(checksum);
             compressed = ctx.compress(arr);
         }
         return ByteBuffer.wrap(compressed);

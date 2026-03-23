@@ -106,7 +106,9 @@ public class ZarrPythonTests extends ZarrTest {
                 new Object[]{"blosc", "lz4_shuffle_6", dev.zarr.zarrjava.v2.DataType.INT32},
                 new Object[]{"blosc", "lz4hc_bitshuffle_3", dev.zarr.zarrjava.v2.DataType.INT32},
                 new Object[]{"blosc", "zlib_shuffle_5", dev.zarr.zarrjava.v2.DataType.INT32},
-                new Object[]{"blosc", "zstd_bitshuffle_9", dev.zarr.zarrjava.v2.DataType.INT32}
+                new Object[]{"blosc", "zstd_bitshuffle_9", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"zstd", "0_true", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"zstd", "5_false", dev.zarr.zarrjava.v2.DataType.INT32}
         );
 
         return Stream.concat(datatypeTests, bloscTests);
@@ -241,6 +243,9 @@ public class ZarrPythonTests extends ZarrTest {
                 break;
             case "zlib":
                 builder = builder.withZlibCompressor(Integer.parseInt(compressorParam));
+                break;
+            case "zstd":
+                builder = builder.withZstdCompressor(Integer.parseInt(compressorParam.split("_")[0]), Boolean.parseBoolean(compressorParam.split("_")[1]));
                 break;
             default:
                 throw new IllegalArgumentException("Invalid compressor: " + compressor);

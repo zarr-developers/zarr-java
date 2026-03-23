@@ -1,0 +1,3 @@
+[submodule "testdata/ome/v0.6/examples"]
+	path = testdata/ome/v0.6/examples
+	url = https://github.com/jo-mueller/ngff-rfc5-coordinate-transformation-examples

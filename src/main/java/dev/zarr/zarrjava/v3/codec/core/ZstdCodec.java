@@ -23,13 +23,8 @@ public class ZstdCodec extends dev.zarr.zarrjava.core.codec.core.ZstdCodec imple
     }
 
     @Override
-    protected int getLevel() {
-        return configuration.level;
-    }
-
-    @Override
-    protected boolean getChecksum() {
-        return configuration.checksum;
+    public ByteBuffer encode(ByteBuffer chunkBytes) throws ZarrException {
+        return encodeInternal(configuration.level, configuration.checksum, chunkBytes);
     }
 
     @Override
@@ -55,5 +50,3 @@ public class ZstdCodec extends dev.zarr.zarrjava.core.codec.core.ZstdCodec imple
         }
     }
 }
-
-
