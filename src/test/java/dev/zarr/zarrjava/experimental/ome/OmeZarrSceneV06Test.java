@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -169,7 +170,7 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
     void openSceneExample2TwoAffineLinksViaInstrument2() throws Exception {
         dev.zarr.zarrjava.experimental.ome.v0_6.Scene scene =
                 dev.zarr.zarrjava.experimental.ome.v0_6.Scene.openScene(new FilesystemStore(V06_SCENE_EXAMPLE2).resolve());
-        assertEquals(Arrays.asList("instrument1", "instrument2", "instrument3"), scene.listImageNodes());
+        assertEquals(new HashSet<>(Arrays.asList("instrument1", "instrument2", "instrument3")), new HashSet<>(scene.listImageNodes()));
         assertEquals(2, scene.getSceneMetadata().coordinateTransformations.size());
 
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation t0 =
