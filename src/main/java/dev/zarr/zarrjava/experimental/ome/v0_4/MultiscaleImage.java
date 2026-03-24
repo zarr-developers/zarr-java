@@ -30,7 +30,7 @@ public final class MultiscaleImage extends OmeV2Group implements MultiscalesMeta
     @Nullable
     private OmeroMetadata omeroMetadata;
     @Nullable
-    private Integer bioformats2rawLayout;
+    private final Integer bioformats2rawLayout;
 
     private MultiscaleImage(
             @Nonnull StoreHandle storeHandle,
@@ -83,6 +83,7 @@ public final class MultiscaleImage extends OmeV2Group implements MultiscalesMeta
         return this.storeHandle;
     }
 
+    @Override
     @Nullable
     public OmeroMetadata getOmeroMetadata() {
         return omeroMetadata;
@@ -93,6 +94,7 @@ public final class MultiscaleImage extends OmeV2Group implements MultiscalesMeta
         persistAttributes();
     }
 
+    @Override
     @Nullable
     public Integer getBioformats2rawLayout() {
         return bioformats2rawLayout;
