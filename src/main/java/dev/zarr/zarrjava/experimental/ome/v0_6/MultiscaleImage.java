@@ -18,6 +18,7 @@ import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,12 +86,14 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         return omeMetadata.multiscales.get(i);
     }
 
-    @javax.annotation.Nullable
+    @Override
+    @Nullable
     public dev.zarr.zarrjava.experimental.ome.metadata.OmeroMetadata getOmeroMetadata() {
         return omeMetadata.omero;
     }
 
-    @javax.annotation.Nullable
+    @Override
+    @Nullable
     public Integer getBioformats2rawLayout() {
         return omeMetadata.bioformats2rawLayout;
     }
