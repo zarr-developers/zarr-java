@@ -396,6 +396,10 @@ public abstract class Array extends AbstractNode {
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
                 Utils.toIntArray(shape));
+        final Object parsedFillValue = metadata.parsedFillValue();
+        if (parsedFillValue != null) {
+            MultiArrayUtils.fill(outputArray, parsedFillValue);
+        }
         Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
         if (parallel) {
             chunkStream = chunkStream.parallel();
@@ -408,17 +412,13 @@ public abstract class Array extends AbstractNode {
                                         shape
                                 );
 
-                        if (chunkIsInArray(chunkCoords)) {
-                            MultiArrayUtils.copyRegion(metadata.allocateFillValueChunk(),
-                                    chunkProjection.chunkOffset, outputArray, chunkProjection.outOffset,
-                                    chunkProjection.shape
-                            );
-                        }
-
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
                         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
                         if (codecPipeline.supportsPartialDecode()) {
+                            if (!chunkHandle.exists()) {
+                                return;
+                            }
                             final ucar.ma2.Array chunkArray = codecPipeline.decodePartial(chunkHandle,
                                     Utils.toLongArray(chunkProjection.chunkOffset), chunkProjection.shape);
                             MultiArrayUtils.copyRegion(chunkArray, new int[metadata.ndim()], outputArray,
