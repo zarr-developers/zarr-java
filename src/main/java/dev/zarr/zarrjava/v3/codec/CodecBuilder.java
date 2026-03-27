@@ -83,9 +83,9 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return withBytes(Endian.nativeOrder());
     }
 
-    public CodecBuilder withGzip(int clevel) {
+    public CodecBuilder withGzip(int level) {
         try {
-            codecs.add(new GzipCodec(new GzipCodec.Configuration(clevel)));
+            codecs.add(new GzipCodec(new GzipCodec.Configuration(level)));
         } catch (ZarrException e) {
             throw new RuntimeException(e);
         }
@@ -96,9 +96,9 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return withGzip(5);
     }
 
-    public CodecBuilder withZstd(int clevel, boolean checksum) {
+    public CodecBuilder withZstd(int level, boolean checksum) {
         try {
-            codecs.add(new ZstdCodec(new ZstdCodec.Configuration(clevel, checksum)));
+            codecs.add(new ZstdCodec(new ZstdCodec.Configuration(level, checksum)));
         } catch (ZarrException e) {
             throw new RuntimeException(e);
         }
@@ -109,8 +109,8 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return withZstd(5, true);
     }
 
-    public CodecBuilder withZstd(int clevel) {
-        return withZstd(clevel, true);
+    public CodecBuilder withZstd(int level) {
+        return withZstd(level, true);
     }
 
     public CodecBuilder withSharding(int[] chunkShape) {
