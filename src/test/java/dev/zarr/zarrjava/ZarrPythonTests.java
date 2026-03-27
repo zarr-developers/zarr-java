@@ -161,9 +161,9 @@ public class ZarrPythonTests extends ZarrTest {
                 builder = builder.withCodecs(c -> c.withGzip(Integer.parseInt(codecParam)));
                 break;
             case "zstd":
-                int clevel_zstd = Integer.parseInt(codecParam.split("_")[0]);
+                int level_zstd = Integer.parseInt(codecParam.split("_")[0]);
                 boolean checksum = Boolean.parseBoolean(codecParam.split("_")[1]);
-                builder = builder.withCodecs(c -> c.withZstd(clevel_zstd, checksum));
+                builder = builder.withCodecs(c -> c.withZstd(level_zstd, checksum));
                 break;
             case "bytes":
                 builder = builder.withCodecs(c -> c.withBytes(codecParam));
@@ -270,13 +270,13 @@ public class ZarrPythonTests extends ZarrTest {
 
     @CsvSource({"0,true", "0,false", "5, true", "10, false"})
     @ParameterizedTest
-    public void testZstdLibrary(int clevel, boolean checksumFlag) throws IOException, InterruptedException {
+    public void testZstdLibrary(int level, boolean checksumFlag) throws IOException, InterruptedException {
         //compress using ZstdCompressCtx
         int number = 123456;
         byte[] src = ByteBuffer.allocate(4).putInt(number).array();
         byte[] compressed;
         try (ZstdCompressCtx ctx = new ZstdCompressCtx()) {
-            ctx.setLevel(clevel);
+            ctx.setLevel(level);
             ctx.setChecksum(checksumFlag);
             compressed = ctx.compress(src);
         }
@@ -286,7 +286,7 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertEquals(number, ByteBuffer.wrap(decompressed).getInt());
 
         //write compressed to file
-        String compressedDataPath = TESTOUTPUT.resolve("compressed" + clevel + checksumFlag + ".bin").toString();
+        String compressedDataPath = TESTOUTPUT.resolve("compressed" + level + checksumFlag + ".bin").toString();
         try (FileOutputStream fos = new FileOutputStream(compressedDataPath)) {
             fos.write(compressed);
         }
