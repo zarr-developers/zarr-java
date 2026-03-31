@@ -204,17 +204,17 @@ public class ZarrV3Test extends ZarrTest {
 
     @ParameterizedTest
     @CsvSource({"0,true", "0,false", "5, true", "5, false"})
-    public void testZstdCodecReadWrite(int clevel, boolean checksum) throws ZarrException, IOException {
+    public void testZstdCodecReadWrite(int level, boolean checksum) throws ZarrException, IOException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
 
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZstdCodecReadWrite", "checksum_" + checksum, "clevel_" + clevel);
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZstdCodecReadWrite", "checksum_" + checksum, "level_" + level);
         ArrayMetadataBuilder builder = Array.metadataBuilder()
                 .withShape(16, 16, 16)
                 .withDataType(DataType.UINT32)
                 .withChunkShape(2, 4, 8)
                 .withFillValue(0)
-                .withCodecs(c -> c.withZstd(clevel, checksum));
+                .withCodecs(c -> c.withZstd(level, checksum));
         Array writeArray = Array.create(storeHandle, builder.build());
         writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
 
