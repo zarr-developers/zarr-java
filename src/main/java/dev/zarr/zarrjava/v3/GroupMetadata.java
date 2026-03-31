@@ -17,7 +17,7 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
     @JsonProperty("node_type")
     public final String nodeType = "group";
     @JsonProperty("consolidated_metadata")
-    public final String consolidatedMetadata = null;
+    public final Object consolidatedMetadata = null;
 
     @Nullable
     public final Attributes attributes;

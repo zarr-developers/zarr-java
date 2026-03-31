@@ -3,9 +3,11 @@ package dev.zarr.zarrjava.experimental.ome;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Node;
 import dev.zarr.zarrjava.experimental.ome.metadata.MultiscalesEntry;
+import dev.zarr.zarrjava.experimental.ome.metadata.OmeroMetadata;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,6 +38,18 @@ public interface MultiscaleImage {
      * Returns the number of scale levels in the first multiscale entry.
      */
     int getScaleLevelCount() throws ZarrException;
+
+    /**
+     * Returns the OmeroMetadata if present, or null if not.
+     */
+    @Nullable
+    OmeroMetadata getOmeroMetadata();
+
+    /**
+     * Returns the bioformats2raw.layout property if present, or null if not
+     */
+    @Nullable
+    Integer getBioformats2rawLayout();
 
     /**
      * Returns the axis names of the first multiscale entry.

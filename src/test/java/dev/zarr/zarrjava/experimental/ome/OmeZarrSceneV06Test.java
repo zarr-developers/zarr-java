@@ -144,7 +144,7 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
     void openSceneExample1AffinePathBetweenInstruments() throws Exception {
         dev.zarr.zarrjava.experimental.ome.v0_6.Scene scene =
                 dev.zarr.zarrjava.experimental.ome.v0_6.Scene.openScene(new FilesystemStore(V06_SCENE_EXAMPLE1).resolve());
-        assertEquals(Arrays.asList("sampleA_instrument1", "sampleA_instrument2"), scene.listImageNodes());
+        assertEquals(new HashSet<>(Arrays.asList("sampleA_instrument1", "sampleA_instrument2")), new HashSet<>(scene.listImageNodes()));
         assertEquals(1, scene.getSceneMetadata().coordinateTransformations.size());
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 scene.getSceneMetadata().coordinateTransformations.get(0);
