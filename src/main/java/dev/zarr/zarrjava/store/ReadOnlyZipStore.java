@@ -210,6 +210,12 @@ public class ReadOnlyZipStore extends ZipStore {
         return String.join("/", keys);
     }
 
+    private String resolvePathWithLeadingSlashFromKeys(String[] keys) {
+        // Join the keys with "/" and add a leading slash
+        String path = "/" + String.join("/", keys);
+        return path;
+    }
+
     String[] resolveEntryKeys(String entryKey) {
         return entryKey.split("/");
     }
@@ -218,7 +224,9 @@ public class ReadOnlyZipStore extends ZipStore {
     public boolean exists(String[] keys) {
         ensureCache();
         String key = resolveKeys(keys);
-        return fileSizeIndex.containsKey(key) || directoryToChildrenDirectoriesIndex.containsKey(key);
+        return fileSizeIndex.containsKey(key);
+        //This tests for existence of files not directories by design for testing dirs and files use the following line
+        //return fileSizeIndex.containsKey(key) || directoryToChildrenDirectoriesIndex.containsKey(key);
     }
 
     @Nullable
@@ -245,7 +253,11 @@ public class ReadOnlyZipStore extends ZipStore {
         }
 
         try (ZipFile zf = new ZipFile(zipStorePath.toFile())) {
-            ZipEntry entry = zf.getEntry(key);
+            ZipEntry entry = zf.getEntry(key); 
+            if (entry == null) {
+                String pathInZip = resolvePathWithLeadingSlashFromKeys(keys);// Sometimes paths in zip start with leading slash
+                entry = zf.getEntry(pathInZip);
+            }
             if (entry == null || entry.isDirectory()) {
                 return null;
             }
@@ -423,6 +435,10 @@ public class ReadOnlyZipStore extends ZipStore {
         try {
             ZipFile zf = new ZipFile(zipStorePath.toFile());
             ZipEntry entry = zf.getEntry(key);
+            if (entry == null) {
+                String pathInZip = resolvePathWithLeadingSlashFromKeys(keys);// Sometimes paths in zip start with leading slash
+                entry = zf.getEntry(pathInZip);
+            }
             if (entry == null || entry.isDirectory()) {
                 zf.close();
                 return null;
@@ -527,9 +543,14 @@ public class ReadOnlyZipStore extends ZipStore {
             return cachedSize;
         }
 
-        // if size is not in header/cache, we fallback to reading the entry to determine size (inefficient but necessary for some zip anomalies)
+        // if size is not in header/cache, we fallback to reading the entry to determine size (inefficient and probably required only for some zip anomalies)
         try (ZipFile zf = new ZipFile(zipStorePath.toFile())) {
             ZipEntry entry = zf.getEntry(key);
+            if (entry == null) {
+                String pathInZip = resolvePathWithLeadingSlashFromKeys(keys);// Sometimes paths in zip start with leading slash
+                logger.log(Level.WARNING, "ZipEntry is null for key: {0} when attempting to get size, trying with leading slash", key);
+                entry = zf.getEntry(pathInZip);
+            }
             if (entry == null || entry.isDirectory()) {
                 return -1;
             }
