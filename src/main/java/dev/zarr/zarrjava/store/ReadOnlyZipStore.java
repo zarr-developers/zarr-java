@@ -253,7 +253,7 @@ public class ReadOnlyZipStore extends ZipStore {
         }
 
         try (ZipFile zf = new ZipFile(zipStorePath.toFile())) {
-            ZipEntry entry = zf.getEntry(key); 
+            ZipEntry entry = zf.getEntry(key);
             if (entry == null) {
                 String pathInZip = resolvePathWithLeadingSlashFromKeys(keys);// Sometimes paths in zip start with leading slash
                 entry = zf.getEntry(pathInZip);

@@ -11,16 +11,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.*;
 import java.util.stream.Stream;
-import java.io.File;
-import java.util.stream.Collectors;
-import java.util.stream.Stream.Builder;
-import java.nio.file.attribute.BasicFileAttributes;
-// Java logging
-import java.util.logging.Logger;
-import java.util.logging.Level;
 
 public class FilesystemStore implements Store, Store.ListableStore {
-    private static final Logger logger = Logger.getLogger(FilesystemStore.class.getName());
 
     @Nonnull
     private final Path path;
@@ -150,46 +142,28 @@ public class FilesystemStore implements Store, Store.ListableStore {
         }
     }
 
+    /**
+     * Helper to convert a filesystem Path back into the full String[] key array
+     * relative to the prefix
+     */
+    private String[] pathToKeyArray(Path rootPath, Path currentPath, String[] prefix) {
+        Path relativePath = rootPath.relativize(currentPath);
+        int relativeCount = relativePath.getNameCount();
+
+        String[] result = new String[relativeCount];
+        for (int i = 0; i < relativeCount; i++) {
+            result[i] = relativePath.getName(i).toString();
+        }
+        return result;
+    }
+
     @Override
     public Stream<String[]> list(String[] prefix) {
         Path rootPath = resolveKeys(prefix);
         try {
-            Builder<String[]> builder = Stream.builder();  // Create a Stream.Builder to collect results
-            // Walk the directory tree using walkFileTree
-            Files.walkFileTree(rootPath, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
-                    // Only process regular files avoids Files::isRegularFile additional IO calls
-                    if (attrs.isRegularFile()) {
-                        String[] keys = rootPath.relativize(path).toString().split(File.separator);
-                        builder.add(keys);  // Add the keys to the stream builder
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                    // Called when a file could not be visited
-                    String msg = "Failed to visit file: " + file + " due to: " + exc.getMessage();
-                    logger.log(Level.WARNING, msg, exc);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
-            return builder.build();  // Build the stream and return it
-
-            //return Files.walk(rootPath).parallel().filter(Files::isRegularFile) // Filter only regular files (not directories)
-            //             .map(path -> rootPath.relativize(path).toString().split(File.separator)); // Get relative path and split into keys
+            return Files.walk(rootPath)
+                    .filter(Files::isRegularFile)
+                    .map(path -> pathToKeyArray(rootPath, path, prefix));
         } catch (IOException e) {
             throw StoreException.listFailed(
                     this.toString(),
@@ -233,7 +207,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
             if (start > 0) {
                 long skipped = inputStream.skip(start);
                 if (skipped < start) {
-                    throw new IOException("Unable to skip to position " + start + ", only skipped " + skipped + " bytes in file: " + keyPath);
+                    throw new IOException("Unable to skip to position " + start +
+                            ", only skipped " + skipped + " bytes in file: " + keyPath);
                 }
             }
             if (end != -1) {
@@ -248,7 +223,8 @@ public class FilesystemStore implements Store, Store.ListableStore {
             throw StoreException.readFailed(
                     this.toString(),
                     keys,
-                    new IOException("Failed to open input stream for file: " + keyPath + " (start: " + start + ", end: " + end + ")", e));
+                    new IOException("Failed to open input stream for file: " + keyPath +
+                            " (start: " + start + ", end: " + end + ")", e));
         }
     }
 
