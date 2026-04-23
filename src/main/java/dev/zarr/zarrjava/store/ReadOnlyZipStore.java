@@ -178,12 +178,10 @@ public class ReadOnlyZipStore extends ZipStore {
                 }
             }
             isCached = true;
-        } catch (IOException io) {
-            // If central directory read fails for any reason, fall back to the original safe path.
-            // Surface the better error (central dir attempt) with context if both fail
+        } catch (IOException e) {
             throw StoreException.readFailed(
                     underlyingStore.toString(), new String[]{},
-                    new IOException("Failed to read ZIP central directory from filesystem path", io)
+                    new IOException("Failed to read ZIP central directory from filesystem path", e)
             );
         }
     }
@@ -241,9 +239,8 @@ public class ReadOnlyZipStore extends ZipStore {
         return get(keys, start, -1);
     }
 
-    @Nullable
-    @Override
-    public ByteBuffer get(String[] keys, long start, long end) {
+    //Helper function for get and getInputStream not to duplicate code
+    private byte[] readEntryBytes(String[] keys, long start, long end) {
         ensureCache();
         String key = resolveKeys(keys);
         Long entrySize = fileSizeIndex.get(key);// use cached size not calling entry.getSize()
@@ -261,23 +258,23 @@ public class ReadOnlyZipStore extends ZipStore {
             if (entry == null || entry.isDirectory()) {
                 return null;
             }
+            if (start < 0 || end < -1 || (end != -1 && end <= start)) {
+                String msg = String.format("Invalid byte range [%d, %d) for entry '%s', returning empty array",
+                        start, end, key);
+                logger.log(Level.WARNING, msg);
+                return new byte[0];
+            }
+            if (entrySize >= 0) {
+                if (start >= entrySize || (end != -1 && end > entrySize)) {
+                    String msg = String.format(
+                            "Requested byte range [%d, %d) is out of bounds for entry '%s' with size %d, returning empty array",
+                            start, end, key, entrySize);
+                    logger.log(Level.WARNING, msg);
+                    return new byte[0];
+                }
+            }
 
             try (InputStream is = zf.getInputStream(entry)) {
-                if (start < 0 || end < -1 || (end != -1 && end <= start)) {
-                    String msg = String.format("Invalid byte range [%d, %d) for entry '%s', returning empty buffer",
-                            start, end, key);
-                    logger.log(Level.WARNING, msg);
-                    return ByteBuffer.allocate(0); // return empty buffer for invalid ranges when size is unknown
-                }
-                if (entrySize >= 0) {
-                    if (start >= entrySize || (end != -1 && end > entrySize)) {
-                        String msg = String.format(
-                                "Requested byte range [%d, %d) is out of bounds for entry '%s' with size %d, returning empty buffer",
-                                start, end, key, entrySize);
-                        logger.log(Level.WARNING, msg);
-                        return ByteBuffer.allocate(0); // return empty buffer for out-of-range requests
-                    }
-                }
                 //Skip to start position in the entry
                 long toSkip = start;
                 while (toSkip > 0) {
@@ -294,28 +291,41 @@ public class ReadOnlyZipStore extends ZipStore {
 
                 // Create ByteBuffer for the requested range
                 long bytesToRead;
-                byte[] bufferArray = new byte[8192];
                 if (end != -1) {
                     bytesToRead = end - start;
                 } else if (entrySize >= 0) {
                     bytesToRead = entrySize - start;
                 } else {
-                    bytesToRead = bufferArray.length; // read in chunks until EOF if size is unknown
+                    bytesToRead = Long.MAX_VALUE; // read until EOF if size is unknown and no end specified
                 }
 
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                int len;
-                while (bytesToRead > 0 && (len = is.read(bufferArray, 0, (int) Math.min(bufferArray.length,
+                ByteArrayOutputStream baos = new ByteArrayOutputStream(bytesToRead > 0 && bytesToRead < Integer.MAX_VALUE ? (int) bytesToRead : 8192);
+                byte[] bufferArray = new byte[8192];
+                int readLength = 0;
+                while (bytesToRead > 0 && (readLength = is.read(bufferArray, 0, (int) Math.min(bufferArray.length,
                         bytesToRead))) != -1) {
-                    baos.write(bufferArray, 0, len);
-                    bytesToRead -= len;
+                    baos.write(bufferArray, 0, readLength);
+                    bytesToRead -= readLength;
                 }
-                return ByteBuffer.wrap(baos.toByteArray());
+                return baos.toByteArray();
             }
-
-        } catch (IOException e) {
-            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
+        } catch (IOException io) {
+            throw StoreException.readFailed(
+                    underlyingStore.toString(), keys,
+                    new IOException("Failed to read ZIP central directory from filesystem path", io)
+            );
         }
+    }
+
+
+    @Nullable
+    @Override
+    public ByteBuffer get(String[] keys, long start, long end) {
+        byte[] bytes = readEntryBytes(keys, start, end);
+        if (bytes == null) {
+            return ByteBuffer.allocate(0);
+        }
+        return ByteBuffer.wrap(bytes);
     }
 
     @Override
@@ -424,111 +434,11 @@ public class ReadOnlyZipStore extends ZipStore {
 
     @Override
     public InputStream getInputStream(String[] keys, long start, long end) {
-        ensureCache();
-        String key = resolveKeys(keys);
-        Long entrySize = fileSizeIndex.get(key);// use cached size not calling entry.getSize()
-        if (entrySize == null) // key is not present in index
-        {
+        byte[] bytes = readEntryBytes(keys, start, end);
+        if (bytes == null) {
             return null;
         }
-
-        try {
-            ZipFile zf = new ZipFile(zipStorePath.toFile());
-            ZipEntry entry = zf.getEntry(key);
-            if (entry == null) {
-                String pathInZip = resolvePathWithLeadingSlashFromKeys(keys);// Sometimes paths in zip start with leading slash
-                entry = zf.getEntry(pathInZip);
-            }
-            if (entry == null || entry.isDirectory()) {
-                zf.close();
-                return null;
-            }
-            InputStream is = zf.getInputStream(entry);
-            if (start < 0 || end < -1 || (end != -1 && end <= start)) {
-                zf.close();
-                String msg = String.format("Invalid byte range [%d, %d) for entry '%s', returning empty stream",
-                        start, end, key);
-                logger.log(Level.WARNING, msg);
-                return new ByteArrayInputStream(new byte[0]);
-            }
-            if (entrySize >= 0) {
-                if (start >= entrySize || (end != -1 && end > entrySize)) {
-                    zf.close();
-                    String msg = String.format(
-                            "Requested byte range [%d, %d) is out of bounds for entry '%s' with size %d, returning empty stream",
-                            start, end, key, entrySize);
-                    logger.log(Level.WARNING, msg);
-                    return new ByteArrayInputStream(new byte[0]);
-                }
-            }
-
-            // safe skip
-            long toSkip = start;
-            while (toSkip > 0) {
-                long skipped = is.skip(toSkip);
-                if (skipped <= 0) {
-                    if (is.read() == -1) {
-                        try {
-                            is.close();
-                        } catch (IOException ignore) {
-                        }
-                        try {
-                            zf.close();
-                        } catch (IOException ignore) {
-                        }
-                        throw new IOException("Unexpected EOF while skipping");
-                    }
-                    skipped = 1;
-                }
-                toSkip -= skipped;
-            }
-
-            // Wrap the InputStream to enforce the end boundary if specified
-            long bytesToRead;
-            if (end != -1) {
-                bytesToRead = end - start;
-            } else if (entrySize >= 0) {
-                bytesToRead = entrySize - start;
-            } else {
-                // read until EOF if size is unknown and no end specified
-                bytesToRead = Long.MAX_VALUE;
-            }
-
-            // Wrap original InputStream in a FilterInputStream closes the ZipFile when closed and enforces the bound
-            return new FilterInputStream(is) {
-                private long remaining = bytesToRead;
-
-                @Override
-                public int read() throws IOException {
-                    if (remaining <= 0) return -1;
-                    int b = super.read();
-                    if (b != -1) remaining--;
-                    return b;
-                }
-
-                @Override
-                public int read(byte[] b, int off, int len) throws IOException {
-                    if (remaining <= 0) return -1;
-                    int toRead = (int) Math.min(len, remaining);
-                    int n = super.read(b, off, toRead);
-                    if (n > 0) remaining -= n;
-                    return n;
-                }
-
-                @Override
-                public void close() throws IOException {
-                    try {
-                        super.close();
-                    } finally {
-                        zf.close(); // ensure ZipFile is also closed
-                    }
-                }
-            };
-
-
-        } catch (IOException e) {
-            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
-        }
+        return new ByteArrayInputStream(bytes);
     }
 
     @Override
@@ -557,7 +467,10 @@ public class ReadOnlyZipStore extends ZipStore {
             long entrySize = entry.getSize();// may be -1 for STORED entries without proper headers, but ZipFile usually handles this
             return entrySize;
         } catch (IOException e) {
-            throw StoreException.readFailed(underlyingStore.toString(), keys, e);
+            throw StoreException.readFailed(
+                    underlyingStore.toString(), keys,
+                    new IOException("Failed to read ZIP central directory from filesystem path", e)
+            );
         }
     }
 }
