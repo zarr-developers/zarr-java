@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Collections;
-// Java logging for debugging
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
@@ -61,39 +60,7 @@ public class ReadOnlyZipStore extends ZipStore {
         this(Paths.get(zipPath));
     }
 
-    /*
-    private synchronized void ensureCacheOriginal() {
-        fileIndex = new LinkedHashMap<>();
-        directoryIndex = new LinkedHashSet<>();
-    
-        InputStream inputStream = underlyingStore.getInputStream();
-        if (inputStream == null) {
-            isCached = true;
-            return;
-        }
-    
-        try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
-            ZipArchiveEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                String name = normalizeEntryName(entry.getName());
-                if (entry.isDirectory()) {
-                    directoryIndex.add(name);
-                } else {
-                    fileIndex.put(name, entry.getSize());
-                }
-            }
-        } catch (IOException e) {
-            throw StoreException.readFailed(
-                    underlyingStore.toString(), new String[]{},
-                    new IOException("Failed to read ZIP directory from underlying store", e));
-        }
-        isCached = true;
-    }
-    */
-
-// Helper method to add parent directories of a file entry to the directory index
-
-
+    // Helper for buildZipIndex to add all parent directories of a given entry to the directory index, ensuring they are present for lookups
     private void addParentDirs(String entryName, Set<String> dirIndex) {
         int lastSlash = entryName.lastIndexOf('/'); // Find the last '/' in the file name
         while (lastSlash > 0) {                      // Keep going until no more slashes are found
@@ -105,6 +72,7 @@ public class ReadOnlyZipStore extends ZipStore {
         }
     }
 
+    // Helper for buildZipIndex to add a file entry to the file index and ensure all its parent directories are indexed as well
     private void insertLeafEntry(String entryStrippedPath, long size) {
         fileSizeIndex.put(entryStrippedPath, size); // Cache the file size for quick access	
         int lastSlash = entryStrippedPath.lastIndexOf('/'); // Find the last '/' in the file name returns -1 if not found
@@ -112,33 +80,33 @@ public class ReadOnlyZipStore extends ZipStore {
             String name = entryStrippedPath.substring(lastSlash + 1); // Extract the file name after the last slash
             String parentDir = entryStrippedPath.substring(0, lastSlash); // Extract the parent directory path without trailing slash
             directoryToChildrenFilesIndex.computeIfAbsent(parentDir,
-                    k -> Collections.synchronizedSet(new HashSet<>())).add(name); // Add the file name to the parent directory's set of children files
+                    k -> ConcurrentHashMap.newKeySet()).add(name); // Add the file name to the parent directory's set of children files
             insertDirectoryEntry(parentDir); // Recursively ensure all parent directories are added
 
         } else {// no slashes, file is in root directory
             directoryToChildrenFilesIndex.computeIfAbsent("",
-                    k -> Collections.synchronizedSet(new HashSet<>())).add(entryStrippedPath);
+                    k -> ConcurrentHashMap.newKeySet()).add(entryStrippedPath);
         }
     }
 
+    // Helper for buildZipIndex to add a directory entry to the directory index and ensure all its parent directories are indexed as well
     private void insertDirectoryEntry(String entryStrippedPath) {
         int lastSlash = entryStrippedPath.lastIndexOf('/'); // Find the last '/' in the file name returns -1 if not found
         if (lastSlash >= 0) {
             String name = entryStrippedPath.substring(lastSlash + 1); // Extract the file name after the last slash
             String parentDir = entryStrippedPath.substring(0, lastSlash); // Extract the parent directory path without trailing slash
             directoryToChildrenDirectoriesIndex.computeIfAbsent(parentDir,
-                    k -> Collections.synchronizedSet(new HashSet<>())).add(name); // Add the directory name to the parent directory's set of children directories
+                    k -> ConcurrentHashMap.newKeySet()).add(name); // Add the file name to the parent directory's set of children files
             insertDirectoryEntry(parentDir); // Recursively ensure all parent directories are added
 
         } else {// no slashes, file is in root directory
             // No parent directory, just add the file name to the root directory index
             directoryToChildrenDirectoriesIndex.computeIfAbsent("",
-                    k -> Collections.synchronizedSet(new HashSet<>())).add(entryStrippedPath);
+                    k -> ConcurrentHashMap.newKeySet()).add(entryStrippedPath);
         }
     }
 
-
-    private synchronized void ensureCacheNew() {
+    private synchronized void buildZipIndex() {
         // Fast path using ZipFile
         try (ZipFile zf = new ZipFile(zipStorePath.toFile())) {
             // Optionally pre-size: count entries once (cheap and avoids rehashing on huge zips)
@@ -167,9 +135,9 @@ public class ReadOnlyZipStore extends ZipStore {
                                 e.getName());
                     }
                     directoryToChildrenDirectoriesIndex.computeIfAbsent(entryStrippedPath,
-                            k -> Collections.synchronizedSet(new HashSet<>()));
+                            k -> ConcurrentHashMap.newKeySet());
                     directoryToChildrenFilesIndex.computeIfAbsent(entryStrippedPath,
-                            k -> Collections.synchronizedSet(new HashSet<>()));
+                            k -> ConcurrentHashMap.newKeySet());
                     insertDirectoryEntry(entryStrippedPath);
                 } else {
                     // Put file size (may be -1 for STORED anomalies, but ZipFile usually knows it)
@@ -177,7 +145,6 @@ public class ReadOnlyZipStore extends ZipStore {
                     insertLeafEntry(entryStrippedPath, size);
                 }
             }
-            isCached = true;
         } catch (IOException e) {
             throw StoreException.readFailed(
                     underlyingStore.toString(), new String[]{},
@@ -189,19 +156,11 @@ public class ReadOnlyZipStore extends ZipStore {
     private synchronized void ensureCache() {
         if (isCached) return;
         long startTime, endTime;
-        //System.out.println("START ensureCacheOriginal()");
-        //startTime = System.currentTimeMillis();
-        // swap to test the new implementation:
-        //ensureCacheOriginal(); // or ensureCacheNew()
-        //endTime = System.currentTimeMillis();
-        //System.out.println("END ensureCacheOriginal() in " + (endTime - startTime) + " ms");
-
-        logger.log(Level.INFO, "Starting ensureCacheNew() for underlying store: {0}", underlyingStore.toString());
         startTime = System.currentTimeMillis();
-        // swap to test the new implementation:
-        ensureCacheNew(); // or ensureCacheOriginal()
+        buildZipIndex();
+        isCached = true;
         endTime = System.currentTimeMillis();
-        logger.log(Level.INFO, "ensureCacheNew() completed in {0} ms", (endTime - startTime));
+        logger.log(Level.FINE, "Indexed ZIP store {0} with {1} file entries in {2} ms", new Object[]{zipStorePath.toString(), fileSizeIndex.size(), (endTime - startTime)});
     }
 
     String resolveKeys(String[] keys) {
