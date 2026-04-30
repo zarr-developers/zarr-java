@@ -93,9 +93,6 @@ public class ArrayMetadataBuilder {
     }
 
     public ArrayMetadataBuilder withBloscCompressor(String cname, String shuffle, int clevel, int blockSize) {
-        if (shuffle.equals("shuffle")) {
-            shuffle = "byteshuffle";
-        }
         return withBloscCompressor(Blosc.Compressor.fromString(cname), Blosc.Shuffle.fromString(shuffle), clevel,
                 dataType.getByteCount(), blockSize
         );
