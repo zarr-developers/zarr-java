@@ -102,7 +102,7 @@
         <dependency>
             <groupId>com.scalableminds</groupId>
             <artifactId>blosc-java</artifactId>
-            <version>0.1-1.21.4</version>
+            <version>0.3-1.21.6</version>
         </dependency>
         <dependency>
             <groupId>com.github.luben</groupId>
