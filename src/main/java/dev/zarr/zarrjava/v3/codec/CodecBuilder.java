@@ -38,9 +38,6 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
     }
 
     public CodecBuilder withBlosc(String cname, String shuffle, int clevel, int blockSize) {
-        if (shuffle.equals("shuffle")) {
-            shuffle = "byteshuffle";
-        }
         return withBlosc(Blosc.Compressor.fromString(cname), Blosc.Shuffle.fromString(shuffle), clevel,
                 dataType.getByteCount(), blockSize
         );
