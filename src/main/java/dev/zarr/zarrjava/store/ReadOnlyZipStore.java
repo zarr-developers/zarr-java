@@ -107,27 +107,18 @@ public class ReadOnlyZipStore extends ZipStore {
             Enumeration<? extends ZipEntry> en = zf.entries();
             while (en.hasMoreElements()) {
                 ZipEntry e = en.nextElement();
-                String entryStrippedPath = normalizeEntryName(e.getName());
-                if (entryStrippedPath.isEmpty()) continue; // guard against odd entries
+                // In some zip files entries may have leading or trailing slashes, we want to ignore those for consistent indexing
+                // Trailing shashes are common for directory entries, but since we have dedicated directoryToChildrenDirectoriesIndex we strip those and rely on the isDirectory() flag to determine if an entry is a directory or file
+                String entryStrippedPath = stripLeadingAndTrailingSlashes(e.getName());
 
-                if (e.isDirectory() || entryStrippedPath.endsWith("/")) {
-                    // Ensure directory entryStrippedPaths end with '/' ... this just complicates
-                    if (entryStrippedPath.endsWith("/")) {
-                        entryStrippedPath = entryStrippedPath.substring(0, entryStrippedPath.length() - 1);
-                        logger.log(Level.WARNING,
-                                "Directory entry '{0}' did end with '/' not removed by normalizeEntryName()",
-                                e.getName());
-                    } else if (entryStrippedPath.startsWith("/")) {
-                        entryStrippedPath = entryStrippedPath.substring(1);
-                        logger.log(Level.WARNING,
-                                "Directory entry '{0}' did start with '/' not removed by normalizeEntryName()",
-                                e.getName());
-                    }
+                if (e.isDirectory()) {
                     directoryToChildrenDirectoriesIndex.computeIfAbsent(entryStrippedPath,
                             k -> ConcurrentHashMap.newKeySet());
                     directoryToChildrenFilesIndex.computeIfAbsent(entryStrippedPath,
                             k -> ConcurrentHashMap.newKeySet());
-                    insertDirectoryEntry(entryStrippedPath);
+                    if (!entryStrippedPath.isEmpty()) { // Don't insert the root directory itself as an entry
+                        insertDirectoryEntry(entryStrippedPath);
+                    }
                 } else {
                     // Put file size (may be -1 for STORED anomalies, but ZipFile usually knows it)
                     long size = e.getSize();
@@ -371,11 +362,12 @@ public class ReadOnlyZipStore extends ZipStore {
     }
 
 
-    // Normalize entry names to ensure consistent handling of leading/trailing slashes
-    // Name of root directory will then be ""
-    private String normalizeEntryName(String name) {
-        if (name.startsWith("/")) name = name.substring(1);
-        if (name.endsWith("/")) name = name.substring(0, name.length() - 1);
+    // Strip leading and trailing slashes, including multiple occurrences
+    // For degenerate strings with multiple slashes, they will all be stripped
+    // The name of the root directory will be an empty string ""
+    private String stripLeadingAndTrailingSlashes(String name) {
+        while (name.startsWith("/")) name = name.substring(1);
+        while (name.endsWith("/")) name = name.substring(0, name.length() - 1);
         return name;
     }
 
