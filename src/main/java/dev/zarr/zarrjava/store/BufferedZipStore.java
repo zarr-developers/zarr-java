@@ -80,7 +80,7 @@ public class BufferedZipStore extends ZipStore implements AutoCloseable {
     }
 
     public BufferedZipStore(@Nonnull Path underlyingStore, String archiveComment) {
-        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()), archiveComment);
+        this(new FilesystemStore(underlyingStore.toAbsolutePath().getParent()).resolve(underlyingStore.getFileName().toString()), archiveComment);
     }
 
     public BufferedZipStore(@Nonnull Path underlyingStore) {
@@ -108,7 +108,7 @@ public class BufferedZipStore extends ZipStore implements AutoCloseable {
     }
 
     public BufferedZipStore(@Nonnull Path underlyingStore, String archiveComment, boolean flushOnWrite) {
-        this(new FilesystemStore(underlyingStore.getParent()).resolve(underlyingStore.getFileName().toString()), archiveComment, flushOnWrite);
+        this(new FilesystemStore(underlyingStore.toAbsolutePath().getParent()).resolve(underlyingStore.getFileName().toString()), archiveComment, flushOnWrite);
     }
 
     public BufferedZipStore(@Nonnull Path underlyingStore, boolean flushOnWrite) {

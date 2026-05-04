@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.zip.ZipEntry;
@@ -173,6 +174,21 @@ public class BufferedZipStoreTest extends WritableStoreTest {
         assertIsTestGroupV2(Group.open(fsStore.resolve()), true);
     }
 
+
+    @Test
+    public void testBufferedZipStoreWithRelativePath() throws ZarrException, IOException {
+        // Path.of("filename.zip") has no parent component — getParent() returns null,
+        // which previously caused a NullPointerException in FilesystemStore.resolveKeys().
+        Path relPath = Paths.get("testRelativePath.zip");
+        Path absPath = relPath.toAbsolutePath();
+        try {
+            BufferedZipStore store = new BufferedZipStore(relPath);
+            writeTestGroupV3(store.resolve(), true);
+            store.flush();
+        } finally {
+            Files.deleteIfExists(absPath);
+        }
+    }
 
     @Override
     Store writableStore() {
