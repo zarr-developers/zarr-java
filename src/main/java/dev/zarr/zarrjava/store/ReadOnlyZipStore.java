@@ -32,7 +32,7 @@ import java.util.logging.Level;
  */
 public class ReadOnlyZipStore extends ZipStore {
     private static final Logger logger = Logger.getLogger(ReadOnlyZipStore.class.getName());
-    final Path zipStorePath; // Store the resolved zip path for logging and potential future use
+    private final Path zipStorePath; // Store the resolved zip path for logging and potential future use
     // Cache keys are without trailing or leading slashes, leaf nodes are stored as their names
     private Map<String, Set<String>> directoryToChildrenDirectoriesIndex;
     private Map<String, Set<String>> directoryToChildrenFilesIndex;
@@ -60,17 +60,6 @@ public class ReadOnlyZipStore extends ZipStore {
         this(Paths.get(zipPath));
     }
 
-    // Helper for buildZipIndex to add all parent directories of a given entry to the directory index, ensuring they are present for lookups
-    private void addParentDirs(String entryName, Set<String> dirIndex) {
-        int lastSlash = entryName.lastIndexOf('/'); // Find the last '/' in the file name
-        while (lastSlash > 0) {                      // Keep going until no more slashes are found
-            String parentDir = entryName.substring(0, lastSlash + 1); // Extract the parent directory path
-            if (!dirIndex.add(parentDir)) {          // Add the parent to the directory index if it’s not already added
-                break; // Exit if this parent directory has already been added
-            }
-            lastSlash = entryName.lastIndexOf('/', lastSlash - 1); // Move the search for slashes up
-        }
-    }
 
     // Helper for buildZipIndex to add a file entry to the file index and ensure all its parent directories are indexed as well
     private void insertLeafEntry(String entryStrippedPath, long size) {
@@ -282,7 +271,7 @@ public class ReadOnlyZipStore extends ZipStore {
     public ByteBuffer get(String[] keys, long start, long end) {
         byte[] bytes = readEntryBytes(keys, start, end);
         if (bytes == null) {
-            return ByteBuffer.allocate(0);
+            return null;
         }
         return ByteBuffer.wrap(bytes);
     }
@@ -308,7 +297,7 @@ public class ReadOnlyZipStore extends ZipStore {
         return "ReadOnlyZipStore(" + underlyingStore.toString() + ")";
     }
 
-    public static String[] concatPaths(String[] prefix, String[] child) {
+    private static String[] concatPaths(String[] prefix, String[] child) {
         String[] result = new String[prefix.length + child.length];
         System.arraycopy(prefix, 0, result, 0, prefix.length);
         System.arraycopy(child, 0, result, prefix.length, child.length);
@@ -316,7 +305,7 @@ public class ReadOnlyZipStore extends ZipStore {
     }
 
 
-    public void addChildrenRecursively(String[] prefixZarrPath, String[] childrenZarrPath, Stream.Builder<String[]> builder) {
+    private void addChildrenRecursively(String[] prefixZarrPath, String[] childrenZarrPath, Stream.Builder<String[]> builder) {
         String[] fullZarrPath = concatPaths(prefixZarrPath, childrenZarrPath);
 
         String prefix = resolveKeys(fullZarrPath);
