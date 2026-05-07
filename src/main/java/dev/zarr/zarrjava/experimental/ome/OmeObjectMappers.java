@@ -32,7 +32,7 @@ final class OmeObjectMappers {
 
     private static final class UnknownOmePropertyWarningHandler extends DeserializationProblemHandler {
         private static final Logger LOGGER = Logger.getLogger(UnknownOmePropertyWarningHandler.class.getName());
-        private static final Set<String> WARNED_FIELDS = ConcurrentHashMap.newKeySet();
+        private static final Set<String> UNKNOWN_FIELDS = ConcurrentHashMap.newKeySet();
 
         @Override
         public boolean handleUnknownProperty(
@@ -46,8 +46,8 @@ final class OmeObjectMappers {
                     ? ((Class<?>) beanOrClass).getName()
                     : beanOrClass.getClass().getName();
             String key = target + "#" + propertyName;
-            if (WARNED_FIELDS.add(key)) {
-                LOGGER.warning(
+            if (UNKNOWN_FIELDS.add(key)) {
+                LOGGER.fine(
                         "Ignoring unknown OME metadata field '" + propertyName + "' for " + target);
             }
             p.skipChildren();
