@@ -1,5 +1,9 @@
 target/
 !.mvn/wrapper/maven-wrapper.jar
+
+### Notebooks ###
+notebooks/*_executed.ipynb
+**/.ipynb_checkpoints/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
