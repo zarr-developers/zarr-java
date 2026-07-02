@@ -1,5 +1,9 @@
 target/
 !.mvn/wrapper/maven-wrapper.jar
+
+### Notebooks ###
+notebooks/*_executed.ipynb
+**/.ipynb_checkpoints/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
@@ -40,10 +44,16 @@ build/
 ### Custom ###
 /testdata/l4_sample
 /testdata/l4_sample.zip
+zarr-java-core/testdata/l4_sample
+zarr-java-core/testdata/l4_sample.zip
 /testoutput
+zarr-java-core/testoutput
+zarr-java-ome/testoutput
 /.python-version
 /main.py
 /pyproject.toml
 /uv.lock
 **/__pycache__
 /dependency-reduced-pom.xml
+zarr-java-core/dependency-reduced-pom.xml
+zarr-java-ome/dependency-reduced-pom.xml

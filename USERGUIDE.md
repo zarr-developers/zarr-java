@@ -31,15 +31,25 @@ Add the following dependency to your `pom.xml`:
 ```xml
 <dependency>
     <groupId>dev.zarr</groupId>
-    <artifactId>zarr-java</artifactId>
-    <version>0.0.10</version>
+    <artifactId>zarr-java-core</artifactId>
+    <version>0.1.3</version>
+</dependency>
+```
+For OME-Zarr support, also add:
+```xml
+<dependency>
+    <groupId>dev.zarr</groupId>
+    <artifactId>zarr-java-ome</artifactId>
+    <version>0.1.3</version>
 </dependency>
 ```
 ### Gradle
 Add the following to your `build.gradle`:
 ```gradle
 dependencies {
-    implementation 'dev.zarr:zarr-java:0.0.10'
+    implementation 'dev.zarr:zarr-java-core:0.1.3'
+    // Optional: OME-Zarr support
+    implementation 'dev.zarr:zarr-java-ome:0.1.3'
 }
 ```
 ### Requirements
@@ -680,7 +690,9 @@ try {
 
 ## OME-Zarr (v0.4, v0.5, v0.6)
 
-For a focused OME-Zarr API guide (metadata access, array access, version behavior, and concise examples),
+OME-Zarr support is provided by the separate `zarr-java-ome` module (package `dev.zarr.omezarr`).
+
+For the full OME-Zarr API guide (installation, metadata access, array access, version behavior, and concise examples),
 see:
 
 - [`USERGUIDE-OME-ZARR.md`](USERGUIDE-OME-ZARR.md)
