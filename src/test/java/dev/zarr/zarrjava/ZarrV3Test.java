@@ -224,6 +224,151 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
     }
 
+    /** Maximum absolute difference between two uint8 buffers (compared as unsigned). */
+    private static int maxAbsDiff(byte[] expected, byte[] actual) {
+        Assertions.assertEquals(expected.length, actual.length);
+        int max = 0;
+        for (int i = 0; i < expected.length; i++) {
+            int diff = Math.abs((expected[i] & 0xff) - (actual[i] & 0xff));
+            if (diff > max) {
+                max = diff;
+            }
+        }
+        return max;
+    }
+
+    @ParameterizedTest
+    @CsvSource({"75", "90", "100"})
+    public void testJpegCodecGrayscaleReadWrite(int quality) throws ZarrException, IOException {
+        int[] shape = {8, 16, 16};
+        int n = shape[0] * shape[1] * shape[2];
+        byte[] testData = new byte[n];
+        // Smooth global ramp so the lossy JPEG stays close to the original.
+        for (int i = 0; i < n; i++) {
+            testData[i] = (byte) (255 * i / n);
+        }
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegGray", "q" + quality);
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(8, 16, 16)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(8, 16, 16)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(quality));
+        Array writeArray = Array.create(storeHandle, builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, shape, testData));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        byte[] roundTripped = (byte[]) result.copyTo1DJavaArray();
+        Assertions.assertTrue(maxAbsDiff(testData, roundTripped) <= 4,
+                "grayscale round-trip differs too much at quality " + quality);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"90", "100"})
+    public void testJpegCodecRgbReadWrite(int quality) throws ZarrException, IOException {
+        int[] shape = {2, 16, 16, 3};
+        int numPixels = shape[0] * shape[1] * shape[2];
+        byte[] testData = new byte[numPixels * 3];
+        // Smooth per-channel ramps.
+        for (int p = 0; p < numPixels; p++) {
+            testData[p * 3] = (byte) (255 * p / numPixels);
+            testData[p * 3 + 1] = (byte) (255 - 255 * p / numPixels);
+            testData[p * 3 + 2] = (byte) (128 * p / numPixels);
+        }
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegRgb", "q" + quality);
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(2, 16, 16, 3)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(2, 16, 16, 3)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(quality));
+        Array writeArray = Array.create(storeHandle, builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, shape, testData));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        byte[] roundTripped = (byte[]) result.copyTo1DJavaArray();
+        // RGB goes through the standard YCbCr transform (and possibly chroma subsampling), so a
+        // looser tolerance than grayscale is expected.
+        Assertions.assertTrue(maxAbsDiff(testData, roundTripped) <= 24,
+                "rgb round-trip differs too much at quality " + quality);
+    }
+
+    @Test
+    public void testJpegCodecLargeChunkReadWrite() throws ZarrException, IOException {
+        // More than 65535 pixels forces the width x height factorization.
+        int[] shape = {1, 300, 300};
+        int n = shape[0] * shape[1] * shape[2];
+        byte[] testData = new byte[n];
+        for (int i = 0; i < n; i++) {
+            testData[i] = (byte) (255 * i / n);
+        }
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegLargeChunk");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(1, 300, 300)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(1, 300, 300)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(100));
+        Array writeArray = Array.create(storeHandle, builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, shape, testData));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+
+        byte[] roundTripped = (byte[]) result.copyTo1DJavaArray();
+        Assertions.assertTrue(maxAbsDiff(testData, roundTripped) <= 4);
+    }
+
+    @Test
+    public void testJpegCodecRejectsNonUint8() throws ZarrException, IOException {
+        int[] testData = new int[8 * 8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegRejectsNonUint8");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(8, 8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(8, 8, 8)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg());
+        Array writeArray = Array.create(storeHandle, builder.build());
+        // The parallel writer wraps the codec's ZarrException in a RuntimeException.
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8, 8}, testData)));
+        Assertions.assertTrue(ex.getMessage().contains("uint8"), ex.getMessage());
+    }
+
+    @Test
+    public void testJpegCodecMetadataRoundTrip() throws ZarrException, IOException {
+        int[] shape = {4, 4, 4};
+        byte[] testData = new byte[shape[0] * shape[1] * shape[2]];
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegMetadata");
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(4, 4, 4)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(4, 4, 4)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(75));
+        Array writeArray = Array.create(storeHandle, builder.build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, shape, testData));
+
+        String zarrJson = new String(Files.readAllBytes(
+                Paths.get("testoutput", "testJpegMetadata", ZARR_JSON)));
+        Assertions.assertTrue(zarrJson.contains("\"name\" : \"jpeg\""), zarrJson);
+        Assertions.assertTrue(zarrJson.contains("\"quality\" : 75"), zarrJson);
+
+        // Re-opening exercises deserialization of the jpeg codec from metadata.
+        Assertions.assertNotNull(Array.open(storeHandle).read());
+    }
+
     @Test
     public void testShardingWithZstdCodecReadWrite() throws ZarrException, IOException {
         int[] testData = new int[16 * 16 * 16];
