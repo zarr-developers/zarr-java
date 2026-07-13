@@ -12,6 +12,7 @@ public class CodecRegistry {
 
     static {
         addType("transpose", TransposeCodec.class);
+        addType("reshape", ReshapeCodec.class);
         addType("bytes", BytesCodec.class);
         addType("blosc", BloscCodec.class);
         addType("gzip", GzipCodec.class);
