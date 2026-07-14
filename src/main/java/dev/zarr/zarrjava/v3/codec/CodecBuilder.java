@@ -115,6 +115,20 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return this;
     }
 
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace) {
+        return withJpeg(quality, encodedColorSpace, null);
+    }
+
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace, int[][] subsampling) {
+        try {
+            codecs.add(new JpegCodec(
+                    new JpegCodec.Configuration(quality, encodedColorSpace, subsampling)));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
     public CodecBuilder withJpeg() {
         codecs.add(new JpegCodec());
         return this;
