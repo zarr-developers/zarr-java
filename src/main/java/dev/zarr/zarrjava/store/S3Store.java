@@ -93,7 +93,7 @@ public class S3Store implements Store, Store.ListableStore {
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                  .range(start < 0 //dependant on where we start either fetch last or first bytes
+                  .range(start < 0 // negative start implies indexing from the end, i.e. last bytes
                     ? String.format("bytes=%d", start)
                     : String.format("bytes=%d-", start))
                 .build();
