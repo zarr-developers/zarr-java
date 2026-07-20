@@ -60,6 +60,24 @@ public class OnlineS3StoreTest extends StoreTest {
         Assertions.assertEquals(10, bufferWithStartAndEnd.remaining());
     }
 
+    @Test
+    public void testReadSuffix() {
+        StoreHandle storeHandle = storeHandleWithData();
+        ByteBuffer fullBuffer = storeHandle.read();
+        long size = fullBuffer.remaining();
+        Assertions.assertTrue(size >= 20, "Store size is too small to test suffix read");
+
+        ByteBuffer suffixBuffer = storeHandle.read(-10);
+        Assertions.assertEquals(10, suffixBuffer.remaining());
+
+        byte[] expectedBytes = new byte[10];
+        fullBuffer.position((int) (size - 10));
+        fullBuffer.get(expectedBytes);
+        byte[] actualBytes = new byte[10];
+        suffixBuffer.get(actualBytes);
+        Assertions.assertArrayEquals(expectedBytes, actualBytes);
+    }
+
     @Override
     StoreHandle storeHandleWithData() {
         return storeHandle.resolve("zarr.json");
