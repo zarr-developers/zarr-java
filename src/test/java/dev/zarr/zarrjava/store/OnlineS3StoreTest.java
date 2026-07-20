@@ -65,7 +65,7 @@ public class OnlineS3StoreTest extends StoreTest {
         StoreHandle storeHandle = storeHandleWithData();
         ByteBuffer fullBuffer = storeHandle.read();
         long size = fullBuffer.remaining();
-        Assertions.assertsTrue(size >= 20, "Store size is too small to test suffix read");
+        Assertions.assertTrue(size >= 20, "Store size is too small to test suffix read");
 
         ByteBuffer suffixBuffer = storeHandle.read(-10);
         Assertions.assertEquals(10, suffixBuffer.remaining());
