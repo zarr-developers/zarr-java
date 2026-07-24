@@ -150,10 +150,10 @@ public class ReshapeCodecTest extends ZarrTest {
 
     @ParameterizedTest
     @MethodSource("invalidReshapes")
-    public void testReshapeInvalidConfig(int[] inputShape, Object[] shape) throws ZarrException {
-        ReshapeCodec codec = reshapeCodec(shape, inputShape);
-        ucar.ma2.Array input = sequential(inputShape);
-        assertThrows(ZarrException.class, () -> codec.encode(input));
+    public void testReshapeInvalidConfig(int[] inputShape, Object[] shape) {
+        // Invalid configurations are rejected eagerly when the array metadata is set (i.e. at pipeline
+        // construction time), not lazily on the first encode/decode.
+        assertThrows(ZarrException.class, () -> reshapeCodec(shape, inputShape));
     }
 
     @Test

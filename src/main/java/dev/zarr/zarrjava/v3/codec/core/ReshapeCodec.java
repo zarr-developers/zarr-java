@@ -39,11 +39,26 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
     @Nonnull
     public final Configuration configuration;
 
+    /**
+     * The resolved (and validated) output chunk shape. It depends only on {@code arrayMetadata.chunkShape}
+     * and is therefore computed once in {@link #setCoreArrayMetadata} rather than on every encode/decode.
+     */
+    @JsonIgnore
+    protected int[] outputChunkShape;
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ReshapeCodec(
             @Nonnull @JsonProperty(value = "configuration", required = true) Configuration configuration
     ) {
         this.configuration = configuration;
+    }
+
+    @Override
+    public void setCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
+        super.setCoreArrayMetadata(arrayMetadata);
+        // Resolve and validate the output shape once, here, because it only changes when the
+        // arrayMetadata changes. encode/decode/resolveArrayMetadata then reuse the cached value.
+        this.outputChunkShape = resolveOutputShape(arrayMetadata.chunkShape);
     }
 
     @Override
@@ -54,20 +69,18 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
                     "reshape codec received an array of shape " + Arrays.toString(chunkArray.getShape())
                             + " but expected the chunk shape " + Arrays.toString(inputShape) + ".");
         }
-        int[] outputShape = resolveOutputShape(inputShape);
         // Array.reshape copies the elements in lexicographical (C) order, hence ravel(B) == ravel(A)
         // even when the input array is a non-contiguous view.
-        return chunkArray.reshape(outputShape);
+        return chunkArray.reshape(outputChunkShape);
     }
 
     @Override
     public Array decode(Array chunkArray) throws ZarrException {
         int[] inputShape = arrayMetadata.chunkShape;
-        int[] outputShape = resolveOutputShape(inputShape);
-        if (!Arrays.equals(chunkArray.getShape(), outputShape)) {
+        if (!Arrays.equals(chunkArray.getShape(), outputChunkShape)) {
             throw new ZarrException(
                     "reshape codec received an array of shape " + Arrays.toString(chunkArray.getShape())
-                            + " but expected the reshaped shape " + Arrays.toString(outputShape) + ".");
+                            + " but expected the reshaped shape " + Arrays.toString(outputChunkShape) + ".");
         }
         // Inverse operation: reshape back to the original chunk shape.
         return chunkArray.reshape(inputShape);
@@ -85,7 +98,6 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
         super.resolveArrayMetadata();
 
         int[] inputChunkShape = arrayMetadata.chunkShape;
-        int[] outputChunkShape = resolveOutputShape(inputChunkShape);
 
         // Derive the output (grid) array shape so that number of chunks along each output dimension is
         // consistent with the input. For a merged output dimension this is the product of the input
