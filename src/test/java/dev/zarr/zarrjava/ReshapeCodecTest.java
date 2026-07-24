@@ -88,7 +88,7 @@ public class ReshapeCodecTest extends ZarrTest {
         // decode is the inverse of encode.
         ucar.ma2.Array decoded = codec.decode(encoded);
         Assertions.assertArrayEquals(inputShape, decoded.getShape());
-        assert MAMath.equals(input, decoded);
+        Assertions.assertTrue(MAMath.equals(input, decoded));
     }
 
     @Test
