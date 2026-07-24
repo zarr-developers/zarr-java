@@ -64,6 +64,16 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return this;
     }
 
+    public CodecBuilder withScaleOffset(Object offset, Object scale) {
+        codecs.add(new ScaleOffsetCodec(new ScaleOffsetCodec.Configuration(offset, scale)));
+        return this;
+    }
+
+    public CodecBuilder withScaleOffset() {
+        codecs.add(new ScaleOffsetCodec(null));
+        return this;
+    }
+
     public CodecBuilder withBytes(Endian endian) {
         if (dataType.getByteCount() <= 1)
             codecs.add(new BytesCodec());
