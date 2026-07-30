@@ -45,12 +45,105 @@ final class CastValueConverter {
         Array output = Array.factory(outputType.getMA2DataType(), shape);
         IndexIterator inputIt = input.getIndexIterator();
         IndexIterator outputIt = output.getIndexIterator();
+        // Common casts (identity, float<->float, integer->integer) are handled with primitive
+        // arithmetic to avoid the per-element BigDecimal/BigInteger allocation of the exact path.
+        if (fastPathApplicable(inputType, outputType, !entries.isEmpty())) {
+            castArrayFast(inputIt, outputIt, inputType, outputType);
+            return output;
+        }
         while (inputIt.hasNext()) {
             Scalar scalar = readScalar(inputIt, inputType);
             Object result = castScalar(scalar, outputType, entries);
             writeScalar(outputIt, outputType, result);
         }
         return output;
+    }
+
+    /**
+     * Whether {@link #castArrayFast} can handle the given cast. Decided purely from the data types and
+     * configuration (never the data) so that the choice is made once, before iterating. A fast path is
+     * only used when it produces results identical to the exact path.
+     */
+    private boolean fastPathApplicable(DataType inputType, DataType outputType, boolean hasEntries) {
+        if (hasEntries) {
+            return false; // scalar_map matching needs the exact value model
+        }
+        if (inputType == outputType) {
+            return true; // identity copy
+        }
+        if (isFloat(inputType) && isFloat(outputType)) {
+            // Widening float32 -> float64 is exact; narrowing float64 -> float32 with round-to-nearest
+            // -even matches a primitive Java narrowing cast. Directed rounding uses the exact path.
+            return outputType == DataType.FLOAT64 || rounding == Rounding.NEAREST_EVEN;
+        }
+        if (isInteger(inputType) && isInteger(outputType)) {
+            // uint64 does not fit a signed long, so leave those casts on the exact BigInteger path.
+            return inputType != DataType.UINT64 && outputType != DataType.UINT64;
+        }
+        return false;
+    }
+
+    /** Primitive-arithmetic implementation of the casts accepted by {@link #fastPathApplicable}. */
+    private void castArrayFast(IndexIterator inputIt, IndexIterator outputIt, DataType inputType,
+                               DataType outputType) throws ZarrException {
+        if (inputType == outputType) {
+            while (inputIt.hasNext()) {
+                copyElement(inputIt, outputIt, inputType);
+            }
+        } else if (isFloat(inputType)) {
+            while (inputIt.hasNext()) {
+                castFloatToFloatFast(inputIt, outputIt, inputType, outputType);
+            }
+        } else {
+            while (inputIt.hasNext()) {
+                castIntToIntFast(inputIt, outputIt, inputType, outputType);
+            }
+        }
+    }
+
+    private void castFloatToFloatFast(IndexIterator inputIt, IndexIterator outputIt, DataType inputType,
+                                      DataType outputType) throws ZarrException {
+        double value = inputType == DataType.FLOAT32 ? inputIt.getFloatNext() : inputIt.getDoubleNext();
+        if (outputType == DataType.FLOAT64) {
+            outputIt.setDoubleNext(value); // widening / identity: exact, sign and NaN preserved
+            return;
+        }
+        float result = (float) value; // round-to-nearest-even, preserving NaN, +-Infinity and -0.0f
+        if (Float.isInfinite(result) && !Double.isInfinite(value)) {
+            // A finite value overflowed the float32 range.
+            if (outOfRange != OutOfRange.CLAMP) {
+                throw floatOverflowException(new BigDecimal(value), outputType);
+            }
+        }
+        outputIt.setFloatNext(result);
+    }
+
+    private void castIntToIntFast(IndexIterator inputIt, IndexIterator outputIt, DataType inputType,
+                                  DataType outputType) throws ZarrException {
+        long value = readLong(inputIt, inputType);
+        long min = integerMinLong(outputType);
+        long max = integerMaxLong(outputType);
+        long result;
+        if (value >= min && value <= max) {
+            result = value;
+        } else if (outOfRange == null) {
+            throw new ZarrException(
+                    "The value '" + value + "' is out of range for the target data type '"
+                            + outputType.getValue() + "' and no 'out_of_range' rule is configured.");
+        } else if (outOfRange == OutOfRange.CLAMP) {
+            result = value < min ? min : max;
+        } else {
+            // WRAP modulo 2^N. Only reached for out-of-range values, which never happens for a 64-bit
+            // output, so the shift width here is always < 64.
+            int bits = integerBits(outputType);
+            long modulus = 1L << bits;
+            long wrapped = ((value % modulus) + modulus) % modulus; // in [0, 2^N - 1]
+            if (isSigned(outputType) && wrapped > max) {
+                wrapped -= modulus;
+            }
+            result = wrapped;
+        }
+        writeLong(outputIt, outputType, result);
     }
 
     /** Casts a single (boxed) fill value into the boxed primitive of {@code outputType}. */
@@ -217,7 +310,11 @@ final class CastValueConverter {
             // Data types with +-Infinity map out-of-finite-range values to +-Infinity.
             return outputType == DataType.FLOAT32 ? (Object) (float) infinite : (Object) infinite;
         }
-        throw new ZarrException(
+        throw floatOverflowException(value, outputType);
+    }
+
+    private static ZarrException floatOverflowException(BigDecimal value, DataType outputType) {
+        return new ZarrException(
                 "The value '" + value.toPlainString() + "' exceeds the finite range of the target data type '"
                         + outputType.getValue() + "' and no 'clamp' out_of_range rule is configured.");
     }
@@ -244,7 +341,14 @@ final class CastValueConverter {
                 return up;
             case TOWARDS_NEGATIVE:
                 return down;
-            default: // NEAREST_EVEN, NEAREST_AWAY
+            case NEAREST_AWAY:
+                // Only differs from nearest-even at an exact tie, where ties go away from zero.
+                if (value.subtract(new BigDecimal((double) down))
+                        .compareTo(new BigDecimal((double) up).subtract(value)) == 0) {
+                    return value.signum() > 0 ? up : down;
+                }
+                return nearest;
+            default: // NEAREST_EVEN
                 return nearest;
         }
     }
@@ -270,7 +374,14 @@ final class CastValueConverter {
                 return up;
             case TOWARDS_NEGATIVE:
                 return down;
-            default: // NEAREST_EVEN, NEAREST_AWAY
+            case NEAREST_AWAY:
+                // Only differs from nearest-even at an exact tie, where ties go away from zero.
+                if (value.subtract(new BigDecimal(down))
+                        .compareTo(new BigDecimal(up).subtract(value)) == 0) {
+                    return value.signum() > 0 ? up : down;
+                }
+                return nearest;
+            default: // NEAREST_EVEN
                 return nearest;
         }
     }
@@ -331,6 +442,81 @@ final class CastValueConverter {
                 break;
             default:
                 throw new IllegalStateException("Unsupported cast_value data type: " + type);
+        }
+    }
+
+    /** Copies one element unchanged (used for identity casts in the fast path). */
+    private static void copyElement(IndexIterator inputIt, IndexIterator outputIt, DataType type) {
+        switch (type) {
+            case FLOAT32:
+                outputIt.setFloatNext(inputIt.getFloatNext());
+                break;
+            case FLOAT64:
+                outputIt.setDoubleNext(inputIt.getDoubleNext());
+                break;
+            case INT8:
+            case UINT8:
+                outputIt.setByteNext(inputIt.getByteNext());
+                break;
+            case INT16:
+            case UINT16:
+                outputIt.setShortNext(inputIt.getShortNext());
+                break;
+            case INT32:
+            case UINT32:
+                outputIt.setIntNext(inputIt.getIntNext());
+                break;
+            case INT64:
+            case UINT64:
+                outputIt.setLongNext(inputIt.getLongNext());
+                break;
+            default:
+                throw new IllegalStateException("Unsupported cast_value data type: " + type);
+        }
+    }
+
+    /** Reads the next element as its exact signed value in a {@code long}. Not valid for uint64. */
+    private static long readLong(IndexIterator it, DataType type) {
+        switch (type) {
+            case INT8:
+                return it.getByteNext();
+            case UINT8:
+                return it.getByteNext() & 0xFFL;
+            case INT16:
+                return it.getShortNext();
+            case UINT16:
+                return it.getShortNext() & 0xFFFFL;
+            case INT32:
+                return it.getIntNext();
+            case UINT32:
+                return it.getIntNext() & 0xFFFFFFFFL;
+            case INT64:
+                return it.getLongNext();
+            default:
+                throw new IllegalStateException("readLong is not valid for cast_value data type: " + type);
+        }
+    }
+
+    /** Writes {@code value} into the next element, truncating to the type's width. Not valid for uint64. */
+    private static void writeLong(IndexIterator it, DataType type, long value) {
+        switch (type) {
+            case INT8:
+            case UINT8:
+                it.setByteNext((byte) value);
+                break;
+            case INT16:
+            case UINT16:
+                it.setShortNext((short) value);
+                break;
+            case INT32:
+            case UINT32:
+                it.setIntNext((int) value);
+                break;
+            case INT64:
+                it.setLongNext(value);
+                break;
+            default:
+                throw new IllegalStateException("writeLong is not valid for cast_value data type: " + type);
         }
     }
 
@@ -483,8 +669,25 @@ final class CastValueConverter {
                 || type == DataType.UINT64;
     }
 
+    private static boolean isInteger(DataType type) {
+        return isSigned(type) || isUnsigned(type);
+    }
+
     private static int integerBits(DataType type) {
         return type.getByteCount() * 8;
+    }
+
+    /** The minimum representable value as a {@code long}. Not valid for uint64. */
+    private static long integerMinLong(DataType type) {
+        return isUnsigned(type) ? 0L : -(1L << (integerBits(type) - 1));
+    }
+
+    /** The maximum representable value as a {@code long}. Not valid for uint64. */
+    private static long integerMaxLong(DataType type) {
+        if (isUnsigned(type)) {
+            return (1L << integerBits(type)) - 1;
+        }
+        return (1L << (integerBits(type) - 1)) - 1;
     }
 
     private static BigInteger integerMin(DataType type) {

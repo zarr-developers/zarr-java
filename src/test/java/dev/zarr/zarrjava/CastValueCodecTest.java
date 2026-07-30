@@ -50,6 +50,24 @@ public class CastValueCodecTest extends ZarrTest {
         return new CastValueCodec.Configuration(target, rounding, outOfRange, scalarMap);
     }
 
+    /** Round-trips an int32-typed array, exercising the integer/identity fast paths. */
+    private int[] roundTripInt(String name, CastValueCodec.Configuration config, int[] data)
+            throws ZarrException, IOException {
+        StoreHandle storeHandle = handle(name);
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(data.length)
+                .withDataType(DataType.INT32)
+                .withChunkShape(data.length)
+                .withCodecs(c -> c.withCastValue(config).withBytes())
+                .build();
+        Array writeArray = Array.create(storeHandle, metadata);
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{data.length}, data));
+
+        Array readArray = Array.open(storeHandle);
+        ucar.ma2.Array result = readArray.read();
+        return (int[]) result.get1DJavaArray(ucar.ma2.DataType.INT);
+    }
+
     @Test
     public void testExactRoundTrip() throws Exception {
         double[] data = {0, 1, 2, -3, 127, -128};
@@ -177,6 +195,56 @@ public class CastValueCodecTest extends ZarrTest {
         double[] result = roundTrip("float32", DataType.FLOAT32,
                 config(DataType.FLOAT32, null, null, null), data);
         Assertions.assertArrayEquals(data, result);
+    }
+
+    @Test
+    public void testRoundingNearestAwayFloatTie() throws Exception {
+        // 1 + 2^-24 is the exact midpoint between float32 1.0 and Math.nextUp(1.0f). nearest-away must
+        // round the tie away from zero, whereas nearest-even rounds to 1.0 (even mantissa).
+        double tie = 1.0 + 0x1p-24;
+        double[] data = {tie, -tie};
+        double[] away = roundTrip("round_nearest_away", DataType.FLOAT32,
+                config(DataType.FLOAT32, Rounding.NEAREST_AWAY, null, null), data);
+        Assertions.assertArrayEquals(new double[]{Math.nextUp(1.0f), -Math.nextUp(1.0f)}, away);
+
+        double[] even = roundTrip("round_nearest_even_float", DataType.FLOAT32,
+                config(DataType.FLOAT32, Rounding.NEAREST_EVEN, null, null), data);
+        Assertions.assertArrayEquals(new double[]{1.0, -1.0}, even);
+    }
+
+    @Test
+    public void testIntToIntFastPathSigned() throws Exception {
+        int[] data = {0, 1, -1, 127, -128, 200, -200, 130};
+        int[] clamp = roundTripInt("i2i_clamp_int8",
+                config(DataType.INT8, null, OutOfRange.CLAMP, null), data);
+        Assertions.assertArrayEquals(new int[]{0, 1, -1, 127, -128, 127, -128, 127}, clamp);
+
+        int[] wrap = roundTripInt("i2i_wrap_int8",
+                config(DataType.INT8, null, OutOfRange.WRAP, null), data);
+        Assertions.assertArrayEquals(new int[]{0, 1, -1, 127, -128, -56, 56, -126}, wrap);
+    }
+
+    @Test
+    public void testIntToIntFastPathUnsigned() throws Exception {
+        // Encode int32 -> uint8 (wrap), then decode uint8 -> int32 yields the stored unsigned byte.
+        int[] wrap = roundTripInt("i2i_wrap_uint8",
+                config(DataType.UINT8, null, OutOfRange.WRAP, null), new int[]{0, 255, 256, -1, 300});
+        Assertions.assertArrayEquals(new int[]{0, 255, 0, 255, 44}, wrap);
+    }
+
+    @Test
+    public void testIdentityFastPath() throws Exception {
+        int[] data = {0, 1, -1, Integer.MAX_VALUE, Integer.MIN_VALUE, 12345};
+        int[] result = roundTripInt("identity_int32",
+                config(DataType.INT32, null, null, null), data);
+        Assertions.assertArrayEquals(data, result);
+    }
+
+    @Test
+    public void testIntToIntFastPathOutOfRangeWithoutRuleFails() {
+        // int32 200 -> int8 with no out_of_range rule must fail on the fast path, too.
+        assertCastError(() -> roundTripInt("i2i_oor_fail",
+                config(DataType.INT8, null, null, null), new int[]{200}));
     }
 
     @Test
