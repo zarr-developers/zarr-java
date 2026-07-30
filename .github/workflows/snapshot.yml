@@ -1,0 +1,67 @@
+name: Publish snapshot to the Maven Central Repository
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "snapshot"]
+
+concurrency:
+  group: publish-snapshot
+  cancel-in-progress: true
+
+jobs:
+  publish-snapshot:
+    runs-on: ubuntu-latest
+    services:
+      s3mock:
+        image: adobe/s3mock:3.11.0
+        ports:
+          - 9090:9090
+        env:
+          initialBuckets: zarr-test-bucket
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: "11"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Download testdata
+        run: |
+          mkdir testoutput
+          curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
+          cd testdata
+          unzip l4_sample.zip
+
+      - name: Set SNAPSHOT version
+        run: |
+          BASE=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          BASE=${BASE%-SNAPSHOT}
+          mvn versions:set -DnewVersion="${BASE}-SNAPSHOT" -DgenerateBackupPoms=false
+
+      - name: Publish snapshot
+        run: |
+          mkdir -p ~/.m2
+          echo "<settings><servers><server><id>central</id><username>$MAVEN_USERNAME</username><password>$MAVEN_PASSWORD</password></server></servers></settings>" > ~/.m2/settings.xml
+          mvn --batch-mode --no-transfer-progress deploy -DargLine="-Xmx6g" -DrunS3Tests=true -Dgpg.skip=true
+        env:
+          MAVEN_OPTS: "-Xmx6g"
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
