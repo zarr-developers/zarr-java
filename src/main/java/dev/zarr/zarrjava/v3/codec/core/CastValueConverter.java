@@ -1,7 +1,7 @@
 package dev.zarr.zarrjava.v3.codec.core;
 
 import dev.zarr.zarrjava.ZarrException;
-import dev.zarr.zarrjava.v3.ArrayMetadata;
+import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.core.CastValueCodec.OutOfRange;
 import dev.zarr.zarrjava.v3.codec.core.CastValueCodec.Rounding;

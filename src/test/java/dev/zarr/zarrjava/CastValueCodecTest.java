@@ -22,12 +22,12 @@ public class CastValueCodecTest extends ZarrTest {
         return new FilesystemStore(TESTOUTPUT).resolve("cast_value", name);
     }
 
-    private double[] roundTrip(String name, DataType target, CastValueCodec.Configuration config,
+    private double[] roundTrip(String name, CastValueCodec.Configuration config,
                                double[] data) throws ZarrException, IOException {
-        return roundTrip(name, target, config, data, 0);
+        return roundTrip(name, config, data, 0);
     }
 
-    private double[] roundTrip(String name, DataType target, CastValueCodec.Configuration config,
+    private double[] roundTrip(String name, CastValueCodec.Configuration config,
                                double[] data, Object fillValue) throws ZarrException, IOException {
         StoreHandle storeHandle = handle(name);
         ArrayMetadata metadata = Array.metadataBuilder()
@@ -71,7 +71,7 @@ public class CastValueCodecTest extends ZarrTest {
     @Test
     public void testExactRoundTrip() throws Exception {
         double[] data = {0, 1, 2, -3, 127, -128};
-        double[] result = roundTrip("exact_int8", DataType.INT8,
+        double[] result = roundTrip("exact_int8",
                 config(DataType.INT8, null, null, null), data);
         Assertions.assertArrayEquals(data, result);
     }
@@ -79,7 +79,7 @@ public class CastValueCodecTest extends ZarrTest {
     @Test
     public void testClamp() throws Exception {
         double[] data = {200, -200, 50};
-        double[] result = roundTrip("clamp_int8", DataType.INT8,
+        double[] result = roundTrip("clamp_int8",
                 config(DataType.INT8, null, OutOfRange.CLAMP, null), data);
         Assertions.assertArrayEquals(new double[]{127, -128, 50}, result);
     }
@@ -87,7 +87,7 @@ public class CastValueCodecTest extends ZarrTest {
     @Test
     public void testWrap() throws Exception {
         double[] data = {130, -129, 261};
-        double[] result = roundTrip("wrap_int8", DataType.INT8,
+        double[] result = roundTrip("wrap_int8",
                 config(DataType.INT8, null, OutOfRange.WRAP, null), data);
         Assertions.assertArrayEquals(new double[]{-126, 127, 5}, result);
     }
@@ -95,7 +95,7 @@ public class CastValueCodecTest extends ZarrTest {
     @Test
     public void testRoundingNearestEven() throws Exception {
         double[] data = {2.5, 3.5, -2.5, 0.5};
-        double[] result = roundTrip("round_even", DataType.INT32,
+        double[] result = roundTrip("round_even",
                 config(DataType.INT32, Rounding.NEAREST_EVEN, null, null), data);
         Assertions.assertArrayEquals(new double[]{2, 4, -2, 0}, result);
     }
@@ -103,7 +103,7 @@ public class CastValueCodecTest extends ZarrTest {
     @Test
     public void testRoundingTowardsZero() throws Exception {
         double[] data = {2.5, 3.5, -2.5, -3.9};
-        double[] result = roundTrip("round_zero", DataType.INT32,
+        double[] result = roundTrip("round_zero",
                 config(DataType.INT32, Rounding.TOWARDS_ZERO, null, null), data);
         Assertions.assertArrayEquals(new double[]{2, 3, -2, -3}, result);
     }
@@ -111,10 +111,10 @@ public class CastValueCodecTest extends ZarrTest {
     @Test
     public void testRoundingFloorAndCeil() throws Exception {
         double[] data = {2.1, -2.1};
-        double[] floor = roundTrip("round_floor", DataType.INT32,
+        double[] floor = roundTrip("round_floor",
                 config(DataType.INT32, Rounding.TOWARDS_NEGATIVE, null, null), data);
         Assertions.assertArrayEquals(new double[]{2, -3}, floor);
-        double[] ceil = roundTrip("round_ceil", DataType.INT32,
+        double[] ceil = roundTrip("round_ceil",
                 config(DataType.INT32, Rounding.TOWARDS_POSITIVE, null, null), data);
         Assertions.assertArrayEquals(new double[]{3, -2}, ceil);
     }
@@ -126,7 +126,7 @@ public class CastValueCodecTest extends ZarrTest {
         ScalarMap scalarMap = new ScalarMap(
                 new Object[][]{{"NaN", 0}, {"+Infinity", 0}, {"-Infinity", 0}}, null);
         double[] data = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 3.9, 300, -1};
-        double[] result = roundTrip("numpy", DataType.UINT8,
+        double[] result = roundTrip("numpy",
                 config(DataType.UINT8, Rounding.TOWARDS_ZERO, OutOfRange.WRAP, scalarMap), data);
         Assertions.assertArrayEquals(new double[]{0, 0, 0, 3, 44, 255}, result);
     }
@@ -138,7 +138,7 @@ public class CastValueCodecTest extends ZarrTest {
                 new Object[][]{{"NaN", 0}},
                 new Object[][]{{0, "NaN"}});
         double[] data = {Double.NaN, 5};
-        double[] result = roundTrip("scalarmap_decode", DataType.UINT8,
+        double[] result = roundTrip("scalarmap_decode",
                 config(DataType.UINT8, Rounding.TOWARDS_ZERO, OutOfRange.WRAP, scalarMap), data, 7);
         Assertions.assertTrue(Double.isNaN(result[0]));
         Assertions.assertEquals(5.0, result[1]);
@@ -148,14 +148,14 @@ public class CastValueCodecTest extends ZarrTest {
     public void testOutOfRangeWithoutRuleFailsOnWrite() {
         double[] data = {200};
         // The write path runs on a parallel stream, so the codec's ZarrException surfaces wrapped.
-        assertCastError(() -> roundTrip("oor_fail", DataType.INT8,
+        assertCastError(() -> roundTrip("oor_fail",
                 config(DataType.INT8, null, null, null), data));
     }
 
     @Test
     public void testNaNToIntegerWithoutMappingFailsOnWrite() {
         double[] data = {Double.NaN};
-        assertCastError(() -> roundTrip("nan_fail", DataType.INT8,
+        assertCastError(() -> roundTrip("nan_fail",
                 config(DataType.INT8, null, OutOfRange.CLAMP, null), data));
     }
 
@@ -192,7 +192,7 @@ public class CastValueCodecTest extends ZarrTest {
     public void testFloat64ToFloat32RoundTrip() throws Exception {
         // Values that are exactly representable in float32 survive the round trip unchanged.
         double[] data = {0, 0.5, -0.25, 1024, -2048};
-        double[] result = roundTrip("float32", DataType.FLOAT32,
+        double[] result = roundTrip("float32",
                 config(DataType.FLOAT32, null, null, null), data);
         Assertions.assertArrayEquals(data, result);
     }
@@ -203,11 +203,11 @@ public class CastValueCodecTest extends ZarrTest {
         // round the tie away from zero, whereas nearest-even rounds to 1.0 (even mantissa).
         double tie = 1.0 + 0x1p-24;
         double[] data = {tie, -tie};
-        double[] away = roundTrip("round_nearest_away", DataType.FLOAT32,
+        double[] away = roundTrip("round_nearest_away",
                 config(DataType.FLOAT32, Rounding.NEAREST_AWAY, null, null), data);
         Assertions.assertArrayEquals(new double[]{Math.nextUp(1.0f), -Math.nextUp(1.0f)}, away);
 
-        double[] even = roundTrip("round_nearest_even_float", DataType.FLOAT32,
+        double[] even = roundTrip("round_nearest_even_float",
                 config(DataType.FLOAT32, Rounding.NEAREST_EVEN, null, null), data);
         Assertions.assertArrayEquals(new double[]{1.0, -1.0}, even);
     }
@@ -248,9 +248,32 @@ public class CastValueCodecTest extends ZarrTest {
     }
 
     @Test
+    public void testUint64AboveLongMax() throws Exception {
+        // uint64 values above Long.MAX_VALUE must be handled with unsigned (two's-complement)
+        // semantics. The large fill value goes through the exact cast path at construction; the array
+        // data goes through the identity fast path. Both must preserve the unsigned bit pattern.
+        StoreHandle storeHandle = handle("uint64_above_long_max");
+        long big = Long.MIN_VALUE + 5;   // bit pattern of 2^63 + 5 (a uint64 above Long.MAX_VALUE)
+        long fill = -1L;                 // bit pattern of uint64 max (2^64 - 1)
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(2)
+                .withDataType(DataType.UINT64)
+                .withChunkShape(2)
+                .withFillValue(fill)     // must not throw: 2^64 - 1 is in range for uint64
+                .withCodecs(c -> c.withCastValue(config(DataType.UINT64, null, null, null)).withBytes())
+                .build();
+        Array writeArray = Array.create(storeHandle, metadata);
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.ULONG, new int[]{2}, new long[]{big, 7L}));
+
+        Array readArray = Array.open(storeHandle);
+        long[] result = (long[]) readArray.read().get1DJavaArray(ucar.ma2.DataType.LONG);
+        Assertions.assertArrayEquals(new long[]{big, 7L}, result);
+    }
+
+    @Test
     public void testUnsupportedBoolTargetFails() {
         double[] data = {0, 1};
-        assertThrows(ZarrException.class, () -> roundTrip("bool_fail", DataType.BOOL,
+        assertThrows(ZarrException.class, () -> roundTrip("bool_fail",
                 config(DataType.BOOL, null, null, null), data));
     }
 }
