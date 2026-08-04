@@ -27,6 +27,7 @@ import ucar.ma2.MAMath;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -1051,5 +1052,43 @@ public class ZarrV3Test extends ZarrTest {
         Array reopenedArray = Array.open(storeHandle);
         ucar.ma2.Array readData = reopenedArray.read();
         assertIsTestdata(readData, dataType);
+    }
+
+    @Test
+    public void testDirectChunkReadWrite() throws IOException, ZarrException {
+        // Source array: write data normally so a real encoded chunk lands in the store.
+        StoreHandle sourceHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectChunkReadWriteV3", "source");
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(4, 4)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(2, 2)
+                .withCodecs(c -> c.withBytes("LITTLE").withGzip())
+                .build();
+        Array source = Array.create(sourceHandle, metadata);
+        int[] chunkData = new int[]{1, 2, 3, 4};
+        source.writeChunk(new long[]{0, 0}, ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 2}, chunkData));
+
+        // readChunkDirect returns the raw encoded bytes, byte-for-byte identical to what is on disk.
+        ByteBuffer encoded = source.readChunkDirect(new long[]{0, 0});
+        Assertions.assertNotNull(encoded);
+        ByteBuffer rawFromStore = sourceHandle.resolve(metadata.chunkKeyEncoding().encodeChunkKey(new long[]{0, 0})).read();
+        Assertions.assertEquals(rawFromStore, encoded);
+
+        // Write those encoded bytes directly into a fresh array, bypassing the codec pipeline.
+        StoreHandle targetHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectChunkReadWriteV3", "target");
+        Array target = Array.create(targetHandle, metadata);
+        target.writeChunkDirect(new long[]{0, 0}, encoded);
+
+        // Decoding the directly-written chunk yields the original data: the bytes were a valid chunk.
+        ucar.ma2.Array roundTripped = target.readChunk(new long[]{0, 0});
+        Assertions.assertArrayEquals(chunkData, (int[]) roundTripped.get1DJavaArray(ucar.ma2.DataType.INT));
+
+        // writeChunkDirect(null) deletes the chunk: a subsequent direct read is null and a normal read is fill value.
+        target.writeChunkDirect(new long[]{0, 0}, null);
+        Assertions.assertNull(target.readChunkDirect(new long[]{0, 0}));
+
+        // Out-of-domain coordinates are rejected for both direct methods.
+        assertThrows(ZarrException.class, () -> target.readChunkDirect(new long[]{99, 99}));
+        assertThrows(ZarrException.class, () -> target.writeChunkDirect(new long[]{99, 99}, encoded));
     }
 }

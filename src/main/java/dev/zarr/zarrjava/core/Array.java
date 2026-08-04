@@ -156,6 +156,45 @@ public abstract class Array extends AbstractNode {
     }
 
     /**
+     * Writes already-encoded bytes for one chunk directly into the store, bypassing the codec
+     * pipeline entirely. No decoding or encoding is performed; the supplied bytes are stored
+     * verbatim.
+     * <p>
+     * This is the encoded-bytes counterpart of {@link #writeChunk(long[], ucar.ma2.Array)}. It is
+     * useful when the data is already in exactly the form this array's codec pipeline would produce
+     * (e.g. ingesting JPEG data into an array that uses the {@code jpeg} codec), where a
+     * decode+encode round-trip would waste compute and, for lossy codecs, degrade quality.
+     * <p>
+     * <b>Unsafe:</b> because the bytes are stored without decoding, this method cannot verify them.
+     * The caller is responsible for guaranteeing that {@code chunkBytes} is a whole chunk encoded in
+     * exactly the format this array expects (matching data type, chunk shape and codec
+     * configuration). Supplying incompatible bytes will silently corrupt the array.
+     * <p>
+     * For a sharded array this operates at the shard level: {@code chunkCoords} addresses a whole
+     * shard and {@code chunkBytes} must be the fully-assembled shard (index and all inner chunks).
+     *
+     * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
+     *                    by the chunk shape.
+     * @param chunkBytes  The already-encoded bytes to store, or {@code null} to delete the chunk
+     *                    (a subsequent read then returns the fill value).
+     * @throws ZarrException throws ZarrException if the requested chunk is outside the array's domain
+     */
+    public void writeChunkDirect(long[] chunkCoords, @Nullable ByteBuffer chunkBytes) throws ZarrException {
+        if (!chunkIsInArray(chunkCoords)) {
+            throw new ZarrException("Attempting to write data outside of the array's domain.");
+        }
+        ArrayMetadata metadata = metadata();
+        String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
+        StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+        if (chunkBytes == null) {
+            chunkHandle.delete();
+        } else {
+            chunkHandle.set(chunkBytes);
+        }
+    }
+
+    /**
      * Reads one chunk of the Zarr array as specified by the chunk coordinates into an
      * ucar.ma2.Array.
      *
@@ -179,6 +218,35 @@ public abstract class Array extends AbstractNode {
         }
 
         return codecPipeline.decode(chunkBytes);
+    }
+
+    /**
+     * Reads the already-encoded bytes of one chunk directly from the store, bypassing the codec
+     * pipeline entirely. No decoding is performed; the raw stored bytes are returned as-is.
+     * <p>
+     * This is the encoded-bytes counterpart of {@link #readChunk(long[])}. It is useful for copying
+     * chunks out of an array in their encoded form (e.g. extracting JPEG data from an array that
+     * uses the {@code jpeg} codec) without a decode+encode round-trip.
+     * <p>
+     * For a sharded array this operates at the shard level: {@code chunkCoords} addresses a whole
+     * shard and the returned bytes are the fully-assembled shard (index and all inner chunks).
+     *
+     * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
+     *                    by the chunk shape.
+     * @return the raw encoded chunk bytes, or {@code null} if the chunk is not present in the store
+     *         (i.e. it holds the fill value).
+     * @throws ZarrException throws ZarrException if the requested chunk is outside the array's domain
+     */
+    @Nullable
+    public ByteBuffer readChunkDirect(long[] chunkCoords) throws ZarrException {
+        if (!chunkIsInArray(chunkCoords)) {
+            throw new ZarrException("Attempting to read data outside of the array's domain.");
+        }
+        ArrayMetadata metadata = metadata();
+        final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
+        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+        return chunkHandle.read();
     }
 
     /**
