@@ -6,38 +6,20 @@ import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.Array;
-import dev.zarr.zarrjava.v3.ArrayMetadataBuilder;
 import dev.zarr.zarrjava.v3.DataType;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 public class CompressionCodecsTest extends ZarrTest {
 
     @ParameterizedTest
     @CsvSource({"0,true", "0,false", "5, true", "5, false"})
     public void testZstdCodecReadWrite(int level, boolean checksum) throws ZarrException, IOException {
-        int[] testData = new int[16 * 16 * 16];
-        Arrays.setAll(testData, p -> p);
-
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZstdCodecReadWrite", "checksum_" + checksum, "level_" + level);
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(16, 16, 16)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(2, 4, 8)
-                .withFillValue(0)
-                .withCodecs(c -> c.withZstd(level, checksum));
-        Array writeArray = Array.create(storeHandle, builder.build());
-        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
-
-        Array readArray = Array.open(storeHandle);
-        ucar.ma2.Array result = readArray.read();
-
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        assertCodecRoundtrip(storeHandle, DataType.UINT32, new int[]{2, 4, 8}, c -> c.withZstd(level, checksum));
     }
 
     @Test

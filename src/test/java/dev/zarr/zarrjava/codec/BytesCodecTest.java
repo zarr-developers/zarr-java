@@ -5,7 +5,6 @@ import dev.zarr.zarrjava.ZarrTest;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Array;
-import dev.zarr.zarrjava.v3.ArrayMetadata;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
@@ -20,7 +19,6 @@ import java.io.IOException;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.Node.ZARR_JSON;
-import static dev.zarr.zarrjava.utils.Utils.toLongArray;
 
 public class BytesCodecTest extends ZarrTest {
 
@@ -61,17 +59,6 @@ public class BytesCodecTest extends ZarrTest {
     @MethodSource("dataTypeAndEndianProvider")
     public void testEndianness(DataType dataType, BytesCodec.Endian endian) throws IOException, ZarrException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testEndiannessV3").resolve(dataType.name()).resolve(endian.name());
-        ucar.ma2.Array testData = testdata(dataType);
-
-        ArrayMetadata metadata = Array.metadataBuilder()
-                .withShape(toLongArray(testData.getShape()))
-                .withDataType(dataType)
-                .withCodecs(c -> c.withBytes(endian))
-                .build();
-        Array array = Array.create(storeHandle, metadata);
-        array.write(testData);
-        Array reopenedArray = Array.open(storeHandle);
-        ucar.ma2.Array readData = reopenedArray.read();
-        assertIsTestdata(readData, dataType);
+        assertCodecRoundtrip(storeHandle, dataType, c -> c.withBytes(endian));
     }
 }

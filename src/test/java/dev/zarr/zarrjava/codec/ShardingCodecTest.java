@@ -16,7 +16,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static org.junit.Assert.assertThrows;
@@ -60,23 +59,9 @@ public class ShardingCodecTest extends ZarrTest {
 
     @Test
     public void testShardingWithZstdCodecReadWrite() throws ZarrException, IOException {
-        int[] testData = new int[16 * 16 * 16];
-        Arrays.setAll(testData, p -> p);
-
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testShardingWithZstdCodecReadWrite");
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(16, 16, 16)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(8, 8, 8)
-                .withFillValue(0)
-                .withCodecs(c -> c.withSharding(new int[]{2, 4, 8}, c1 -> c1.withZstd()));
-        Array writeArray = Array.create(storeHandle, builder.build());
-        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
-
-        Array readArray = Array.open(storeHandle);
-        ucar.ma2.Array result = readArray.read();
-
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
+        assertCodecRoundtrip(storeHandle, DataType.UINT32, new int[]{8, 8, 8},
+                c -> c.withSharding(new int[]{2, 4, 8}, c1 -> c1.withZstd()));
     }
 
     @Test
