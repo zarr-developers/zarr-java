@@ -71,6 +71,9 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
 
     public CodecBuilder withScaleOffset() {
         codecs.add(new ScaleOffsetCodec(null));
+        return this;
+    }
+
     /**
      * Adds a {@code reshape} codec. Each entry of {@code shape} must be a positive {@link Integer}, the
      * special value {@code -1} (at most once), or an {@code int[]} / array of input dimension indices.
