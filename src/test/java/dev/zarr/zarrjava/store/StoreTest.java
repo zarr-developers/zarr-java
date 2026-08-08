@@ -34,6 +34,7 @@ public abstract class StoreTest extends ZarrTest {
      */
     abstract Store storeWithArrays() throws ZarrException, IOException;
 
+    // This test does not explicitly close the returned InputStream. In general, not closing InputStreams can lead to resource leaks, and on Windows may cause file locking issues.
     @Test
     public void testInputStream() throws IOException {
         StoreHandle storeHandle = storeHandleWithData();
