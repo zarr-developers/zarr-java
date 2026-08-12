@@ -1090,5 +1090,113 @@ public class ZarrV3Test extends ZarrTest {
         // Out-of-domain coordinates are rejected for both direct methods.
         assertThrows(ZarrException.class, () -> target.readChunkDirect(new long[]{99, 99}));
         assertThrows(ZarrException.class, () -> target.writeChunkDirect(new long[]{99, 99}, encoded));
+
+        // Without sharding the inner chunk grid is the chunk grid, so both direct reads agree.
+        Assertions.assertArrayEquals(new int[]{2, 2}, source.innerChunkShape());
+        Assertions.assertEquals(source.readChunkDirect(new long[]{0, 0}),
+                source.readInnerChunkDirect(new long[]{0, 0}));
+    }
+
+    /**
+     * Extracts a single encoded inner chunk out of a shard and checks it is a standalone encoded
+     * chunk, by writing it directly into an unsharded array whose codecs match the shard's inner
+     * codecs and decoding it there.
+     */
+    private void assertInnerChunkDecodesTo(
+            Array shardedArray, long[] innerChunkCoords, String storePath, int[] expected
+    ) throws IOException, ZarrException {
+        ByteBuffer innerChunkBytes = shardedArray.readInnerChunkDirect(innerChunkCoords);
+        Assertions.assertNotNull(innerChunkBytes);
+
+        Array plainArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve(storePath),
+                Array.metadataBuilder()
+                        .withShape(2, 2)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(2, 2)
+                        .withCodecs(c -> c.withBytes("LITTLE"))
+                        .build());
+        plainArray.writeChunkDirect(new long[]{0, 0}, innerChunkBytes);
+        Assertions.assertArrayEquals(expected,
+                (int[]) plainArray.readChunk(new long[]{0, 0}).get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
+    @Test
+    public void testDirectInnerChunkRead() throws IOException, ZarrException {
+        // 8x8 array, 4x4 shards, 2x2 inner chunks: 4 shards of 4 inner chunks each.
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectInnerChunkRead", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+
+        Assertions.assertArrayEquals(new int[]{2, 2}, array.innerChunkShape());
+
+        // Inner chunk (3,1) covers rows 6-7, cols 2-3: shard (1,0), inner chunk (1,1) within it.
+        assertInnerChunkDecodesTo(array, new long[]{3, 1},
+                "testDirectInnerChunkRead/plain", new int[]{50, 51, 58, 59});
+
+        // The extracted bytes are only that inner chunk, not the whole shard.
+        ByteBuffer innerChunkBytes = array.readInnerChunkDirect(new long[]{3, 1});
+        ByteBuffer shardBytes = array.readChunkDirect(new long[]{1, 0});
+        Assertions.assertNotNull(shardBytes);
+        Assertions.assertTrue(innerChunkBytes.remaining() < shardBytes.remaining());
+
+        // Out-of-domain inner chunk coordinates are rejected.
+        assertThrows(ZarrException.class, () -> array.readInnerChunkDirect(new long[]{4, 0}));
+        assertThrows(ZarrException.class, () -> array.readInnerChunkDirect(new long[]{0, -1}));
+    }
+
+    @Test
+    public void testDirectInnerChunkReadAbsent() throws IOException, ZarrException {
+        // Only the top-left 4x4 region is written, and it is all fill value except one inner chunk.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectInnerChunkReadAbsent", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+        int[] shardData = new int[4 * 4];
+        shardData[0] = 42;
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{4, 4}, shardData));
+
+        // Inner chunk (0,0) holds the 42 and is present.
+        Assertions.assertNotNull(array.readInnerChunkDirect(new long[]{0, 0}));
+        // Inner chunk (1,1) is all fill value, so the shard index marks it as missing.
+        Assertions.assertNull(array.readInnerChunkDirect(new long[]{1, 1}));
+        // Inner chunk (3,3) lives in shard (1,1), which was never written at all.
+        Assertions.assertNull(array.readInnerChunkDirect(new long[]{3, 3}));
+    }
+
+    @Test
+    public void testDirectInnerChunkReadNestedSharding() throws IOException, ZarrException {
+        // 8x8 array in one 8x8 shard of 4x4 shards of 2x2 inner chunks.
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectInnerChunkReadNestedSharding", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(8, 8)
+                .withCodecs(c -> c.withSharding(new int[]{4, 4},
+                        c1 -> c1.withSharding(new int[]{2, 2}, c2 -> c2.withBytes("LITTLE"))))
+                .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+
+        // The addressable unit is the innermost chunk shape, not the intermediate shard shape.
+        Assertions.assertArrayEquals(new int[]{2, 2}, array.innerChunkShape());
+
+        // Inner chunk (1,2) covers rows 2-3, cols 4-5: outer shard (0,0), nested shard (0,1),
+        // inner chunk (1,0) within that.
+        assertInnerChunkDecodesTo(array, new long[]{1, 2},
+                "testDirectInnerChunkReadNestedSharding/plain", new int[]{20, 21, 28, 29});
     }
 }

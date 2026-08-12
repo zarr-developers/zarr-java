@@ -6,6 +6,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import ucar.ma2.Array;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -81,6 +82,38 @@ public class CodecPipeline {
 
     public boolean supportsPartialDecode() {
         return codecs.length == 1 && codecs[0] instanceof ArrayBytesCodec.WithPartialDecode;
+    }
+
+    /**
+     * The shape of the smallest unit this pipeline encodes independently. For a sharded array this
+     * is the inner chunk shape of the sharding codec; otherwise it is the chunk shape itself.
+     */
+    public int[] innerChunkShape() {
+        if (!supportsPartialDecode()) {
+            return arrayMetadata.chunkShape;
+        }
+        return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).innerChunkShape();
+    }
+
+    /**
+     * Reads the encoded bytes of a single inner chunk out of a stored chunk, without decoding them.
+     *
+     * @param storeHandle      the store handle of the stored chunk
+     * @param innerChunkCoords the coordinates of the inner chunk relative to the stored chunk, on the
+     *                         grid given by {@link #innerChunkShape()}
+     * @return the encoded inner chunk bytes, or {@code null} if the inner chunk is not present
+     */
+    @Nullable
+    public ByteBuffer readInnerChunkEncoded(
+            @Nonnull StoreHandle storeHandle, long[] innerChunkCoords
+    ) throws ZarrException {
+        if (!supportsPartialDecode()) {
+            throw new ZarrException(
+                    "Reading individual inner chunks is not supported for these codecs. " + Arrays.toString(
+                            codecs));
+        }
+        return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).readInnerChunkEncoded(
+                storeHandle, innerChunkCoords);
     }
 
     @Nonnull

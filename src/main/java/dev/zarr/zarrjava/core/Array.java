@@ -229,7 +229,8 @@ public abstract class Array extends AbstractNode {
      * uses the {@code jpeg} codec) without a decode+encode round-trip.
      * <p>
      * For a sharded array this operates at the shard level: {@code chunkCoords} addresses a whole
-     * shard and the returned bytes are the fully-assembled shard (index and all inner chunks).
+     * shard and the returned bytes are the fully-assembled shard (index and all inner chunks). To
+     * get at a single inner chunk of a shard instead, use {@link #readInnerChunkDirect(long[])}.
      *
      * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
      *                    by the chunk shape.
@@ -247,6 +248,69 @@ public abstract class Array extends AbstractNode {
         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
         return chunkHandle.read();
+    }
+
+    /**
+     * The shape of the smallest unit this array encodes independently, i.e. the unit that the codec
+     * pipeline compresses and that {@link #readInnerChunkDirect(long[])} addresses.
+     * <p>
+     * For a sharded array this is the inner chunk shape of the sharding codec (the innermost one, if
+     * shards are nested); for any other array it is simply {@link ArrayMetadata#chunkShape()}.
+     */
+    public int[] innerChunkShape() {
+        return codecPipeline.innerChunkShape();
+    }
+
+    /**
+     * Reads the already-encoded bytes of one inner chunk directly from the store, bypassing the codec
+     * pipeline entirely. No decoding is performed; the raw stored bytes are returned as-is.
+     * <p>
+     * Unlike {@link #readChunkDirect(long[])}, which returns a whole stored chunk, this addresses the
+     * unit that the codec pipeline actually encodes. For a sharded array that is a single inner chunk
+     * of a shard: only the shard index and the bytes of that one inner chunk are read from the store,
+     * not the whole shard. So for an array using the {@code jpeg} codec this returns exactly one JPEG.
+     * For an unsharded array the two grids coincide and this is equivalent to
+     * {@link #readChunkDirect(long[])}.
+     *
+     * @param innerChunkCoords The coordinates of the inner chunk on the grid given by
+     *                         {@link #innerChunkShape()}, spanning the whole array.
+     * @return the raw encoded inner chunk bytes, or {@code null} if the inner chunk is not present in
+     *         the store (i.e. it holds the fill value).
+     * @throws ZarrException throws ZarrException if the requested inner chunk is outside the array's
+     *                       domain, or if the codec pipeline does not allow addressing inner chunks
+     */
+    @Nullable
+    public ByteBuffer readInnerChunkDirect(long[] innerChunkCoords) throws ZarrException {
+        ArrayMetadata metadata = metadata();
+        final int ndim = metadata.ndim();
+        if (innerChunkCoords.length != ndim) {
+            throw new IllegalArgumentException(
+                    "'innerChunkCoords' needs to have rank '" + ndim + "'.");
+        }
+        final int[] chunkShape = metadata.chunkShape();
+        final int[] innerChunkShape = innerChunkShape();
+
+        // Split the inner chunk coordinates into the coordinates of the stored chunk holding them and
+        // the coordinates of the inner chunk within that stored chunk.
+        final long[] chunkCoords = new long[ndim];
+        final long[] coordsInChunk = new long[ndim];
+        for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+            if (innerChunkCoords[dimIdx] < 0
+                    || innerChunkCoords[dimIdx] * innerChunkShape[dimIdx] >= metadata.shape[dimIdx]) {
+                throw new ZarrException("Attempting to read data outside of the array's domain.");
+            }
+            final int innerChunksPerChunk = chunkShape[dimIdx] / innerChunkShape[dimIdx];
+            chunkCoords[dimIdx] = innerChunkCoords[dimIdx] / innerChunksPerChunk;
+            coordsInChunk[dimIdx] = innerChunkCoords[dimIdx] % innerChunksPerChunk;
+        }
+
+        final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
+        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+        if (Arrays.equals(innerChunkShape, chunkShape)) {
+            return chunkHandle.read();
+        }
+        return codecPipeline.readInnerChunkEncoded(chunkHandle, coordsInChunk);
     }
 
     /**
