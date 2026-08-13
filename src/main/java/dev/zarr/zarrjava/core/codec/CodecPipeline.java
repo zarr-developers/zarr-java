@@ -85,8 +85,14 @@ public class CodecPipeline {
     }
 
     /**
-     * The shape of the smallest unit this pipeline encodes independently. For a sharded array this
-     * is the inner chunk shape of the sharding codec; otherwise it is the chunk shape itself.
+     * The shape of the smallest unit this pipeline encodes independently, i.e. the unit that
+     * {@link #readInnerChunkEncoded} addresses and the grid its coordinates are on.
+     * <p>
+     * For a sharded array this is the sharding codec's inner chunk shape. Shards may be nested, in
+     * which case this is the innermost inner chunk shape still addressable by byte offset: the
+     * recursion stops at any level whose inner codecs are not a single sharding codec, since the
+     * nested shard's bytes would have to be decoded before its index could be located. For any
+     * other pipeline this is the chunk shape itself.
      */
     public int[] innerChunkShape() {
         if (!supportsPartialDecode()) {

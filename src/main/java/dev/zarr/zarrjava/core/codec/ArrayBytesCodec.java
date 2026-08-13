@@ -28,6 +28,10 @@ public abstract class ArrayBytesCodec extends AbstractCodec {
         /**
          * The shape of the smallest unit that this codec encodes independently inside one stored
          * chunk, and that {@link #readInnerChunkEncoded} can therefore address.
+         * <p>
+         * Where this codec nests further codecs of the same kind, this is the innermost such shape
+         * that remains addressable by byte offset; the recursion stops as soon as a level's bytes
+         * would have to be decoded before its inner units could be located.
          */
         public abstract int[] innerChunkShape();
 
