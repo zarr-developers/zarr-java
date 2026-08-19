@@ -281,7 +281,26 @@ public abstract class Array extends AbstractNode {
      */
     @Nullable
     public ByteBuffer readInnerChunkDirect(long[] innerChunkCoords) throws ZarrException {
-        ArrayMetadata metadata = metadata();
+        final long[][] splitCoords = splitInnerChunkCoords(innerChunkCoords);
+        final String[] chunkKeys = metadata().chunkKeyEncoding().encodeChunkKey(splitCoords[0]);
+        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+
+        if (!codecPipeline.supportsPartialDecode()) {
+            return chunkHandle.read();
+        }
+        return codecPipeline.readInnerChunkEncoded(chunkHandle, splitCoords[1]);
+    }
+
+    /**
+     * Splits coordinates on the {@link #innerChunkShape()} grid into the coordinates of the stored
+     * chunk holding that inner chunk and the coordinates of the inner chunk within that stored chunk.
+     *
+     * @return an array of {@code {chunkCoords, coordsInChunk}}
+     * @throws IllegalArgumentException if {@code innerChunkCoords} has the wrong rank
+     * @throws ZarrException            if the inner chunk is outside the array's domain
+     */
+    long[][] splitInnerChunkCoords(long[] innerChunkCoords) throws ZarrException {
+        final ArrayMetadata metadata = metadata();
         final int ndim = metadata.ndim();
         if (innerChunkCoords.length != ndim) {
             throw new IllegalArgumentException(
@@ -290,27 +309,57 @@ public abstract class Array extends AbstractNode {
         final int[] chunkShape = metadata.chunkShape();
         final int[] innerChunkShape = innerChunkShape();
 
-        // Split the inner chunk coordinates into the coordinates of the stored chunk holding them and
-        // the coordinates of the inner chunk within that stored chunk.
         final long[] chunkCoords = new long[ndim];
         final long[] coordsInChunk = new long[ndim];
         for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
             if (innerChunkCoords[dimIdx] < 0
                     || innerChunkCoords[dimIdx] * innerChunkShape[dimIdx] >= metadata.shape[dimIdx]) {
-                throw new ZarrException("Attempting to read data outside of the array's domain.");
+                throw new ZarrException("Attempting to access data outside of the array's domain.");
             }
             final int innerChunksPerChunk = chunkShape[dimIdx] / innerChunkShape[dimIdx];
             chunkCoords[dimIdx] = innerChunkCoords[dimIdx] / innerChunksPerChunk;
             coordsInChunk[dimIdx] = innerChunkCoords[dimIdx] % innerChunksPerChunk;
         }
+        return new long[][]{chunkCoords, coordsInChunk};
+    }
 
-        final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);
-        final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
+    /**
+     * A writer for storing already-encoded inner chunks into this array without decoding or
+     * re-encoding anything, batching the changes so that each affected shard is rebuilt exactly once.
+     * <p>
+     * This is the encoded-bytes counterpart of {@link #readInnerChunkDirect(long[])}. See
+     * {@link InnerChunkWriter} for the safety contract.
+     */
+    public InnerChunkWriter innerChunkWriter() {
+        return new InnerChunkWriter(this);
+    }
 
-        if (Arrays.equals(innerChunkShape, chunkShape)) {
-            return chunkHandle.read();
-        }
-        return codecPipeline.readInnerChunkEncoded(chunkHandle, coordsInChunk);
+    /**
+     * Stores the already-encoded bytes of one inner chunk, bypassing the codec pipeline entirely. No
+     * encoding is performed; the supplied bytes are stored verbatim.
+     * <p>
+     * This is the encoded-bytes counterpart of {@link #readInnerChunkDirect(long[])}. For a sharded
+     * array the containing shard is read, rebuilt with this inner chunk's bytes spliced in, and stored
+     * again; every other inner chunk of that shard is copied through still encoded, so nothing is
+     * recompressed. For an unsharded array the inner chunk grid is the chunk grid and this is
+     * equivalent to {@link #writeChunkDirect(long[], ByteBuffer)}.
+     * <p>
+     * To change several inner chunks, use {@link #innerChunkWriter()} instead: it rebuilds each
+     * affected shard once rather than once per inner chunk.
+     * <p>
+     * <b>Unsafe:</b> because the bytes are stored without decoding, they cannot be verified. See
+     * {@link InnerChunkWriter} for the full contract.
+     *
+     * @param innerChunkCoords The coordinates of the inner chunk on the grid given by
+     *                         {@link #innerChunkShape()}, spanning the whole array.
+     * @param innerChunkBytes  The already-encoded bytes to store, or {@code null} to remove the inner
+     *                         chunk (a subsequent read then returns the fill value).
+     * @throws ZarrException throws ZarrException if the requested inner chunk is outside the array's
+     *                       domain
+     */
+    public void writeInnerChunkDirect(long[] innerChunkCoords, @Nullable ByteBuffer innerChunkBytes)
+            throws ZarrException {
+        new InnerChunkWriter(this).put(innerChunkCoords, innerChunkBytes).flush();
     }
 
     /**

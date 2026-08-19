@@ -9,6 +9,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 public class CodecPipeline {
 
@@ -120,6 +121,35 @@ public class CodecPipeline {
         }
         return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).readInnerChunkEncoded(
                 storeHandle, innerChunkCoords);
+    }
+
+    /**
+     * Rebuilds a stored chunk so that the given inner chunks hold the given already-encoded bytes,
+     * copying every inner chunk that is kept through without decoding it.
+     * <p>
+     * Splicing encoded bytes into a stored chunk is only sound because a pipeline that supports this
+     * consists of the single {@link ArrayBytesCodec.WithPartialDecode} codec: no bytes-to-bytes codec
+     * wraps its output, so the bytes that codec produces are the stored object verbatim.
+     *
+     * @param chunkBytes the current bytes of the stored chunk, or {@code null} if the stored chunk does
+     *                   not exist yet
+     * @param updates    the inner chunks to replace or remove, with coordinates relative to the stored
+     *                   chunk on the grid given by {@link #innerChunkShape()}
+     * @return the new bytes of the stored chunk, or {@code null} if the stored chunk would hold no
+     *         inner chunks at all and should therefore be removed
+     */
+    @Nullable
+    public ByteBuffer mergeInnerChunksEncoded(
+            @Nullable ByteBuffer chunkBytes,
+            List<ArrayBytesCodec.WithPartialDecode.InnerChunkUpdate> updates
+    ) throws ZarrException {
+        if (!supportsPartialDecode()) {
+            throw new ZarrException(
+                    "Writing individual inner chunks is not supported for these codecs. "
+                            + Arrays.toString(codecs));
+        }
+        return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).mergeInnerChunksEncoded(
+                chunkBytes, updates);
     }
 
     @Nonnull
