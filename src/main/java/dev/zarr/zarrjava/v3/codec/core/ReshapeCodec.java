@@ -69,9 +69,7 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
                     "reshape codec received an array of shape " + Arrays.toString(chunkArray.getShape())
                             + " but expected the chunk shape " + Arrays.toString(inputShape) + ".");
         }
-        // Array.reshape copies the elements in lexicographical (C) order, hence ravel(B) == ravel(A)
-        // even when the input array is a non-contiguous view.
-        return chunkArray.reshape(outputChunkShape);
+        return reshapeView(chunkArray, outputChunkShape);
     }
 
     @Override
@@ -83,7 +81,39 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
                             + " but expected the reshaped shape " + Arrays.toString(outputChunkShape) + ".");
         }
         // Inverse operation: reshape back to the original chunk shape.
-        return chunkArray.reshape(inputShape);
+        return reshapeView(chunkArray, inputShape);
+    }
+
+    /**
+     * Reshapes {@code chunkArray} to {@code shape}, constructing a virtual view rather than copying
+     * whenever that is possible, as the specification asks for.
+     *
+     * <p>The two obvious candidates are both wrong here. {@link Array#reshape} always allocates and
+     * copies. {@link Array#reshapeNoCopy} hands the raw backing store to the new shape and discards
+     * the input's strides and offset, so it silently reorders the elements of any view &mdash; such as
+     * the output of the {@code transpose} codec, or the strided section that {@code Array.write}
+     * passes in for every chunk of a multi-chunk write.
+     *
+     * <p>{@link Array#get1DJavaArray} instead returns the backing store itself when the input already
+     * walks it in lexicographical order (ma2 tracks this as {@code Index.fastIterator}), and a C-order
+     * copy when it does not. The result therefore shares its storage with the input whenever the
+     * elements are already laid out in {@code ravel} order, and is a correct copy otherwise. Either
+     * way {@code ravel(B) == ravel(A)} holds, and the reshaped array is itself in lexicographical
+     * order, so a following codec gets the cheap path too.
+     *
+     * <p>This is conservative compared to NumPy's {@code _attempt_nocopy_reshape}, which also keeps a
+     * view when splitting the axes of a strided array, and when the axes being merged happen to be
+     * internally contiguous ({@code stride[k] == shape[k+1] * stride[k+1]}). Matching that would need
+     * an {@link ucar.ma2.Index} with custom strides and a non-zero offset, which ma2's public API
+     * cannot build safely: {@code new Index(shape, stride)} forces {@code offset = 0} and leaves the
+     * internal {@code fastIterator} flag set, so the resulting array would later hand out its whole
+     * backing store as if it were the data. Decode is unaffected either way, because it always
+     * receives a freshly allocated array; on encode the extra copy is limited to multi-chunk writes,
+     * where the caller passes a strided section.
+     */
+    private static Array reshapeView(Array chunkArray, int[] shape) {
+        ucar.ma2.DataType dataType = chunkArray.getDataType();
+        return Array.factory(dataType, shape, chunkArray.get1DJavaArray(dataType));
     }
 
     @Override
