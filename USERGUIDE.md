@@ -288,6 +288,38 @@ Array array = group.createArray(
         .build()
 );
 ```
+### Consolidated Metadata (v3)
+A group can keep a copy of the metadata of all of its descendants inside its own `zarr.json`, so that
+the whole hierarchy can be opened with a single read instead of one read per node. This matters most
+over HTTP and S3, where every node otherwise costs a request.
+
+```java
+// Write the cache. This walks the hierarchy once and stores the metadata of every
+// descendant in the metadata of this group.
+Group root = Group.open(storeHandle).consolidateMetadata();
+
+// Later reads are answered from the cache, without touching the store.
+Group sub = (Group) root.get("sub");
+Array array = (Array) sub.get("nested");
+
+// Remove the cache again
+root.dropConsolidatedMetadata();
+
+// Ignore a cache that is present, for example when the hierarchy may have changed
+Group fresh = Group.open(storeHandle, false);
+```
+
+The cache is written in the same format as `zarr.consolidate_metadata()` in zarr-python, so both
+libraries can read each other's output.
+
+**The cache is a snapshot.** Nothing invalidates it when a node is added, removed or changed
+afterwards, so `consolidateMetadata()` has to be called again after modifying the hierarchy. Reading a
+node that is missing from the cache logs a warning and falls back to reading the node itself, but a
+node that was *modified* after consolidating is served from the cache and cannot be detected. Open the
+group with `Group.open(storeHandle, false)` if in doubt.
+
+Consolidated metadata is a Zarr v3 feature here; the v2 `.zmetadata` file is not supported.
+
 ### Hierarchical Example
 ```java
 Group root = Group.create(

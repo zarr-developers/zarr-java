@@ -1,6 +1,9 @@
 package dev.zarr.zarrjava.v3;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
@@ -15,8 +18,17 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Function;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
@@ -25,11 +37,34 @@ import static dev.zarr.zarrjava.v3.Node.makeObjectWriter;
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node {
 
+    private static final Logger LOGGER = Logger.getLogger(Group.class.getName());
+
+    /**
+     * The order in which entries are written into the consolidated metadata: shallow paths first,
+     * then case-insensitively by name. This only affects the byte layout of the written metadata
+     * document, but it makes consolidating the same hierarchy twice produce an identical file.
+     */
+    private static final Comparator<String> CONSOLIDATED_KEY_ORDER = Comparator
+            .comparingInt((String key) -> (int) key.chars().filter(c -> c == '/').count())
+            .thenComparing(key -> Normalizer.normalize(key, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT))
+            .thenComparing(Comparator.naturalOrder());
+
     public GroupMetadata metadata;
 
+    /**
+     * Whether {@link #get} may be answered from the consolidated metadata of this group.
+     */
+    private final boolean useConsolidated;
+
     protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
+        this(storeHandle, groupMetadata, true);
+    }
+
+    protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata,
+                    boolean useConsolidated) throws IOException {
         super(storeHandle);
         this.metadata = groupMetadata;
+        this.useConsolidated = useConsolidated;
     }
 
     /**
@@ -39,9 +74,25 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @throws IOException if the metadata cannot be read
      */
     public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
+        return open(storeHandle, true);
+    }
+
+    /**
+     * Opens an existing Zarr group at a specified storage location.
+     *
+     * @param storeHandle     the storage location of the Zarr group
+     * @param useConsolidated whether the consolidated metadata of the group, if it has any, may be
+     *                        used to look up its descendants. Pass false to always read every node
+     *                        from the store, for example when the hierarchy may have been modified
+     *                        since it was consolidated.
+     * @throws IOException if the metadata cannot be read
+     */
+    public static Group open(@Nonnull StoreHandle storeHandle, boolean useConsolidated) throws IOException {
         StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
         ByteBuffer metadataBytes = metadataHandle.readNonNull();
-        return new Group(storeHandle, makeObjectMapper().readValue(Utils.toArray(metadataBytes), GroupMetadata.class));
+        GroupMetadata groupMetadata =
+                makeObjectMapper().readValue(Utils.toArray(metadataBytes), GroupMetadata.class);
+        return new Group(storeHandle, groupMetadata, useConsolidated);
     }
 
 
@@ -184,9 +235,43 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      */
     @Nullable
     public Node get(String[] key) throws ZarrException, IOException {
+        ConsolidatedMetadata consolidated = useConsolidated ? metadata.consolidatedMetadata : null;
+        if (consolidated == null || !consolidated.isInline()) {
+            return openFromStore(key);
+        }
+        JsonNode cached = consolidated.get(key);
+        if (cached != null) {
+            Node node = nodeFromConsolidatedMetadata(key, cached, consolidated);
+            if (node != null) {
+                return node;
+            }
+            // The cached document could not be interpreted, fall back to the node itself.
+            return openFromStore(key);
+        }
+        Node node = openFromStore(key);
+        if (node != null) {
+            LOGGER.warning("The node '" + String.join("/", key) + "' below " + storeHandle
+                    + " is missing from the consolidated metadata of the group. The consolidated"
+                    + " metadata is a snapshot and does not track later changes to the hierarchy;"
+                    + " call consolidateMetadata() again to refresh it.");
+        }
+        return node;
+    }
+
+    /**
+     * Opens the node at {@code key} by reading its metadata from the store, ignoring any consolidated
+     * metadata.
+     */
+    @Nullable
+    private Node openFromStore(String[] key) throws ZarrException, IOException {
         StoreHandle keyHandle = storeHandle.resolve(key);
         try {
-            return Node.open(keyHandle);
+            Node node = Node.open(keyHandle);
+            if (!useConsolidated && node instanceof Group) {
+                Group group = (Group) node;
+                return new Group(group.storeHandle, group.metadata, false);
+            }
+            return node;
         } catch (NoSuchFileException e) {
             return null;
         }
@@ -210,6 +295,135 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
         });
     }
 
+
+    /**
+     * Builds a node from a cached metadata document, or returns null if the document cannot be
+     * interpreted. The consolidated metadata is declared with {@code must_understand: false}, so an
+     * entry this library does not understand is skipped in favour of reading the node itself rather
+     * than failing.
+     */
+    @Nullable
+    private Node nodeFromConsolidatedMetadata(String[] key, JsonNode cached,
+                                              ConsolidatedMetadata consolidated) {
+        StoreHandle keyHandle = storeHandle.resolve(key);
+        JsonNode nodeTypeNode = cached.get("node_type");
+        String nodeType = nodeTypeNode == null ? null : nodeTypeNode.asText();
+        try {
+            ObjectMapper objectMapper = makeObjectMapper();
+            if (ArrayMetadata.NODE_TYPE.equals(nodeType)) {
+                return new Array(keyHandle, objectMapper.treeToValue(cached, ArrayMetadata.class));
+            }
+            if (GroupMetadata.NODE_TYPE.equals(nodeType)) {
+                GroupMetadata groupMetadata = objectMapper.treeToValue(cached, GroupMetadata.class);
+                // The entries of a consolidated subgroup are hoisted into the cache of this group, so
+                // hand the subgroup its own slice of them instead of the emptied cache it carries.
+                return new Group(keyHandle,
+                        groupMetadata.withConsolidatedMetadata(consolidated.sub(key)), true);
+            }
+            LOGGER.warning("Ignoring the consolidated metadata of '" + String.join("/", key)
+                    + "' below " + storeHandle + ", it has an unsupported node type '" + nodeType + "'.");
+            return null;
+        } catch (Exception e) {
+            LOGGER.warning("Ignoring the consolidated metadata of '" + String.join("/", key)
+                    + "' below " + storeHandle + ", it could not be parsed: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Writes the metadata of all descendants of this group into the metadata of this group, so that
+     * the whole hierarchy can afterwards be opened with a single read.
+     * <p>
+     * The metadata of each descendant is copied verbatim, keyed by its {@code "/"}-joined path
+     * relative to this group. The copy of a subgroup is given an empty cache of its own, marking it as
+     * covered by the cache written here; a subgroup that was consolidated itself therefore does not
+     * have its entries stored twice.
+     * <p>
+     * The result is a snapshot. Nothing invalidates it when a node is added, removed or modified
+     * afterwards, so this has to be called again after changing the hierarchy. Reading a node that is
+     * missing from the cache logs a warning and falls back to reading the node itself, but a node that
+     * was modified after consolidating is served from the cache and cannot be detected.
+     *
+     * @return this group, with the consolidated metadata written
+     * @throws IOException                   if the metadata cannot be read or written
+     * @throws UnsupportedOperationException if the underlying store does not support listing
+     */
+    public Group consolidateMetadata() throws IOException {
+        Map<String, JsonNode> entries = new LinkedHashMap<>();
+        collectDescendantMetadata(new String[0], entries);
+
+        List<String> keys = new ArrayList<>(entries.keySet());
+        keys.sort(CONSOLIDATED_KEY_ORDER);
+        Map<String, JsonNode> sorted = new LinkedHashMap<>();
+        for (String key : keys) {
+            sorted.put(key, entries.get(key));
+        }
+        return writeMetadata(
+                metadata.withConsolidatedMetadata(new ConsolidatedMetadata(sorted)));
+    }
+
+    /**
+     * Removes the consolidated metadata of this group, so that its descendants are read from the store
+     * again.
+     *
+     * @return this group, with the consolidated metadata removed
+     * @throws IOException if the metadata cannot be written
+     */
+    public Group dropConsolidatedMetadata() throws IOException {
+        if (metadata.consolidatedMetadata == null) {
+            return this;
+        }
+        return writeMetadata(metadata.withConsolidatedMetadata(null));
+    }
+
+    /**
+     * Collects the metadata documents of all nodes below {@code prefix} into {@code out}, keyed by
+     * their path relative to this group.
+     */
+    private void collectDescendantMetadata(String[] prefix, Map<String, JsonNode> out)
+            throws IOException {
+        List<String> children;
+        try (Stream<String> stream = storeHandle.resolve(prefix).listChildren()) {
+            children = stream.filter(name -> !ZARR_JSON.equals(name)).collect(Collectors.toList());
+        }
+        for (String child : children) {
+            String[] key = Utils.concatArrays(prefix, new String[]{child});
+            ByteBuffer metadataBytes = storeHandle.resolve(key).resolve(ZARR_JSON).read();
+            if (metadataBytes == null) {
+                // Not a node itself, but it may still contain nodes further down.
+                collectDescendantMetadata(key, out);
+                continue;
+            }
+            JsonNode nodeMetadata = makeObjectMapper().readTree(Utils.toArray(metadataBytes));
+            JsonNode nodeTypeNode = nodeMetadata.get("node_type");
+            boolean isGroup = nodeTypeNode != null && GroupMetadata.NODE_TYPE.equals(nodeTypeNode.asText());
+            if (isGroup) {
+                markSubgroupAsConsolidated(nodeMetadata);
+            }
+            out.put(String.join("/", key), nodeMetadata);
+            if (isGroup) {
+                collectDescendantMetadata(key, out);
+            }
+        }
+    }
+
+    /**
+     * Gives the cached metadata of a subgroup an empty consolidated metadata cache of its own. The
+     * empty cache marks the subgroup as covered by the cache being written here, which is where its
+     * entries live. A subgroup that carried a cache of its own loses it in this copy, so that the same
+     * entries are not held twice and cannot drift apart. This mirrors what zarr-python writes.
+     */
+    private static void markSubgroupAsConsolidated(JsonNode nodeMetadata) {
+        if (!(nodeMetadata instanceof ObjectNode)) {
+            return;
+        }
+        ObjectNode metadataObject = (ObjectNode) nodeMetadata;
+        ObjectNode nested = metadataObject.objectNode();
+        nested.put("kind", ConsolidatedMetadata.KIND_INLINE);
+        nested.put("must_understand", false);
+        nested.set("metadata", metadataObject.objectNode());
+        metadataObject.set("consolidated_metadata", nested);
+    }
 
     /**
      * Creates a new subgroup with the provided metadata at the specified key.
@@ -302,7 +516,10 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @throws IOException   if the metadata cannot be serialized
      */
     public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
-        GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
+        // The consolidated metadata describes the descendants of this group, which are unaffected by
+        // a change to the attributes of the group itself.
+        GroupMetadata newGroupMetadata =
+                new GroupMetadata(newAttributes, metadata.consolidatedMetadata);
         return writeMetadata(newGroupMetadata);
     }
 

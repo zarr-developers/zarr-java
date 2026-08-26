@@ -8,6 +8,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v2.Group;
 import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.ArrayMetadataBuilder;
+import dev.zarr.zarrjava.v3.ConsolidatedMetadata;
 import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.jupiter.api.Assertions;
@@ -24,6 +25,7 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
@@ -354,5 +356,38 @@ public class ZarrPythonTests extends ZarrTest {
         ucar.ma2.Array result = array2.read();
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
         assertIsTestdata(result, dataType);
+    }
+
+    /**
+     * Checks that the consolidated metadata written by zarr-java is understood by zarr-python and the
+     * other way round.
+     */
+    @Test
+    public void testConsolidatedMetadataReadWriteV3() throws Exception {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testConsolidatedMetadataV3", "write");
+        StoreHandle storeHandle2 = new FilesystemStore(TESTOUTPUT).resolve("testConsolidatedMetadataV3", "read");
+
+        ConsolidatedMetadataTest.writeTreeV3(storeHandle).consolidateMetadata();
+
+        run_python_script("zarr_python_consolidate.py", storeHandle.toPath().toString(),
+                storeHandle2.toPath().toString());
+
+        dev.zarr.zarrjava.v3.Group group = dev.zarr.zarrjava.v3.Group.open(storeHandle2);
+        ConsolidatedMetadata consolidated = group.metadata.consolidatedMetadata;
+        Assertions.assertNotNull(consolidated, "zarr-java did not pick up the consolidated metadata"
+                + " written by zarr-python");
+        Assertions.assertEquals(
+                Arrays.asList("arr", "sub", "sub/deep", "sub/nested", "sub/deep/deepArray"),
+                new ArrayList<>(consolidated.metadata.keySet()));
+
+        dev.zarr.zarrjava.v3.Array array =
+                (dev.zarr.zarrjava.v3.Array) group.get(new String[]{"sub", "deep", "deepArray"});
+        Assertions.assertNotNull(array);
+        Assertions.assertArrayEquals(new long[]{8, 8}, array.metadata().shape);
+
+        dev.zarr.zarrjava.v3.Array topArray = (dev.zarr.zarrjava.v3.Array) group.get("arr");
+        Assertions.assertNotNull(topArray);
+        Assertions.assertArrayEquals(new int[]{64, 64}, topArray.read().getShape());
+        Assertions.assertEquals(5, group.listAsArray().length);
     }
 }
