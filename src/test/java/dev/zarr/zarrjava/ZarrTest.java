@@ -46,6 +46,7 @@ public class ZarrTest {
                 DataType.UINT32,
                 DataType.INT64,
                 DataType.UINT64,
+                DataType.FLOAT16,
                 DataType.FLOAT32,
                 DataType.FLOAT64
         );
@@ -62,6 +63,7 @@ public class ZarrTest {
                 dev.zarr.zarrjava.v2.DataType.UINT32,
                 dev.zarr.zarrjava.v2.DataType.INT64,
                 dev.zarr.zarrjava.v2.DataType.UINT64,
+                dev.zarr.zarrjava.v2.DataType.FLOAT16,
                 dev.zarr.zarrjava.v2.DataType.FLOAT32,
                 dev.zarr.zarrjava.v2.DataType.FLOAT64,
                 dev.zarr.zarrjava.v2.DataType.UINT16_BE,
@@ -70,6 +72,7 @@ public class ZarrTest {
                 dev.zarr.zarrjava.v2.DataType.INT16_BE,
                 dev.zarr.zarrjava.v2.DataType.INT32_BE,
                 dev.zarr.zarrjava.v2.DataType.INT64_BE,
+                dev.zarr.zarrjava.v2.DataType.FLOAT16_BE,
                 dev.zarr.zarrjava.v2.DataType.FLOAT32_BE,
                 dev.zarr.zarrjava.v2.DataType.FLOAT64_BE
         );
@@ -154,6 +157,21 @@ public class ZarrTest {
     }
 
 
+    /**
+     * Quantizes a test value the way the data type would store it. Only float16 loses anything: it
+     * carries 11 significand bits, so 1024 of the 4096 values below are not exactly representable
+     * (2049 stores as 2048, 2051 as 2052, 4095 as 4096). Pre-quantizing here keeps
+     * {@link #testdata} and {@link #assertIsTestdata} in agreement, and matches
+     * {@code np.arange(16 * 16 * 16, dtype='float16')} element for element.
+     */
+    private static float quantize(dev.zarr.zarrjava.core.DataType dt, int i) {
+        if (dt.isHalfPrecisionFloat()) {
+            return dev.zarr.zarrjava.utils.Float16.halfBitsToFloat(
+                    dev.zarr.zarrjava.utils.Float16.floatToHalfBits((float) i));
+        }
+        return (float) i;
+    }
+
     protected ucar.ma2.Array testdata(dev.zarr.zarrjava.core.DataType dt) {
         ucar.ma2.DataType ma2Type = dt.getMA2DataType();
         ucar.ma2.Array array = ucar.ma2.Array.factory(ma2Type, new int[]{16, 16, 16});
@@ -181,7 +199,7 @@ public class ZarrTest {
                     array.setLong(i, i);
                     break;
                 case FLOAT:
-                    array.setFloat(i, (float) i);
+                    array.setFloat(i, quantize(dt, i));
                     break;
                 case DOUBLE:
                     array.setDouble(i, i);
@@ -220,7 +238,7 @@ public class ZarrTest {
                     Assertions.assertEquals(i, result.getLong(i));
                     break;
                 case FLOAT:
-                    Assertions.assertEquals((float) i, result.getFloat(i), 1e-6);
+                    Assertions.assertEquals(quantize(dt, i), result.getFloat(i), 1e-6);
                     break;
                 case DOUBLE:
                     Assertions.assertEquals(i, result.getDouble(i), 1e-12);

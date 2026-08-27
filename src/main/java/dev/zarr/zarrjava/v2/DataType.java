@@ -12,6 +12,11 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     UINT16("u2", Endianness.LITTLE),
     UINT32("u4", Endianness.LITTLE),
     UINT64("u8", Endianness.LITTLE),
+    /**
+     * IEEE 754 binary16. Encoded as 2 bytes, but held in memory as {@code float}; see
+     * {@link dev.zarr.zarrjava.utils.Float16}.
+     */
+    FLOAT16("f2", Endianness.LITTLE),
     FLOAT32("f4", Endianness.LITTLE),
     FLOAT64("f8", Endianness.LITTLE),
     INT16_BE("i2", Endianness.BIG),
@@ -20,6 +25,7 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     UINT16_BE("u2", Endianness.BIG),
     UINT32_BE("u4", Endianness.BIG),
     UINT64_BE("u8", Endianness.BIG),
+    FLOAT16_BE("f2", Endianness.BIG),
     FLOAT32_BE("f4", Endianness.BIG),
     FLOAT64_BE("f8", Endianness.BIG);
 
@@ -68,6 +74,9 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
             case UINT64:
             case UINT64_BE:
                 return ucar.ma2.DataType.ULONG;
+            case FLOAT16:
+            case FLOAT16_BE:
+                // No half precision type in ucar.ma2; widened to float, see Float16.
             case FLOAT32:
             case FLOAT32_BE:
                 return ucar.ma2.DataType.FLOAT;
@@ -82,6 +91,11 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     @Override
     public int getByteCount() {
         return Integer.parseInt(dtype.substring(1));
+    }
+
+    @Override
+    public boolean isHalfPrecisionFloat() {
+        return this == FLOAT16 || this == FLOAT16_BE;
     }
 
 }

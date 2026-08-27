@@ -15,6 +15,11 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     UINT16("uint16", 2),
     UINT32("uint32", 4),
     UINT64("uint64", 8),
+    /**
+     * IEEE 754 binary16. Encoded as 2 bytes, but held in memory as {@code float}; see
+     * {@link dev.zarr.zarrjava.utils.Float16}.
+     */
+    FLOAT16("float16", 2),
     FLOAT32("float32", 4),
     FLOAT64(
             "float64",
@@ -58,6 +63,8 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
                 return ucar.ma2.DataType.UINT;
             case UINT64:
                 return ucar.ma2.DataType.ULONG;
+            case FLOAT16:
+                // No half precision type in ucar.ma2; widened to float, see Float16.
             case FLOAT32:
                 return ucar.ma2.DataType.FLOAT;
             case FLOAT64:
@@ -65,5 +72,10 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
             default:
                 throw new IllegalStateException("Unknown DataType: " + this);
         }
+    }
+
+    @Override
+    public boolean isHalfPrecisionFloat() {
+        return this == FLOAT16;
     }
 }

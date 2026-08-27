@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.core.codec.core;
 import com.fasterxml.jackson.annotation.JsonValue;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.codec.ArrayBytesCodec;
+import dev.zarr.zarrjava.utils.Float16;
 import ucar.ma2.*;
 
 import java.nio.ByteBuffer;
@@ -31,6 +32,21 @@ public abstract class BytesCodec extends ArrayBytesCodec {
             Index index = Index.factory(shape);
             return Array.factory(DataType.BOOLEAN, index, bools);
         }
+
+        // float16 encodes to 2 bytes per element but is held as a 4-byte float, so it cannot be
+        // read straight into an ma2 array; widen each element instead.
+        if (arrayMetadata.dataType.isHalfPrecisionFloat()) {
+            int base = chunkBytes.position();
+            int size = chunkBytes.remaining() / Short.BYTES;
+            float[] floats = new float[size];
+            for (int i = 0; i < size; i++) {
+                floats[i] = Float16.halfBitsToFloat(chunkBytes.getShort(base + i * Short.BYTES));
+            }
+
+            Index index = Index.factory(shape);
+            return Array.factory(DataType.FLOAT, index, floats);
+        }
+
         return Array.factory(dtype, shape, chunkBytes);
     }
 
@@ -46,6 +62,18 @@ public abstract class BytesCodec extends ArrayBytesCodec {
             ByteBuffer bb = ByteBuffer.allocate(data.length);
             for (boolean b : data) {
                 bb.put((byte) (b ? 1 : 0));
+            }
+            bb.flip();
+            return bb;
+        }
+
+        // Float16. Checked before ArrayFloat, because float16 is held in memory as an ArrayFloat
+        // and must be narrowed to 2 bytes per element rather than written as float32.
+        if (arrayMetadata.dataType.isHalfPrecisionFloat()) {
+            float[] data = (float[]) chunkArray.get1DJavaArray(DataType.FLOAT);
+            ByteBuffer bb = ByteBuffer.allocate(data.length * Short.BYTES).order(order);
+            for (float f : data) {
+                bb.putShort(Float16.floatToHalfBits(f));
             }
             bb.flip();
             return bb;

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding;
+import dev.zarr.zarrjava.utils.Float16;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.utils.Utils;
 import ucar.ma2.Array;
@@ -41,6 +42,8 @@ public abstract class ArrayMetadata {
         boolean dataTypeIsLong = dataType == dev.zarr.zarrjava.v3.DataType.INT64 || dataType == dev.zarr.zarrjava.v2.DataType.INT64 || dataType == dev.zarr.zarrjava.v2.DataType.INT64_BE || dataType == dev.zarr.zarrjava.v3.DataType.UINT64 || dataType == dev.zarr.zarrjava.v2.DataType.UINT64 || dataType == dev.zarr.zarrjava.v2.DataType.UINT64_BE;
         boolean dataTypeIsFloat = dataType == dev.zarr.zarrjava.v3.DataType.FLOAT32 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT32 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT32_BE;
         boolean dataTypeIsDouble = dataType == dev.zarr.zarrjava.v3.DataType.FLOAT64 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT64 || dataType == dev.zarr.zarrjava.v2.DataType.FLOAT64_BE;
+        // float16 fill values are parsed to float, matching the in-memory representation.
+        boolean dataTypeIsHalfFloat = dataType.isHalfPrecisionFloat();
 
         if (fillValue instanceof Boolean) {
             Boolean fillValueBool = (Boolean) fillValue;
@@ -60,7 +63,7 @@ public abstract class ArrayMetadata {
                 return fillValueNumber.intValue();
             } else if (dataTypeIsLong) {
                 return fillValueNumber.longValue();
-            } else if (dataTypeIsFloat) {
+            } else if (dataTypeIsFloat || dataTypeIsHalfFloat) {
                 return fillValueNumber.floatValue();
             } else if (dataTypeIsDouble) {
                 return fillValueNumber.doubleValue();
@@ -69,7 +72,7 @@ public abstract class ArrayMetadata {
         } else if (fillValue instanceof String) {
             String fillValueString = (String) fillValue;
             if (fillValueString.equals("NaN")) {
-                if (dataTypeIsFloat) {
+                if (dataTypeIsFloat || dataTypeIsHalfFloat) {
                     return Float.NaN;
                 } else if (dataTypeIsDouble) {
                     return Double.NaN;
@@ -77,7 +80,7 @@ public abstract class ArrayMetadata {
                 throw new ZarrException(
                         "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
             } else if (fillValueString.equals("+Infinity")) {
-                if (dataTypeIsFloat) {
+                if (dataTypeIsFloat || dataTypeIsHalfFloat) {
                     return Float.POSITIVE_INFINITY;
                 } else if (dataTypeIsDouble) {
                     return Double.POSITIVE_INFINITY;
@@ -85,7 +88,7 @@ public abstract class ArrayMetadata {
                 throw new ZarrException(
                         "Invalid fill value '" + fillValueString + "' for data type '" + dataType + "'.");
             } else if (fillValueString.equals("-Infinity")) {
-                if (dataTypeIsFloat) {
+                if (dataTypeIsFloat || dataTypeIsHalfFloat) {
                     return Float.NEGATIVE_INFINITY;
                 } else if (dataTypeIsDouble) {
                     return Double.NEGATIVE_INFINITY;
@@ -116,6 +119,9 @@ public abstract class ArrayMetadata {
                         return buf.get() != 0;
                     } else if (dataTypeIsByte) {
                         return buf.get();
+                    } else if (dataTypeIsHalfFloat) {
+                        // The 2 bytes are a binary16 bit pattern, not a truncated float32.
+                        return Float16.halfBitsToFloat(buf.getShort());
                     } else if (dataTypeIsShort) {
                         return buf.getShort();
                     } else if (dataTypeIsInt) {
