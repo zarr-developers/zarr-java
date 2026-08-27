@@ -110,7 +110,7 @@ public class ZarrV2Test extends ZarrTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"BOOL", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64", "INT16_BE", "UINT16_BE", "INT32_BE", "UINT32_BE", "INT64_BE", "UINT64_BE", "FLOAT32_BE", "FLOAT64_BE"})
+    @MethodSource("dataTypeProviderV2")
     public void testNoFillValue(DataType dataType) throws IOException, ZarrException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_no_fillvalue", dataType.name());
 

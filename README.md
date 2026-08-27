@@ -62,8 +62,7 @@ data
 
 The test suite is split into two tiers.
 
-**Fast tier (default).** Offline, no Python required, runs in seconds. This is what every pull
-request should run:
+**Fast tier (default).** Offline, no Python required, runs in seconds:
 
 ```
 mvn test
@@ -73,23 +72,24 @@ It covers the metadata-only data type conformance checks, per-data-type round-tr
 committed golden fixtures.
 
 **Interop tier.** Cross-checks zarr-java against zarr-python, and needs `python3.11` and `uv`
-installed. Tagged `interop` and excluded from the default run; enable it by clearing the excluded
-groups:
+installed. It is tagged `interop` and excluded from a bare `mvn test`, so that a contributor
+without a working Python setup still gets a useful run. Clear the exclusion to include it:
 
 ```
-mvn test -DexcludedTestGroups=            # everything, both tiers
+mvn test -DexcludedTestGroups=                          # everything, both tiers
 mvn test -DexcludedTestGroups= -Dtest=ZarrPythonTests   # just the interop tier
 ```
 
-These tests matter more than their tag suggests, so the intent is for a nightly job to run them
-rather than for anyone to skip them indefinitely. A test that writes with zarr-java and reads back
-with zarr-java passes even when the reader and writer share the same misunderstanding of the spec —
-the resulting store is then wrong for every other tool, and only a second implementation can catch
-it.
+**CI runs both tiers on every pull request** — the tag exists for local convenience, not to keep
+these tests out of the build. They belong on the pull-request path because they catch bugs caused
+by the change under review: a test that writes with zarr-java and reads back with zarr-java passes
+even when the reader and writer share the same misunderstanding of the spec. The resulting store is
+then wrong for every other tool, and only a second implementation can catch that.
 
-zarr-python runs as one long-lived worker process for the whole suite (see `ZarrPythonWorker` and
-`src/test/python-scripts/zarr_python_worker.py`) instead of one `uv run` per test case. Interpreter
-startup used to dominate the interop tier; batching it took the full interop run from ~129s to ~19s.
+The interop tier is cheap enough for that. zarr-python runs as one long-lived worker process for
+the whole suite (see `ZarrPythonWorker` and `src/test/python-scripts/zarr_python_worker.py`) rather
+than one `uv run` per test case; interpreter startup used to dominate, and removing it took the
+full interop run from ~129s to ~19s.
 
 Furthermore, you will need the `l4_sample` test data:
 
@@ -116,6 +116,14 @@ To refresh the list after a zarr-python upgrade:
 ```
 uv run src/test/python-scripts/generate_spec_data_types.py
 ```
+
+Two CI jobs keep it from silently rotting (`.github/workflows/data-type-drift.yml`), split by who
+caused the problem. On every pull request, the list is regenerated against the pinned zarr-python
+and the build fails if it differs — that catches a dependency bump without a regeneration. Nightly,
+it is regenerated against the *latest* zarr-python instead, which is how a newly specified data
+type reaches us. The nightly check is deliberately not a pull-request gate: no pull request causes
+upstream to release a version, and failing unrelated changes for it only teaches people to ignore
+a red build.
 
 ### Code Style & Formatting
 

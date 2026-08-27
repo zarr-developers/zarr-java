@@ -1,0 +1,105 @@
+# Keeps src/test/resources/spec-data-types-v3.json honest.
+#
+# That file is the external conformance list DataTypeConformanceTest checks zarr-java against.
+# It is generated from zarr-python's data type registry and committed, so the Java test stays
+# offline and fast. Committing it buys reproducibility -- a given commit always tests against a
+# known list -- at the cost of the list going stale. These two jobs pay that cost back.
+#
+# The split follows who caused the breakage:
+#
+#   stale-check     runs per pull request. Fails when the committed list disagrees with the
+#                   zarr-python version this repository pins. That is caused by the change under
+#                   review (a dependency bump without a regeneration, or a hand-edited file), so
+#                   it belongs on the pull-request path.
+#
+#   upstream-drift  runs nightly. Fails when the *latest* zarr-python knows a data type our
+#                   pinned version did not. No pull request caused that, so gating pull requests
+#                   on it would fail innocent changes for reasons their authors cannot act on.
+#                   As a scheduled job it becomes a task someone picks up: bump the pin,
+#                   regenerate, and either implement the new data type or add it to
+#                   KNOWN_UNSUPPORTED with a note.
+
+name: Data Type Conformance List
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  schedule:
+    # 04:23 UTC daily. Off the hour so it does not queue behind everyone else's midnight cron.
+    - cron: '23 4 * * *'
+
+jobs:
+  stale-check:
+    name: Committed list matches the pinned zarr-python
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # Pinned explicitly: uv.lock resolves zarr differently per Python version, so letting uv
+      # pick an interpreter would make this check depend on what happens to be installed. 3.11 is
+      # what the committed list was generated with and what ci.yml runs the interop tier on.
+      - name: Regenerate the conformance list
+        run: uv run --python 3.11 src/test/python-scripts/generate_spec_data_types.py
+
+      - name: Fail if it differs from the committed copy
+        run: |
+          if ! git diff --exit-code src/test/resources/spec-data-types-v3.json; then
+            echo
+            echo "::error::spec-data-types-v3.json is out of date with the pinned zarr-python."
+            echo "Regenerate and commit it:"
+            echo "    uv run src/test/python-scripts/generate_spec_data_types.py"
+            echo "If the diff adds a data type, either implement it in dev.zarr.zarrjava.v3.DataType"
+            echo "or add it to DataTypeConformanceTest.KNOWN_UNSUPPORTED with a note on what it needs."
+            exit 1
+          fi
+
+  upstream-drift:
+    name: Latest zarr-python has no data types we have not seen
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # `uv run` alone would reuse uv.lock and regenerate a byte-identical file forever, which
+      # would make this job pass vacuously. Re-resolving zarr is the entire point: it is how a
+      # new upstream data type reaches us.
+      - name: Resolve the latest zarr-python
+        run: |
+          uv lock --upgrade-package zarr
+          uv run --python 3.11 python -c "import zarr; print('resolved zarr-python', zarr.__version__)"
+
+      - name: Regenerate the conformance list against it
+        run: uv run --python 3.11 src/test/python-scripts/generate_spec_data_types.py
+
+      - name: Report drift
+        run: |
+          if ! git diff --exit-code src/test/resources/spec-data-types-v3.json; then
+            echo
+            echo "::warning::A newer zarr-python describes data types differently than our pinned version."
+            echo "This is not a broken build -- it is a to-do. To act on it:"
+            echo "  1. bump the zarr pin in pyproject.toml and commit the updated uv.lock"
+            echo "  2. uv run src/test/python-scripts/generate_spec_data_types.py"
+            echo "  3. implement any new data type, or list it in KNOWN_UNSUPPORTED with a note"
+            exit 1
+          fi
+          echo "No drift: the latest zarr-python matches the committed conformance list."

@@ -30,12 +30,12 @@ import java.util.stream.Stream;
 /**
  * Cross-implementation tests: everything here checks zarr-java against zarr-python.
  *
- * <p>These are the only tests that need Python, and they are tagged {@code interop} so the
- * pull-request build can skip them. That split matters because an interop failure is usually a real
- * format bug worth investigating slowly, while the fast offline tiers -- {@link
- * DataTypeConformanceTest}, the per-data-type round-trips in {@link ZarrV3Test} and {@link
- * ZarrV2Test}, and the committed golden fixtures -- give quick feedback on every change. See the
- * "Running the tests" section of the README.
+ * <p>These are the only tests that need Python, and they are tagged {@code interop} so that a bare
+ * {@code mvn test} skips them -- a contributor without a working uv/zarr-python setup still gets a
+ * useful run from the fast offline tiers ({@link DataTypeConformanceTest}, the per-data-type
+ * round-trips in {@link ZarrV3Test} and {@link ZarrV2Test}, and the committed golden fixtures).
+ * The tag is a local convenience only: CI clears the exclusion, so these run on every pull request.
+ * See the "Run Tests Locally" section of the README.
  *
  * <p>An external reference implementation is not optional for a format library. A test that writes
  * with zarr-java and reads it back with zarr-java passes even when reader and writer share the same

@@ -167,13 +167,14 @@
                       The default run is fast and fully offline: metadata conformance checks,
                       per-data-type round-trips and the committed golden fixtures. It needs no
                       Python, so a contributor without a working uv/zarr-python setup can still
-                      run it, and it is quick enough for every pull request.
+                      run it and get a useful result.
 
-                      The 'interop' tier drives zarr-python for cross-implementation checks. It
-                      is excluded here and enabled with -DexcludedGroups= (see the README), which
-                      is what the nightly job does. Excluding it by default is a deliberate
-                      trade-off: interop tests catch bugs that no self-round-trip test can, so
-                      they must keep running, just not on the critical path of every push.
+                      The 'interop' tier drives zarr-python for cross-implementation checks. It is
+                      excluded here purely as a local convenience. CI has Python and clears the
+                      exclusion with -DexcludedTestGroups=, so both tiers run on every pull
+                      request. Interop tests catch bugs no self-round-trip test can, and now that
+                      zarr-python runs as a single worker process they cost about 20s, so there is
+                      no reason to keep them off the pull-request path.
                     -->
                     <excludedGroups>${excludedTestGroups}</excludedGroups>
                     <environmentVariables>

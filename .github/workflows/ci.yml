@@ -56,14 +56,23 @@ jobs:
       - name: Build
         run: mvn compile
 
+      # Runs both test tiers. The 'interop' tag is excluded from a bare `mvn test` so a
+      # contributor without a working uv/zarr-python setup can still run the suite locally;
+      # CI has Python, so it clears the exclusion and runs everything.
+      #
+      # Interop belongs on the pull-request path, not on a schedule: it catches bugs caused by
+      # the change under review -- a dtype or codec where zarr-java's reader and writer agree
+      # with each other but not with anyone else -- and that is feedback you want on the PR.
+      # It costs about 20s now that zarr-python runs as one worker process instead of one
+      # interpreter launch per test case.
       - name: Test
         env:
           MAVEN_OPTS: "-Xmx6g"
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            mvn --no-transfer-progress test -DargLine="-Xmx6g" -DrunS3Tests=true
+            mvn --no-transfer-progress test -DargLine="-Xmx6g" -DrunS3Tests=true -DexcludedTestGroups=
           else
-            mvn --no-transfer-progress test -DargLine="-Xmx6g"
+            mvn --no-transfer-progress test -DargLine="-Xmx6g" -DexcludedTestGroups=
           fi
       - name: Assemble JAR
         run: mvn package -DskipTests
