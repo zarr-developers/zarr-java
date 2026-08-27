@@ -44,6 +44,11 @@
     <properties>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--
+          JUnit tags excluded from the default test run. Override to run everything:
+            mvn test -DexcludedTestGroups=
+        -->
+        <excludedTestGroups>interop</excludedTestGroups>
         <jackson.version>2.20.0</jackson.version>
         <aws.version>2.34.6</aws.version>
         <netcdfJavaVersion>5.9.1</netcdfJavaVersion>
@@ -156,6 +161,21 @@
                 <version>3.2.5</version>
                 <configuration>
                     <useSystemClassLoader>false</useSystemClassLoader>
+                    <!--
+                      Tests are split into two tiers.
+
+                      The default run is fast and fully offline: metadata conformance checks,
+                      per-data-type round-trips and the committed golden fixtures. It needs no
+                      Python, so a contributor without a working uv/zarr-python setup can still
+                      run it, and it is quick enough for every pull request.
+
+                      The 'interop' tier drives zarr-python for cross-implementation checks. It
+                      is excluded here and enabled with -DexcludedGroups= (see the README), which
+                      is what the nightly job does. Excluding it by default is a deliberate
+                      trade-off: interop tests catch bugs that no self-round-trip test can, so
+                      they must keep running, just not on the critical path of every push.
+                    -->
+                    <excludedGroups>${excludedTestGroups}</excludedGroups>
                     <environmentVariables>
                         <!-- Force Testcontainers to use a newer Docker API version supported by your local Daemon -->
                         <DOCKER_API_VERSION>1.44</DOCKER_API_VERSION>

@@ -1,13 +1,12 @@
+"""Check zarr-java's zstd output with the reference library. One-shot CLI wrapper.
+
+See zarr_python_write.py for why the suite prefers zarr_python_worker.py.
+
+    uv run src/test/python-scripts/zstd_decompress.py /tmp/compressed.bin 123456
+"""
+
 import sys
 
-import zstandard as zstd
+from zarr_fixtures import zstd_decompress
 
-data_path = sys.argv[1]
-expected = sys.argv[2]
-
-with open(data_path, "rb") as f:
-    compressed = f.read()
-
-decompressed = zstd.ZstdDecompressor().decompress(compressed)
-number = int.from_bytes(decompressed, byteorder='big')
-assert number == int(expected)
+zstd_decompress(sys.argv[1], sys.argv[2])

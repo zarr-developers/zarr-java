@@ -12,6 +12,7 @@ import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -22,15 +23,30 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.stream.Stream;
 
 
+/**
+ * Cross-implementation tests: everything here checks zarr-java against zarr-python.
+ *
+ * <p>These are the only tests that need Python, and they are tagged {@code interop} so the
+ * pull-request build can skip them. That split matters because an interop failure is usually a real
+ * format bug worth investigating slowly, while the fast offline tiers -- {@link
+ * DataTypeConformanceTest}, the per-data-type round-trips in {@link ZarrV3Test} and {@link
+ * ZarrV2Test}, and the committed golden fixtures -- give quick feedback on every change. See the
+ * "Running the tests" section of the README.
+ *
+ * <p>An external reference implementation is not optional for a format library. A test that writes
+ * with zarr-java and reads it back with zarr-java passes even when reader and writer share the same
+ * misunderstanding of the spec, and the resulting store is wrong for every other tool. Only a second
+ * implementation can catch that.
+ *
+ * <p>zarr-python runs as a single long-lived process ({@link ZarrPythonWorker}) rather than one
+ * launch per test case; see that class for why.
+ */
+@Tag("interop")
 public class ZarrPythonTests extends ZarrTest {
-
-    final static Path PYTHON_TEST_PATH = Paths.get("src/test/python-scripts/");
 
     public static int runCommand(String... command) throws IOException, InterruptedException {
         ProcessBuilder pb = new ProcessBuilder();
@@ -114,17 +130,23 @@ public class ZarrPythonTests extends ZarrTest {
         return Stream.concat(datatypeTests, bloscTests);
     }
 
-    public void run_python_script(String scriptName, String... args) throws IOException, InterruptedException {
-        int exitCode = runCommand(Stream.concat(Stream.of("uv", "run", PYTHON_TEST_PATH.resolve(scriptName)
-                .toString()), Arrays.stream(args)).toArray(String[]::new));
-        assert exitCode == 0;
+    /**
+     * Runs one zarr-python operation in the shared worker process.
+     *
+     * <p>Replaces the previous one-{@code uv run}-per-call approach. The operation names map to the
+     * functions in {@code src/test/python-scripts/zarr_fixtures.py}, which the standalone CLI
+     * scripts also call -- so driving an operation from here and running the matching script by hand
+     * execute the same code.
+     */
+    public void runPython(String op, String... args) throws IOException, InterruptedException {
+        ZarrPythonWorker.get().call(op, args);
     }
 
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV3")
     public void testReadV3(String codec, String codecParam, DataType dataType) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testReadV3", codec, codecParam, dataType.name());
-        run_python_script("zarr_python_write.py", codec, codecParam, dataType.name().toLowerCase(), storeHandle.toPath().toString());
+        runPython("write_v3", codec, codecParam, dataType.name().toLowerCase(), storeHandle.toPath().toString());
         Array array = Array.open(storeHandle);
         ucar.ma2.Array result = array.read();
 
@@ -199,14 +221,14 @@ public class ZarrPythonTests extends ZarrTest {
         assertIsTestdata(result, dataType);
 
         //read in zarr_python
-        run_python_script("zarr_python_read.py", codec, codecParam, dataType.name().toLowerCase(), storeHandle.toPath().toString());
+        runPython("read_v3", codec, codecParam, dataType.name().toLowerCase(), storeHandle.toPath().toString());
     }
 
     @ParameterizedTest
     @MethodSource("compressorAndDataTypeProviderV2")
     public void testReadV2(String compressor, String compressorParam, dev.zarr.zarrjava.v2.DataType dt) throws IOException, ZarrException, InterruptedException {
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testReadV2", compressor, compressorParam, dt.name());
-        run_python_script("zarr_python_write_v2.py", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
+        runPython("write_v2", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
 
         dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.open(storeHandle);
         ucar.ma2.Array result = array.read();
@@ -265,7 +287,7 @@ public class ZarrPythonTests extends ZarrTest {
         assertIsTestdata(result, dt);
 
         //read in zarr_python
-        run_python_script("zarr_python_read_v2.py", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
+        runPython("read_v2", compressor, compressorParam, dt.getValue(), storeHandle.toPath().toString());
     }
 
     @CsvSource({"0,true", "0,false", "5, true", "10, false"})
@@ -292,14 +314,7 @@ public class ZarrPythonTests extends ZarrTest {
         }
 
         //decompress in python
-        int exitCode = ZarrPythonTests.runCommand(
-                "uv",
-                "run",
-                PYTHON_TEST_PATH.resolve("zstd_decompress.py").toString(),
-                compressedDataPath,
-                Integer.toString(number)
-        );
-        assert exitCode == 0;
+        runPython("zstd_decompress", compressedDataPath, Integer.toString(number));
     }
 
     @Test
@@ -316,7 +331,7 @@ public class ZarrPythonTests extends ZarrTest {
 
         array.write(testdata(dataType));
 
-        run_python_script("zarr_python_group.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 2);
+        runPython("group", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 2);
 
         Group group2 = Group.open(storeHandle2);
         Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));
@@ -343,7 +358,7 @@ public class ZarrPythonTests extends ZarrTest {
 
         array.write(testdata(dataType));
 
-        run_python_script("zarr_python_group.py", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 3);
+        runPython("group", storeHandle.toPath().toString(), storeHandle2.toPath().toString(), "" + 3);
 
         dev.zarr.zarrjava.v3.Group group2 = dev.zarr.zarrjava.v3.Group.open(storeHandle2);
         Assertions.assertEquals("value", group2.metadata().attributes().get("attr"));

@@ -1,0 +1,163 @@
+{
+  "_comment": "GENERATED FILE -- do not edit by hand. Regenerate with 'uv run src/test/python-scripts/generate_spec_data_types.py'. This is the external conformance list for DataTypeConformanceTest; it is intentionally not derived from zarr-java's DataType enum.",
+  "source": "zarr-python 3.1.6 data_type_registry",
+  "data_types": [
+    {
+      "name": "bool",
+      "data_type": "bool",
+      "fill_value": false
+    },
+    {
+      "name": "int8",
+      "data_type": "int8",
+      "fill_value": 0
+    },
+    {
+      "name": "int16",
+      "data_type": "int16",
+      "fill_value": 0
+    },
+    {
+      "name": "int32",
+      "data_type": "int32",
+      "fill_value": 0
+    },
+    {
+      "name": "int64",
+      "data_type": "int64",
+      "fill_value": 0
+    },
+    {
+      "name": "uint8",
+      "data_type": "uint8",
+      "fill_value": 0
+    },
+    {
+      "name": "uint16",
+      "data_type": "uint16",
+      "fill_value": 0
+    },
+    {
+      "name": "uint32",
+      "data_type": "uint32",
+      "fill_value": 0
+    },
+    {
+      "name": "uint64",
+      "data_type": "uint64",
+      "fill_value": 0
+    },
+    {
+      "name": "float16",
+      "data_type": "float16",
+      "fill_value": 0.0
+    },
+    {
+      "name": "float32",
+      "data_type": "float32",
+      "fill_value": 0.0
+    },
+    {
+      "name": "float64",
+      "data_type": "float64",
+      "fill_value": 0.0
+    },
+    {
+      "name": "complex64",
+      "data_type": "complex64",
+      "fill_value": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "complex128",
+      "data_type": "complex128",
+      "fill_value": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "fixed_length_utf32",
+      "data_type": {
+        "name": "fixed_length_utf32",
+        "configuration": {
+          "length_bytes": 16
+        }
+      },
+      "fill_value": ""
+    },
+    {
+      "name": "string",
+      "data_type": "string",
+      "fill_value": ""
+    },
+    {
+      "name": "raw_bytes",
+      "data_type": {
+        "name": "raw_bytes",
+        "configuration": {
+          "length_bytes": 4
+        }
+      },
+      "fill_value": "AAAAAA=="
+    },
+    {
+      "name": "null_terminated_bytes",
+      "data_type": {
+        "name": "null_terminated_bytes",
+        "configuration": {
+          "length_bytes": 4
+        }
+      },
+      "fill_value": ""
+    },
+    {
+      "name": "variable_length_bytes",
+      "data_type": "variable_length_bytes",
+      "fill_value": ""
+    },
+    {
+      "name": "structured",
+      "data_type": {
+        "name": "structured",
+        "configuration": {
+          "fields": [
+            [
+              "a",
+              "int32"
+            ],
+            [
+              "b",
+              "float64"
+            ]
+          ]
+        }
+      },
+      "fill_value": "AAAAAAAAAAAAAAAA"
+    },
+    {
+      "name": "numpy.datetime64",
+      "data_type": {
+        "name": "numpy.datetime64",
+        "configuration": {
+          "unit": "generic",
+          "scale_factor": 1
+        }
+      },
+      "fill_value": -9223372036854775808
+    },
+    {
+      "name": "numpy.timedelta64",
+      "data_type": {
+        "name": "numpy.timedelta64",
+        "configuration": {
+          "unit": "generic",
+          "scale_factor": 1
+        }
+      },
+      "fill_value": -9223372036854775808
+    }
+  ]
+}

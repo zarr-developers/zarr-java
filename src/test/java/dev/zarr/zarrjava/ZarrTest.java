@@ -35,44 +35,28 @@ public class ZarrTest {
         Files.createDirectory(TESTOUTPUT);
     }
 
+    /**
+     * Every data type zarr-java implements, so a newly added one is automatically covered by every
+     * test that uses this provider.
+     *
+     * <p>This used to be a hand-written list of enum constants, which meant a new data type was only
+     * tested if someone remembered to extend the list here as well. Deriving it from the enum
+     * removes that step -- and removes the chance of forgetting it.
+     *
+     * <p>Note what this provider still cannot tell you: it enumerates our own enum, so a data type
+     * we never implemented does not appear and no test built on it can fail. Detecting that class of
+     * gap needs a list from outside our code, which is what {@link DataTypeConformanceTest} does.
+     */
     static Stream<DataType> dataTypeProviderV3() {
-        return Stream.of(
-                DataType.BOOL,
-                DataType.INT8,
-                DataType.UINT8,
-                DataType.INT16,
-                DataType.UINT16,
-                DataType.INT32,
-                DataType.UINT32,
-                DataType.INT64,
-                DataType.UINT64,
-                DataType.FLOAT32,
-                DataType.FLOAT64
-        );
+        return Stream.of(DataType.values());
     }
 
+    /**
+     * Every v2 data type zarr-java implements. See {@link #dataTypeProviderV3()} for why this is
+     * derived from the enum rather than hand-listed.
+     */
     static Stream<dev.zarr.zarrjava.v2.DataType> dataTypeProviderV2() {
-        return Stream.of(
-                dev.zarr.zarrjava.v2.DataType.BOOL,
-                dev.zarr.zarrjava.v2.DataType.INT8,
-                dev.zarr.zarrjava.v2.DataType.UINT8,
-                dev.zarr.zarrjava.v2.DataType.INT16,
-                dev.zarr.zarrjava.v2.DataType.UINT16,
-                dev.zarr.zarrjava.v2.DataType.INT32,
-                dev.zarr.zarrjava.v2.DataType.UINT32,
-                dev.zarr.zarrjava.v2.DataType.INT64,
-                dev.zarr.zarrjava.v2.DataType.UINT64,
-                dev.zarr.zarrjava.v2.DataType.FLOAT32,
-                dev.zarr.zarrjava.v2.DataType.FLOAT64,
-                dev.zarr.zarrjava.v2.DataType.UINT16_BE,
-                dev.zarr.zarrjava.v2.DataType.UINT32_BE,
-                dev.zarr.zarrjava.v2.DataType.UINT64_BE,
-                dev.zarr.zarrjava.v2.DataType.INT16_BE,
-                dev.zarr.zarrjava.v2.DataType.INT32_BE,
-                dev.zarr.zarrjava.v2.DataType.INT64_BE,
-                dev.zarr.zarrjava.v2.DataType.FLOAT32_BE,
-                dev.zarr.zarrjava.v2.DataType.FLOAT64_BE
-        );
+        return Stream.of(dev.zarr.zarrjava.v2.DataType.values());
     }
 
     protected void assertListEquals(List<Object> a, List<Object> b) {

@@ -119,21 +119,24 @@ public class ZarrV3Test extends ZarrTest {
         return builder.build();
     }
 
+    /**
+     * Every multi-byte data type crossed with both byte orders.
+     *
+     * <p>Derived from {@link #dataTypeProviderV3()} rather than hand-listed, so a newly added data
+     * type is covered without anyone having to remember this provider. Single-byte data types are
+     * filtered out because byte order is meaningless for them -- {@code core.BytesCodec} skips the
+     * swap entirely when the itemsize is 1.
+     *
+     * <p>The previous hand-written list had already drifted: it omitted {@code INT64} and
+     * {@code UINT64}, so 8-byte byte-order handling went untested.
+     */
     static Stream<Arguments> dataTypeAndEndianProvider() {
-        return Stream.of(
-                Arguments.of(DataType.INT16, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.INT16, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.UINT16, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.UINT16, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.INT32, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.INT32, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.UINT32, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.UINT32, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.FLOAT32, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.FLOAT32, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.FLOAT64, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.FLOAT64, BytesCodec.Endian.BIG)
-        );
+        return dataTypeProviderV3()
+                .filter(dataType -> dataType.getByteCount() > 1)
+                .flatMap(dataType -> Stream.of(
+                        Arguments.of(dataType, BytesCodec.Endian.LITTLE),
+                        Arguments.of(dataType, BytesCodec.Endian.BIG)
+                ));
     }
 
     @ParameterizedTest
