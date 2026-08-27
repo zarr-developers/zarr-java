@@ -355,4 +355,82 @@ public class ZarrPythonTests extends ZarrTest {
         Assertions.assertArrayEquals(new int[]{16, 16, 16}, result.getShape());
         assertIsTestdata(result, dataType);
     }
+
+    /**
+     * The Zarr v2 {@code order} cases, as (shape, chunks, order).
+     */
+    static Stream<Object[]> orderProviderV2() {
+        return Stream.of(
+                new Object[]{"3,4", "3,4", "C"},
+                new Object[]{"3,4", "3,4", "F"},
+                new Object[]{"2,3,4", "2,3,4", "F"},
+                // Chunks divide neither dimension evenly, so the trailing chunks are partial.
+                new Object[]{"5,7", "2,3", "F"},
+                new Object[]{"5,7,3", "2,3,2", "F"},
+                // For rank 1 both orders describe the same layout.
+                new Object[]{"10", "4", "F"}
+        );
+    }
+
+    /**
+     * Live counterpart to {@link ZarrV2OrderTest}, which covers the same ground offline against
+     * committed fixtures. This runs against the installed zarr-python so that a change in the
+     * reference implementation is noticed rather than silently diverging from the fixtures.
+     */
+    @ParameterizedTest
+    @MethodSource("orderProviderV2")
+    public void testReadOrderV2(String shape, String chunks, String order) throws Exception {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT)
+                .resolve("testReadOrderV2", shape + "_" + chunks + "_" + order);
+        run_python_script("zarr_python_order_v2.py", "write", storeHandle.toPath().toString(),
+                shape, chunks, order);
+
+        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.open(storeHandle);
+        ucar.ma2.Array result = array.read();
+
+        Assertions.assertEquals(dev.zarr.zarrjava.v2.Order.valueOf(order), array.metadata().order);
+        for (int i = 0; i < result.getSize(); i++) {
+            Assertions.assertEquals(i, result.getInt(i),
+                    "element " + i + " of a " + order + "-order array");
+        }
+    }
+
+    /**
+     * The write direction, verified by zarr-python. zarr-java used to write {@code "order": "F"}
+     * into {@code .zarray} while laying the chunk out row-major, which its own reader then read back
+     * correctly &mdash; so only an external reader can catch it.
+     */
+    @ParameterizedTest
+    @MethodSource("orderProviderV2")
+    public void testWriteOrderV2(String shape, String chunks, String order) throws Exception {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT)
+                .resolve("testWriteOrderV2", shape + "_" + chunks + "_" + order);
+
+        long[] shapeArray = Arrays.stream(shape.split(",")).mapToLong(Long::parseLong).toArray();
+        int[] chunksArray = Arrays.stream(chunks.split(",")).mapToInt(Integer::parseInt).toArray();
+
+        dev.zarr.zarrjava.v2.Array array = dev.zarr.zarrjava.v2.Array.create(
+                storeHandle,
+                dev.zarr.zarrjava.v2.Array.metadataBuilder()
+                        .withShape(shapeArray)
+                        .withChunks(chunksArray)
+                        .withDataType(dev.zarr.zarrjava.v2.DataType.INT32)
+                        .withOrder(dev.zarr.zarrjava.v2.Order.valueOf(order))
+                        .withFillValue(0)
+                        .build()
+        );
+
+        int[] intShape = new int[shapeArray.length];
+        for (int i = 0; i < shapeArray.length; i++) {
+            intShape[i] = (int) shapeArray[i];
+        }
+        ucar.ma2.Array data = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, intShape);
+        for (int i = 0; i < data.getSize(); i++) {
+            data.setInt(i, i);
+        }
+        array.write(new long[shapeArray.length], data);
+
+        run_python_script("zarr_python_order_v2.py", "read", storeHandle.toPath().toString(),
+                shape, chunks, order);
+    }
 }
