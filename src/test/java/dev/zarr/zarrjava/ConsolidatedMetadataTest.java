@@ -46,6 +46,19 @@ public class ConsolidatedMetadataTest {
     ));
 
     /**
+     * The order in which {@link Group#list()} yields the members of the consolidated test hierarchy:
+     * every group before its own descendants, siblings in the order the cache holds them. This is the
+     * order in which zarr-python yields the members of the same group.
+     */
+    private static final List<String> EXPECTED_DEPTH_FIRST = Arrays.asList(
+            "arr",
+            "sub",
+            "sub/deep",
+            "sub/deep/deepArray",
+            "sub/nested"
+    );
+
+    /**
      * A {@link MemoryStore} that counts how often it is asked to list or read, so that tests can
      * assert on the number of store operations a group traversal costs.
      */
@@ -135,6 +148,69 @@ public class ConsolidatedMetadataTest {
     }
 
     /**
+     * A store that cannot be listed, so that its hierarchy cannot be discovered and therefore cannot
+     * be consolidated.
+     */
+    static final class NonListableStore implements Store {
+
+        private final MemoryStore delegate = new MemoryStore();
+
+        @Override
+        public boolean exists(String[] keys) {
+            return delegate.exists(keys);
+        }
+
+        @Nullable
+        @Override
+        public ByteBuffer get(String[] keys) {
+            return delegate.get(keys);
+        }
+
+        @Nullable
+        @Override
+        public ByteBuffer get(String[] keys, long start) {
+            return delegate.get(keys, start);
+        }
+
+        @Nullable
+        @Override
+        public ByteBuffer get(String[] keys, long start, long end) {
+            return delegate.get(keys, start, end);
+        }
+
+        @Override
+        public void set(String[] keys, ByteBuffer bytes) {
+            delegate.set(keys, bytes);
+        }
+
+        @Override
+        public void delete(String[] keys) {
+            delegate.delete(keys);
+        }
+
+        @Nonnull
+        @Override
+        public StoreHandle resolve(String... keys) {
+            return new StoreHandle(this, keys);
+        }
+
+        @Override
+        public InputStream getInputStream(String[] keys, long start, long end) {
+            return delegate.getInputStream(keys, start, end);
+        }
+
+        @Override
+        public long getSize(String[] keys) {
+            return delegate.getSize(keys);
+        }
+
+        @Override
+        public String toString() {
+            return "<NonListableStore>";
+        }
+    }
+
+    /**
      * Writes a v3 hierarchy:
      * <pre>
      * /            group
@@ -168,6 +244,18 @@ public class ConsolidatedMetadataTest {
                 .withDataType(DataType.UINT8)
                 .withChunkShape(8, 8));
         return root;
+    }
+
+    /**
+     * The messages of an exception and all its causes, so that a test can assert on a message that
+     * Jackson has wrapped while parsing.
+     */
+    private static String exceptionMessages(Throwable throwable) {
+        StringBuilder messages = new StringBuilder();
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            messages.append(current.getMessage()).append(' ');
+        }
+        return messages.toString();
     }
 
     private static ObjectNode readJson(StoreHandle handle) throws IOException {
@@ -245,7 +333,7 @@ public class ConsolidatedMetadataTest {
     }
 
     @Test
-    public void testListUsesTheConsolidatedMetadata() throws IOException, ZarrException {
+    public void testListIsAnsweredWithoutTouchingTheStore() throws IOException, ZarrException {
         CountingStore store = new CountingStore();
         writeTreeV3(store.resolve()).consolidateMetadata();
 
@@ -253,12 +341,27 @@ public class ConsolidatedMetadataTest {
         store.resetCounters();
 
         Assertions.assertEquals(EXPECTED_ENTRIES.size(), root.listAsArray().length);
-        // Listing still has to discover the keys, but none of the metadata is read again.
-        Assertions.assertEquals(0, store.readCalls.get());
+        Assertions.assertEquals(0, store.readCalls.get(), "no node metadata may be read again");
+        Assertions.assertEquals(0, store.listCalls.get(),
+                "a consolidated group must not list the store to find its members");
+        Assertions.assertEquals(0, store.listChildrenCalls.get());
     }
 
     @Test
-    public void testNodeAddedAfterConsolidatingIsStillFound() throws IOException, ZarrException {
+    public void testListIsOrderedDepthFirst() throws IOException, ZarrException {
+        CountingStore store = new CountingStore();
+        writeTreeV3(store.resolve()).consolidateMetadata();
+
+        Group root = Group.open(store.resolve());
+        List<String> keys = new ArrayList<>();
+        for (dev.zarr.zarrjava.core.Node node : root.listAsArray()) {
+            keys.add(String.join("/", ((dev.zarr.zarrjava.core.AbstractNode) node).storeHandle.keys));
+        }
+        Assertions.assertEquals(EXPECTED_DEPTH_FIRST, keys);
+    }
+
+    @Test
+    public void testNodeAddedAfterConsolidatingIsNotFound() throws IOException, ZarrException {
         CountingStore store = new CountingStore();
         Group root = writeTreeV3(store.resolve()).consolidateMetadata();
 
@@ -268,9 +371,19 @@ public class ConsolidatedMetadataTest {
                 .withChunkShape(4, 4));
 
         Group reopened = Group.open(store.resolve());
-        Assertions.assertNotNull(reopened.get("late"),
-                "a node missing from the stale cache must be read from the store instead");
+        store.resetCounters();
+        Assertions.assertNull(reopened.get("late"),
+                "the cache is authoritative, so a node it does not hold is reported as absent");
         Assertions.assertNull(reopened.get("doesNotExist"));
+        Assertions.assertEquals(0, store.readCalls.get(),
+                "a key missing from the cache must not be looked up in the store");
+
+        // Bypassing the stale cache finds the node again.
+        Group fresh = Group.open(store.resolve(), Group.UseConsolidated.IGNORE);
+        Assertions.assertNotNull(fresh.get("late"));
+
+        // So does consolidating again.
+        Assertions.assertNotNull(Group.consolidateMetadata(store.resolve()).get("late"));
     }
 
     @Test
@@ -312,7 +425,7 @@ public class ConsolidatedMetadataTest {
     }
 
     @Test
-    public void testUnknownKindIsIgnored() throws IOException, ZarrException {
+    public void testUnknownKindFailsToOpen() throws IOException, ZarrException {
         CountingStore store = new CountingStore();
         writeTreeV3(store.resolve()).consolidateMetadata();
 
@@ -320,14 +433,12 @@ public class ConsolidatedMetadataTest {
         ((ObjectNode) written.get("consolidated_metadata")).put("kind", "something_else");
         writeJson(store.resolve(), written);
 
-        Group root = Group.open(store.resolve());
-        Assertions.assertNotNull(root.metadata.consolidatedMetadata);
-        Assertions.assertFalse(root.metadata.consolidatedMetadata.isInline());
-
-        store.resetCounters();
-        Assertions.assertNotNull(root.get("arr"));
-        Assertions.assertTrue(store.readCalls.get() > 0,
-                "a cache of an unknown kind must be ignored, not used");
+        // zarr-python rejects a cache of an unknown kind rather than ignoring it, so this library does
+        // the same.
+        Exception exception =
+                Assertions.assertThrows(Exception.class, () -> Group.open(store.resolve()));
+        Assertions.assertTrue(exceptionMessages(exception).contains("kind='something_else'"),
+                "the error must name the unsupported kind, got: " + exceptionMessages(exception));
     }
 
     @Test
@@ -372,21 +483,79 @@ public class ConsolidatedMetadataTest {
     }
 
     @Test
-    public void testUseConsolidatedFalseIgnoresTheCache() throws IOException, ZarrException {
+    public void testIgnoreDropsTheCache() throws IOException, ZarrException {
         CountingStore store = new CountingStore();
         writeTreeV3(store.resolve()).consolidateMetadata();
 
-        Group root = Group.open(store.resolve(), false);
-        store.resetCounters();
+        Group root = Group.open(store.resolve(), Group.UseConsolidated.IGNORE);
+        Assertions.assertNull(root.metadata.consolidatedMetadata,
+                "the cache must be dropped from the metadata held in memory");
 
+        store.resetCounters();
         Assertions.assertNotNull(root.get("arr"));
         Assertions.assertTrue(store.readCalls.get() > 0);
+    }
 
-        // The opt-out is inherited by subgroups.
+    @Test
+    public void testIgnoreAppliesToTheOpenedGroupOnly() throws IOException, ZarrException {
+        CountingStore store = new CountingStore();
+        Group root = writeTreeV3(store.resolve());
+        ((Group) root.get("sub")).consolidateMetadata();
+        root.consolidateMetadata();
+
+        // The opt-out is not inherited: a subgroup that carries a cache of its own uses it, just as it
+        // would if it had been opened directly. This matches zarr-python, where use_consolidated
+        // applies to the group being opened.
+        Group ignored = Group.open(store.resolve(), Group.UseConsolidated.IGNORE);
+        Group sub = (Group) ignored.get("sub");
+        Assertions.assertNotNull(sub.metadata.consolidatedMetadata);
+
         store.resetCounters();
-        Group sub = (Group) root.get("sub");
-        Assertions.assertNotNull(sub.get("nested"));
-        Assertions.assertTrue(store.readCalls.get() > 0);
+        Assertions.assertNotNull(sub.get(new String[]{"deep", "deepArray"}));
+        Assertions.assertEquals(0, store.readCalls.get());
+    }
+
+    @Test
+    public void testRequireFailsWithoutACache() throws IOException, ZarrException {
+        CountingStore store = new CountingStore();
+        writeTreeV3(store.resolve());
+
+        ZarrException exception = Assertions.assertThrows(ZarrException.class,
+                () -> Group.openConsolidated(store.resolve()));
+        Assertions.assertTrue(exception.getMessage().contains("REQUIRE"), exception.getMessage());
+
+        // With a cache in place the same call succeeds.
+        Group.consolidateMetadata(store.resolve());
+        Group root = Group.openConsolidated(store.resolve());
+        Assertions.assertNotNull(root.metadata.consolidatedMetadata);
+        Assertions.assertNotNull(root.get(new String[]{"sub", "deep", "deepArray"}));
+    }
+
+    @Test
+    public void testStaticConsolidateMetadataOpensAndWrites() throws IOException, ZarrException {
+        CountingStore store = new CountingStore();
+        writeTreeV3(store.resolve());
+
+        Group root = Group.consolidateMetadata(store.resolve());
+        Assertions.assertNotNull(root.metadata.consolidatedMetadata);
+        Assertions.assertEquals(EXPECTED_ENTRIES, root.metadata.consolidatedMetadata.metadata.keySet());
+        Assertions.assertEquals(EXPECTED_ENTRIES.size(),
+                readJson(store.resolve()).get("consolidated_metadata").get("metadata").size());
+
+        // Consolidating a subtree only covers that subtree.
+        Group sub = Group.consolidateMetadata(store.resolve("sub"));
+        Assertions.assertEquals(new HashSet<>(Arrays.asList("nested", "deep", "deep/deepArray")),
+                sub.metadata.consolidatedMetadata.metadata.keySet());
+    }
+
+    @Test
+    public void testConsolidatingANonListableStoreFails() throws IOException, ZarrException {
+        Group group = Group.create(new NonListableStore().resolve());
+        UnsupportedOperationException exception = Assertions.assertThrows(
+                UnsupportedOperationException.class, group::consolidateMetadata,
+                "a store that cannot be listed cannot be consolidated");
+        Assertions.assertTrue(exception.getMessage().contains("NonListableStore"),
+                exception.getMessage());
     }
 
     @Test

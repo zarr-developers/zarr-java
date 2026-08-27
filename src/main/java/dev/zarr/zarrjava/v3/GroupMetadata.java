@@ -54,6 +54,10 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
             throw new ZarrException(
                     "Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
         }
+        if (consolidatedMetadata != null && !consolidatedMetadata.isInline()) {
+            throw new ZarrException(
+                    "Consolidated metadata kind='" + consolidatedMetadata.kind + "' is not supported.");
+        }
         this.attributes = attributes;
         this.consolidatedMetadata = consolidatedMetadata;
     }

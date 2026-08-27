@@ -8,6 +8,7 @@ import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Attributes;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.MemoryStore;
+import dev.zarr.zarrjava.store.Store;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 
@@ -26,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -52,19 +54,36 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     public GroupMetadata metadata;
 
     /**
-     * Whether {@link #get} may be answered from the consolidated metadata of this group.
+     * How {@link #open} treats the consolidated metadata of the group it opens. Mirrors the
+     * {@code use_consolidated} argument of {@code zarr.open_group()} in zarr-python.
+     * <p>
+     * The choice applies to the group being opened only. A subgroup reached through {@link #get} is
+     * opened with {@link #AUTO}, so a subgroup that carries a cache of its own still uses it.
      */
-    private final boolean useConsolidated;
-
-    protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
-        this(storeHandle, groupMetadata, true);
+    public enum UseConsolidated {
+        /**
+         * Use the consolidated metadata if the group has any, and read the nodes themselves
+         * otherwise. The default, matching {@code use_consolidated=None}.
+         */
+        AUTO,
+        /**
+         * Require consolidated metadata: fail if the group has none. Matches
+         * {@code use_consolidated=True}.
+         */
+        REQUIRE,
+        /**
+         * Ignore the consolidated metadata of the group, and drop it from the metadata held in
+         * memory. Matches {@code use_consolidated=False}.
+         * <p>
+         * Because the cache is dropped from the metadata of the group, writing that metadata again -
+         * with {@link Group#setAttributes} for example - removes the cache from the store as well.
+         */
+        IGNORE
     }
 
-    protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata,
-                    boolean useConsolidated) throws IOException {
+    protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) throws IOException {
         super(storeHandle);
         this.metadata = groupMetadata;
-        this.useConsolidated = useConsolidated;
     }
 
     /**
@@ -73,26 +92,69 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @param storeHandle the storage location of the Zarr group
      * @throws IOException if the metadata cannot be read
      */
-    public static Group open(@Nonnull StoreHandle storeHandle) throws IOException {
-        return open(storeHandle, true);
+    public static Group open(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
+        return open(storeHandle, UseConsolidated.AUTO);
     }
 
     /**
      * Opens an existing Zarr group at a specified storage location.
      *
      * @param storeHandle     the storage location of the Zarr group
-     * @param useConsolidated whether the consolidated metadata of the group, if it has any, may be
-     *                        used to look up its descendants. Pass false to always read every node
-     *                        from the store, for example when the hierarchy may have been modified
-     *                        since it was consolidated.
-     * @throws IOException if the metadata cannot be read
+     * @param useConsolidated how the consolidated metadata of the group is to be treated
+     * @throws IOException   if the metadata cannot be read
+     * @throws ZarrException if {@link UseConsolidated#REQUIRE} was passed and the group has no
+     *                       consolidated metadata
      */
-    public static Group open(@Nonnull StoreHandle storeHandle, boolean useConsolidated) throws IOException {
+    public static Group open(@Nonnull StoreHandle storeHandle,
+                             @Nonnull UseConsolidated useConsolidated) throws IOException, ZarrException {
         StoreHandle metadataHandle = storeHandle.resolve(ZARR_JSON);
         ByteBuffer metadataBytes = metadataHandle.readNonNull();
         GroupMetadata groupMetadata =
                 makeObjectMapper().readValue(Utils.toArray(metadataBytes), GroupMetadata.class);
-        return new Group(storeHandle, groupMetadata, useConsolidated);
+        if (useConsolidated == UseConsolidated.REQUIRE && groupMetadata.consolidatedMetadata == null) {
+            throw new ZarrException("Consolidated metadata requested with UseConsolidated.REQUIRE,"
+                    + " but not found in '" + storeHandle + "'.");
+        }
+        if (useConsolidated == UseConsolidated.IGNORE && groupMetadata.consolidatedMetadata != null) {
+            groupMetadata = groupMetadata.withConsolidatedMetadata(null);
+        }
+        return new Group(storeHandle, groupMetadata);
+    }
+
+    /**
+     * Opens an existing Zarr group at a specified storage location, requiring it to have consolidated
+     * metadata. Mirrors {@code zarr.open_consolidated()} in zarr-python.
+     *
+     * @param storeHandle the storage location of the Zarr group
+     * @throws IOException   if the metadata cannot be read
+     * @throws ZarrException if the group has no consolidated metadata
+     */
+    public static Group openConsolidated(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
+        return open(storeHandle, UseConsolidated.REQUIRE);
+    }
+
+    /**
+     * Opens an existing Zarr group at a specified storage location, requiring it to have consolidated
+     * metadata.
+     *
+     * @param path the storage location of the Zarr group
+     * @throws IOException   if the metadata cannot be read
+     * @throws ZarrException if the group has no consolidated metadata
+     */
+    public static Group openConsolidated(Path path) throws IOException, ZarrException {
+        return openConsolidated(new StoreHandle(new FilesystemStore(path)));
+    }
+
+    /**
+     * Opens an existing Zarr group at a specified storage location, requiring it to have consolidated
+     * metadata.
+     *
+     * @param path the storage location of the Zarr group
+     * @throws IOException   if the metadata cannot be read
+     * @throws ZarrException if the group has no consolidated metadata
+     */
+    public static Group openConsolidated(String path) throws IOException, ZarrException {
+        return openConsolidated(Paths.get(path));
     }
 
 
@@ -102,7 +164,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @param path the storage location of the Zarr group
      * @throws IOException if the metadata cannot be read
      */
-    public static Group open(Path path) throws IOException {
+    public static Group open(Path path) throws IOException, ZarrException {
         return open(new StoreHandle(new FilesystemStore(path)));
     }
 
@@ -112,7 +174,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @param path the storage location of the Zarr group
      * @throws IOException if the metadata cannot be read
      */
-    public static Group open(String path) throws IOException {
+    public static Group open(String path) throws IOException, ZarrException {
         return open(Paths.get(path));
     }
 
@@ -235,64 +297,74 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      */
     @Nullable
     public Node get(String[] key) throws ZarrException, IOException {
-        ConsolidatedMetadata consolidated = useConsolidated ? metadata.consolidatedMetadata : null;
-        if (consolidated == null || !consolidated.isInline()) {
+        ConsolidatedMetadata consolidated = metadata.consolidatedMetadata;
+        if (consolidated == null) {
             return openFromStore(key);
         }
         JsonNode cached = consolidated.get(key);
-        if (cached != null) {
-            Node node = nodeFromConsolidatedMetadata(key, cached, consolidated);
-            if (node != null) {
-                return node;
-            }
-            // The cached document could not be interpreted, fall back to the node itself.
-            return openFromStore(key);
+        if (cached == null) {
+            // The cache is authoritative: a node it does not hold is not part of the hierarchy. The
+            // store is deliberately not consulted, which is what zarr-python does as well. The cache
+            // is a snapshot, so a node added after consolidating stays invisible until
+            // consolidateMetadata() is called again, or the group is opened with
+            // UseConsolidated.IGNORE.
+            return null;
         }
-        Node node = openFromStore(key);
+        Node node = nodeFromConsolidatedMetadata(key, cached, consolidated);
         if (node != null) {
-            LOGGER.warning("The node '" + String.join("/", key) + "' below " + storeHandle
-                    + " is missing from the consolidated metadata of the group. The consolidated"
-                    + " metadata is a snapshot and does not track later changes to the hierarchy;"
-                    + " call consolidateMetadata() again to refresh it.");
+            return node;
         }
-        return node;
+        // The cached document could not be interpreted, fall back to the node itself.
+        return openFromStore(key);
     }
 
     /**
      * Opens the node at {@code key} by reading its metadata from the store, ignoring any consolidated
-     * metadata.
+     * metadata of this group. A subgroup that carries a cache of its own uses it, just as it would if
+     * it had been opened directly.
      */
     @Nullable
     private Node openFromStore(String[] key) throws ZarrException, IOException {
-        StoreHandle keyHandle = storeHandle.resolve(key);
         try {
-            Node node = Node.open(keyHandle);
-            if (!useConsolidated && node instanceof Group) {
-                Group group = (Group) node;
-                return new Group(group.storeHandle, group.metadata, false);
-            }
-            return node;
+            return Node.open(storeHandle.resolve(key));
         } catch (NoSuchFileException e) {
             return null;
         }
     }
 
+    /**
+     * Lists all descendants of this group. If this group has consolidated metadata, the whole listing
+     * is answered from it and the store is not touched at all, neither to list nor to read.
+     */
     @Override
     public Stream<dev.zarr.zarrjava.core.Node> list() {
+        ConsolidatedMetadata consolidated = metadata.consolidatedMetadata;
+        if (consolidated != null) {
+            return consolidated.depthFirstKeys().stream()
+                    .map(key -> nodeAt(key.split("/")))
+                    .filter(Objects::nonNull);
+        }
         Stream<String[]> metadataKeys = storeHandle.list()
                 .filter(key -> key[key.length - 1].equals(ZARR_JSON))
                 .filter(key -> key.length > 1); // exclude root from list
-        return metadataKeys.map(key -> {
-            try {
-                return get(Arrays.copyOf(key, key.length - 1));
-            } catch (IOException e) {
-                throw new RuntimeException(
-                        "Failed to read node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
-            } catch (ZarrException e) {
-                throw new RuntimeException(
-                        "Failed to parse node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
-            }
-        });
+        return metadataKeys.map(key -> nodeAt(Arrays.copyOf(key, key.length - 1)))
+                .filter(Objects::nonNull);
+    }
+
+    /**
+     * Calls {@link #get} for a listing, turning the checked exceptions into unchecked ones.
+     */
+    @Nullable
+    private dev.zarr.zarrjava.core.Node nodeAt(String[] key) {
+        try {
+            return get(key);
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "Failed to read node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
+        } catch (ZarrException e) {
+            throw new RuntimeException(
+                    "Failed to parse node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
+        }
     }
 
 
@@ -318,7 +390,7 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
                 // The entries of a consolidated subgroup are hoisted into the cache of this group, so
                 // hand the subgroup its own slice of them instead of the emptied cache it carries.
                 return new Group(keyHandle,
-                        groupMetadata.withConsolidatedMetadata(consolidated.sub(key)), true);
+                        groupMetadata.withConsolidatedMetadata(consolidated.sub(key)));
             }
             LOGGER.warning("Ignoring the consolidated metadata of '" + String.join("/", key)
                     + "' below " + storeHandle + ", it has an unsupported node type '" + nodeType + "'.");
@@ -340,15 +412,23 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * have its entries stored twice.
      * <p>
      * The result is a snapshot. Nothing invalidates it when a node is added, removed or modified
-     * afterwards, so this has to be called again after changing the hierarchy. Reading a node that is
-     * missing from the cache logs a warning and falls back to reading the node itself, but a node that
-     * was modified after consolidating is served from the cache and cannot be detected.
+     * afterwards, so this has to be called again after changing the hierarchy. Until then the cache is
+     * answered as it stands: a node added afterwards is not found, and a node modified afterwards is
+     * served as it was. Open the group with {@link UseConsolidated#IGNORE} to bypass the cache.
      *
      * @return this group, with the consolidated metadata written
      * @throws IOException                   if the metadata cannot be read or written
      * @throws UnsupportedOperationException if the underlying store does not support listing
      */
     public Group consolidateMetadata() throws IOException {
+        if (!(storeHandle.store instanceof Store.ListableStore)) {
+            throw new UnsupportedOperationException("The Zarr store in use ("
+                    + storeHandle.store.getClass().getSimpleName() + ") doesn't support consolidated"
+                    + " metadata, because it cannot be listed.");
+        }
+        LOGGER.warning("Consolidated metadata is currently not part of the Zarr format 3"
+                + " specification. It may not be supported by other zarr implementations and may"
+                + " change in the future.");
         Map<String, JsonNode> entries = new LinkedHashMap<>();
         collectDescendantMetadata(new String[0], entries);
 
@@ -360,6 +440,50 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
         }
         return writeMetadata(
                 metadata.withConsolidatedMetadata(new ConsolidatedMetadata(sorted)));
+    }
+
+    /**
+     * Opens the group at a storage location, consolidates its metadata and writes the result, in one
+     * call. Mirrors {@code zarr.consolidate_metadata()} in zarr-python.
+     * <p>
+     * Any consolidated metadata the group already has is ignored while walking, so the result is
+     * always built from the nodes themselves. Pass a handle resolved deeper into the store,
+     * {@code handle.resolve("sub")}, to consolidate a subtree instead of the whole hierarchy.
+     *
+     * @param storeHandle the storage location of the Zarr group
+     * @return the group, with the consolidated metadata written
+     * @throws IOException                   if the metadata cannot be read or written
+     * @throws ZarrException                 if the metadata of the group cannot be parsed
+     * @throws UnsupportedOperationException if the underlying store does not support listing
+     */
+    public static Group consolidateMetadata(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
+        return open(storeHandle, UseConsolidated.IGNORE).consolidateMetadata();
+    }
+
+    /**
+     * Opens the group at a storage location, consolidates its metadata and writes the result, in one
+     * call.
+     *
+     * @param path the storage location of the Zarr group
+     * @return the group, with the consolidated metadata written
+     * @throws IOException   if the metadata cannot be read or written
+     * @throws ZarrException if the metadata of the group cannot be parsed
+     */
+    public static Group consolidateMetadata(Path path) throws IOException, ZarrException {
+        return consolidateMetadata(new StoreHandle(new FilesystemStore(path)));
+    }
+
+    /**
+     * Opens the group at a storage location, consolidates its metadata and writes the result, in one
+     * call.
+     *
+     * @param path the storage location of the Zarr group
+     * @return the group, with the consolidated metadata written
+     * @throws IOException   if the metadata cannot be read or written
+     * @throws ZarrException if the metadata of the group cannot be parsed
+     */
+    public static Group consolidateMetadata(String path) throws IOException, ZarrException {
+        return consolidateMetadata(Paths.get(path));
     }
 
     /**

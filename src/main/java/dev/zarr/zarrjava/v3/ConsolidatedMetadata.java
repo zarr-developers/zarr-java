@@ -8,9 +8,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * An optional cache of the metadata of all descendants of a group, stored inside that group's own
@@ -19,6 +23,9 @@ import java.util.Map;
  * <p>
  * The keys of {@link #metadata} are flat, {@code "/"}-joined paths relative to the group holding the
  * cache, for example {@code "ocean"} and {@code "ocean/salinity"}.
+ * <p>
+ * A cache of a kind other than {@link #KIND_INLINE} makes the group unopenable, which is what
+ * zarr-python does as well.
  * <p>
  * The cached node metadata is deliberately kept as raw {@link JsonNode} rather than as parsed
  * {@link ArrayMetadata} / {@link GroupMetadata}. The cache is declared with
@@ -37,7 +44,7 @@ public final class ConsolidatedMetadata {
 
     /**
      * The only cache kind defined so far: the metadata is stored inline in the group's metadata
-     * document. A cache of any other kind is ignored by this library.
+     * document. A cache of any other kind is rejected by this library.
      */
     public static final String KIND_INLINE = "inline";
 
@@ -82,7 +89,8 @@ public final class ConsolidatedMetadata {
     }
 
     /**
-     * Whether this cache is stored inline and can therefore be used by this library.
+     * Whether this cache is stored inline and can therefore be used by this library. A group whose
+     * cache is not inline cannot be opened, see {@link GroupMetadata}.
      */
     @JsonIgnore
     public boolean isInline() {
@@ -105,6 +113,39 @@ public final class ConsolidatedMetadata {
             return null;
         }
         return metadata.get(String.join("/", key));
+    }
+
+    /**
+     * Returns the keys of this cache with every group listed before its own descendants, and
+     * siblings in the order they are held in this cache. This is the order in which zarr-python
+     * yields the members of a consolidated group, because it walks the nested representation it
+     * builds when reading the cache.
+     */
+    public List<String> depthFirstKeys() {
+        Map<String, List<String>> childrenByParent = new LinkedHashMap<>();
+        for (String key : metadata.keySet()) {
+            int lastSlash = key.lastIndexOf('/');
+            String parent = lastSlash < 0 ? "" : key.substring(0, lastSlash);
+            childrenByParent.computeIfAbsent(parent, unused -> new ArrayList<>()).add(key);
+        }
+        Set<String> ordered = new LinkedHashSet<>();
+        appendDepthFirst("", childrenByParent, ordered);
+        // A key whose parent is missing from the cache is not reachable from the group, so it is not
+        // visited above. Append it, so that a malformed cache hides nothing.
+        ordered.addAll(metadata.keySet());
+        return new ArrayList<>(ordered);
+    }
+
+    private static void appendDepthFirst(String parent, Map<String, List<String>> childrenByParent,
+                                        Set<String> out) {
+        List<String> children = childrenByParent.get(parent);
+        if (children == null) {
+            return;
+        }
+        for (String child : children) {
+            out.add(child);
+            appendDepthFirst(child, childrenByParent, out);
+        }
     }
 
     /**
