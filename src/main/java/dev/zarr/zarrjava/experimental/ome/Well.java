@@ -32,34 +32,33 @@ public interface Well {
      * Opens an OME-Zarr well at the given store handle, auto-detecting the Zarr version.
      */
     static Well open(StoreHandle storeHandle) throws IOException, ZarrException {
-        // Try version >= 0.5: zarr.json with "ome" -> "well"
-        StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
-        if (zarrJson.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
-            byte[] bytes = Utils.toArray(zarrJson.readNonNull());
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
-            com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
-            if (attrs != null && attrs.has("ome") && attrs.get("ome").has("well")) {
-                com.fasterxml.jackson.databind.JsonNode omeNode = attrs.get("ome");
-                String version = omeNode.has("version") ? omeNode.get("version").asText() : "";
-                if (version.startsWith("0.6")) {
-                    return dev.zarr.zarrjava.experimental.ome.v0_6.Well.openWell(storeHandle);
-                }
-                return dev.zarr.zarrjava.experimental.ome.v0_5.Well.openWell(storeHandle);
-            }
+        // Zarr v3 (OME-Zarr 0.5 and 0.6): a zarr.json holding an "ome" -> "well" attribute. The group is
+        // read once here and handed to the version class, which does not read it again.
+        dev.zarr.zarrjava.v3.Group v3Group = OmeNodes.openV3GroupOrNull(storeHandle);
+        if (v3Group != null && OmeNodes.omeHas(v3Group.metadata.attributes, "well")) {
+            return fromGroup(v3Group);
         }
 
-        // Try v0.4: .zattrs with "well"
-        StoreHandle zattrs = storeHandle.resolve(Node.ZATTRS);
-        if (zattrs.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
-            byte[] bytes = Utils.toArray(zattrs.readNonNull());
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
-            if (root.has("well")) {
-                return dev.zarr.zarrjava.experimental.ome.v0_4.Well.openWell(storeHandle);
-            }
+        // Zarr v2 (OME-Zarr 0.4): a .zattrs holding a "well" key.
+        dev.zarr.zarrjava.v2.Group v2Group = OmeNodes.openV2GroupOrNull(storeHandle);
+        if (v2Group != null && v2Group.metadata.attributes != null
+                && v2Group.metadata.attributes.containsKey("well")) {
+            return dev.zarr.zarrjava.experimental.ome.v0_4.Well.fromGroup(v2Group);
         }
 
         throw new ZarrException("No OME-Zarr well metadata found at " + storeHandle);
+    }
+
+    /**
+     * Builds a well from a Zarr v3 group that is already open, picking the OME-Zarr version from its
+     * attributes. No store request is made, so a group that came from {@code Group.get()} is served
+     * from the consolidated metadata of its ancestor.
+     */
+    static Well fromGroup(dev.zarr.zarrjava.v3.Group group) throws IOException, ZarrException {
+        String version = OmeNodes.omeVersion(group.metadata.attributes);
+        if (version != null && version.startsWith("0.6")) {
+            return dev.zarr.zarrjava.experimental.ome.v0_6.Well.fromGroup(group);
+        }
+        return dev.zarr.zarrjava.experimental.ome.v0_5.Well.fromGroup(group);
     }
 }

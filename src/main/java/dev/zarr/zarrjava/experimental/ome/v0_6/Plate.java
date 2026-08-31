@@ -8,6 +8,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 
+import dev.zarr.zarrjava.experimental.ome.OmeNodes;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 
@@ -31,7 +32,16 @@ public final class Plate extends OmeV3Group implements dev.zarr.zarrjava.experim
      * Opens an existing OME-Zarr v0.6 plate at the given store handle.
      */
     public static Plate openPlate(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.6 plate from a group that is already open, without reading the store
+     * again. Use this when the group came from {@link Group#get}, so that the consolidated metadata
+     * of an ancestor is used instead of one request per node.
+     */
+    public static Plate fromGroup(@Nonnull Group group) throws IOException, ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         OmeMetadata omeMetadata = readOmeAttribute(
                 group.metadata.attributes, storeHandle, OmeMetadata.class);
         if (!omeMetadata.version.startsWith("0.6")) {
@@ -63,7 +73,7 @@ public final class Plate extends OmeV3Group implements dev.zarr.zarrjava.experim
 
     @Override
     public dev.zarr.zarrjava.experimental.ome.Well openWell(String rowColPath) throws IOException, ZarrException {
-        return Well.openWell(storeHandle.resolve(rowColPath));
+        return Well.fromGroup(OmeNodes.childGroup(this, rowColPath));
     }
 
     @Override

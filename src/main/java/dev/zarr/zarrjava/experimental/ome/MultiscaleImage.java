@@ -67,6 +67,25 @@ public interface MultiscaleImage {
      * Returns all label names from the {@code labels/} sub-group, or an empty list if none exist.
      */
     default List<String> getLabels() throws IOException, ZarrException {
+        dev.zarr.zarrjava.v3.Group v3Group = asV3Group();
+        if (v3Group != null) {
+            // Walk down through the group, so that a consolidated ancestor answers without a request.
+            dev.zarr.zarrjava.core.Node labelsNode = v3Group.get(new String[]{"labels"});
+            if (!(labelsNode instanceof dev.zarr.zarrjava.v3.Group)) {
+                return Collections.emptyList();
+            }
+            dev.zarr.zarrjava.core.Attributes labelsAttributes =
+                    ((dev.zarr.zarrjava.v3.Group) labelsNode).metadata.attributes;
+            if (labelsAttributes == null || !labelsAttributes.containsKey("labels")) {
+                return Collections.emptyList();
+            }
+            List<String> result = new ArrayList<>();
+            for (Object item : labelsAttributes.getList("labels")) {
+                result.add(String.valueOf(item));
+            }
+            return result;
+        }
+
         StoreHandle labelsHandle = getStoreHandle().resolve("labels");
 
         // Try v0.5: labels/zarr.json with {"attributes": {"labels": [...]}}
@@ -109,6 +128,10 @@ public interface MultiscaleImage {
      * Opens the named label image from the {@code labels/} sub-group.
      */
     default MultiscaleImage openLabel(String name) throws IOException, ZarrException {
+        dev.zarr.zarrjava.v3.Group v3Group = asV3Group();
+        if (v3Group != null) {
+            return fromGroup(OmeNodes.childGroup(v3Group, "labels/" + name));
+        }
         return MultiscaleImage.open(getStoreHandle().resolve("labels").resolve(name));
     }
 
@@ -118,34 +141,43 @@ public interface MultiscaleImage {
      * <p>Tries v0.6 (zarr.json with version "0.6"), then v0.5 (zarr.json with "ome" key), then v0.4 (.zattrs with "multiscales" key).
      */
     static MultiscaleImage open(StoreHandle storeHandle) throws IOException, ZarrException {
-        // Try version >= 0.5: zarr.json with "ome" key
-        StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
-        if (zarrJson.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
-            byte[] bytes = Utils.toArray(zarrJson.readNonNull());
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
-            com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
-            if (attrs != null && attrs.has("ome")) {
-                com.fasterxml.jackson.databind.JsonNode omeNode = attrs.get("ome");
-                String version = omeNode.has("version") ? omeNode.get("version").asText() : "";
-                if (version.startsWith("0.6")) {
-                    return dev.zarr.zarrjava.experimental.ome.v0_6.MultiscaleImage.openMultiscaleImage(storeHandle);
-                }
-                return dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.openMultiscaleImage(storeHandle);
-            }
+        // Zarr v3 (OME-Zarr 0.5 and 0.6): a zarr.json holding an "ome" attribute. The group is read once
+        // here and handed to the version class, which does not read it again.
+        dev.zarr.zarrjava.v3.Group v3Group = OmeNodes.openV3GroupOrNull(storeHandle);
+        if (v3Group != null && OmeNodes.omeAttributes(v3Group.metadata.attributes) != null) {
+            return fromGroup(v3Group);
         }
 
-        // Try v0.4: .zattrs with "multiscales" key
-        StoreHandle zattrs = storeHandle.resolve(Node.ZATTRS);
-        if (zattrs.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
-            byte[] bytes = Utils.toArray(zattrs.readNonNull());
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
-            if (root.has("multiscales")) {
-                return dev.zarr.zarrjava.experimental.ome.v0_4.MultiscaleImage.openMultiscaleImage(storeHandle);
-            }
+        // Zarr v2 (OME-Zarr 0.4): a .zattrs holding a "multiscales" key.
+        dev.zarr.zarrjava.v2.Group v2Group = OmeNodes.openV2GroupOrNull(storeHandle);
+        if (v2Group != null && v2Group.metadata.attributes != null
+                && v2Group.metadata.attributes.containsKey("multiscales")) {
+            return dev.zarr.zarrjava.experimental.ome.v0_4.MultiscaleImage.fromGroup(v2Group);
         }
 
         throw new ZarrException("No OME-Zarr multiscale metadata found at " + storeHandle);
+    }
+
+    /**
+     * Builds a multiscale image from a Zarr v3 group that is already open, picking the OME-Zarr version
+     * from its attributes. No store request is made, so a group that came from {@code Group.get()} is
+     * served from the consolidated metadata of its ancestor.
+     */
+    static MultiscaleImage fromGroup(dev.zarr.zarrjava.v3.Group group) throws IOException, ZarrException {
+        String version = OmeNodes.omeVersion(group.metadata.attributes);
+        if (version != null && version.startsWith("0.6")) {
+            return dev.zarr.zarrjava.experimental.ome.v0_6.MultiscaleImage.fromGroup(group);
+        }
+        return dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.fromGroup(group);
+    }
+
+    /**
+     * The Zarr v3 group backing this image, or null for OME-Zarr 0.4, which is backed by a Zarr v2
+     * group. Used by {@link #getLabels()} and {@link #openLabel(String)} to walk down through the group
+     * - and therefore through its consolidated metadata - rather than by re-reading the store.
+     */
+    @Nullable
+    default dev.zarr.zarrjava.v3.Group asV3Group() {
+        return null;
     }
 }
