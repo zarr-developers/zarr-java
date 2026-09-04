@@ -55,9 +55,15 @@ public class ZfpCodec extends ArrayBytesCodec implements Codec {
         final Zfp.Type zfpType = zfpType(dataType);
         final int[] zfpShape = zfpShape();
 
+        final long promotedByteCount = Zfp.countValues(zfpShape) * zfpType.getByteCount();
+        if (promotedByteCount > Integer.MAX_VALUE) {
+            throw new ZarrException(
+                    "The chunk shape " + Arrays.toString(zfpShape) + " needs " + promotedByteCount
+                            + " bytes as " + zfpType + " values, which exceeds the maximum Java array size of "
+                            + Integer.MAX_VALUE + ".");
+        }
         final ByteBuffer promoted =
-                ByteBuffer.allocate((int) Zfp.countValues(zfpShape) * zfpType.getByteCount())
-                        .order(ByteOrder.nativeOrder());
+                ByteBuffer.allocate((int) promotedByteCount).order(ByteOrder.nativeOrder());
         promote(chunkArray, dataType, promoted);
         promoted.rewind();
 
