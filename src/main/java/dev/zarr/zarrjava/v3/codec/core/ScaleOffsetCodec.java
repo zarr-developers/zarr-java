@@ -79,6 +79,7 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
         super.resolveArrayMetadata();
         DataType type = arrayDataType();
         requireSupported(type);
+        requireNonZeroScale(type);
         // The data type stays the same; only the fill value is transformed (encode direction) so that
         // fill-value-aware downstream codecs stay aligned with the rescaled data.
         Object transformedFillValue = transformFillValue(arrayMetadata.parsedFillValue, type);
@@ -98,6 +99,11 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
     private Array transform(Array input, boolean encode) throws ZarrException {
         DataType type = arrayDataType();
         requireSupported(type);
+        requireNonZeroScale(type);
+        if (offsetConfig() == null && scaleConfig() == null) {
+            // Identity transformation: avoid rebuilding the array element by element.
+            return input;
+        }
         int[] shape = input.getShape();
         Array output = Array.factory(type.getMA2DataType(), shape);
         IndexIterator in = input.getIndexIterator();
@@ -117,7 +123,8 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
                 double x = in.getDoubleNext();
                 out.setDoubleNext(encode ? (x - offset) * scale : (x / scale) + offset);
             }
-        } else {
+        } else if (type == DataType.UINT64) {
+            // uint64 is the only supported type whose values do not fit into a long.
             BigInteger offset = intParam(offsetConfig(), BigInteger.ZERO, type);
             BigInteger scale = intParam(scaleConfig(), BigInteger.ONE, type);
             BigInteger min = integerMin(type);
@@ -128,6 +135,18 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
                         ? encodeInt(x, offset, scale, type, min, max)
                         : decodeInt(x, offset, scale, type, min, max);
                 writeInt(out, type, r);
+            }
+        } else {
+            long offset = intParam(offsetConfig(), BigInteger.ZERO, type).longValueExact();
+            long scale = intParam(scaleConfig(), BigInteger.ONE, type).longValueExact();
+            long min = integerMin(type).longValueExact();
+            long max = integerMax(type).longValueExact();
+            while (in.hasNext()) {
+                long x = readLong(in, type);
+                long r = encode
+                        ? encodeLong(x, offset, scale, type, min, max)
+                        : decodeLong(x, offset, scale, type, min, max);
+                writeLong(out, type, r);
             }
         }
         return output;
@@ -151,9 +170,16 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
         }
         BigInteger offset = intParam(offsetConfig(), BigInteger.ZERO, type);
         BigInteger scale = intParam(scaleConfig(), BigInteger.ONE, type);
-        BigInteger r = encodeInt(toBigInteger(fillValue, type), offset, scale, type,
-                integerMin(type), integerMax(type));
-        return boxInt(r, type);
+        try {
+            BigInteger r = encodeInt(toBigInteger(fillValue, type), offset, scale, type,
+                    integerMin(type), integerMax(type));
+            return boxInt(r, type);
+        } catch (ZarrException e) {
+            // The fill value is metadata, not stored data. If it is not representable after the
+            // encode transformation (e.g. an unsigned fill value below the offset), keep it
+            // untransformed instead of making the array impossible to create or open.
+            return fillValue;
+        }
     }
 
     // ===== Integer arithmetic (exact, with representability checks) ==========================
@@ -187,12 +213,70 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
         return result;
     }
 
+    private static long encodeLong(long x, long offset, long scale, DataType type, long min,
+                                   long max) throws ZarrException {
+        long shifted;
+        try {
+            shifted = Math.subtractExact(x, offset);
+        } catch (ArithmeticException e) {
+            throw outOfRange(BigInteger.valueOf(x).subtract(BigInteger.valueOf(offset)), type,
+                    "intermediate value (in - offset)");
+        }
+        requireInRange(shifted, min, max, type, "intermediate value (in - offset)");
+        long scaled;
+        try {
+            scaled = Math.multiplyExact(shifted, scale);
+        } catch (ArithmeticException e) {
+            throw outOfRange(BigInteger.valueOf(shifted).multiply(BigInteger.valueOf(scale)), type,
+                    "result (in - offset) * scale");
+        }
+        requireInRange(scaled, min, max, type, "result (in - offset) * scale");
+        return scaled;
+    }
+
+    private static long decodeLong(long x, long offset, long scale, DataType type, long min,
+                                   long max) throws ZarrException {
+        if (scale == 0) {
+            throw new ZarrException("The scale_offset codec cannot decode with a scale of 0.");
+        }
+        if (x % scale != 0) {
+            throw new ZarrException(
+                    "The scale_offset codec cannot decode the value " + x + " because it is not exactly "
+                            + "divisible by the scale " + scale + " in the '" + type.getValue() + "' data type.");
+        }
+        if (x == Long.MIN_VALUE && scale == -1) {
+            throw outOfRange(BigInteger.valueOf(x).negate(), type, "intermediate value (in / scale)");
+        }
+        long divided = x / scale;
+        requireInRange(divided, min, max, type, "intermediate value (in / scale)");
+        long result;
+        try {
+            result = Math.addExact(divided, offset);
+        } catch (ArithmeticException e) {
+            throw outOfRange(BigInteger.valueOf(divided).add(BigInteger.valueOf(offset)), type,
+                    "result (in / scale) + offset");
+        }
+        requireInRange(result, min, max, type, "result (in / scale) + offset");
+        return result;
+    }
+
+    private static void requireInRange(long value, long min, long max, DataType type, String label)
+            throws ZarrException {
+        if (value < min || value > max) {
+            throw outOfRange(BigInteger.valueOf(value), type, label);
+        }
+    }
+
+    private static ZarrException outOfRange(BigInteger value, DataType type, String label) {
+        return new ZarrException(
+                "The scale_offset " + label + " (" + value + ") is not representable in the '"
+                        + type.getValue() + "' data type.");
+    }
+
     private static void requireInRange(BigInteger value, BigInteger min, BigInteger max,
                                        DataType type, String label) throws ZarrException {
         if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
-            throw new ZarrException(
-                    "The scale_offset " + label + " (" + value + ") is not representable in the '"
-                            + type.getValue() + "' data type.");
+            throw outOfRange(value, type, label);
         }
     }
 
@@ -232,11 +316,73 @@ public class ScaleOffsetCodec extends ArrayArrayCodec implements Codec {
 
     // ===== Data type facts and element reading/writing =======================================
 
+    private void requireNonZeroScale(DataType type) throws ZarrException {
+        if (scaleConfig() == null) {
+            return;
+        }
+        boolean zero;
+        if (type == DataType.FLOAT32) {
+            zero = floatParam(scaleConfig(), 1.0f) == 0.0f;
+        } else if (type == DataType.FLOAT64) {
+            zero = doubleParam(scaleConfig(), 1.0) == 0.0;
+        } else {
+            zero = intParam(scaleConfig(), BigInteger.ONE, type).signum() == 0;
+        }
+        if (zero) {
+            throw new ZarrException(
+                    "The scale_offset codec requires a non-zero scale, because a scale of 0 maps every "
+                            + "value to 0 and cannot be inverted on decode.");
+        }
+    }
+
     private static void requireSupported(DataType type) throws ZarrException {
         if (type == DataType.BOOL) {
             throw new ZarrException(
                     "The scale_offset codec does not support the data type '" + type.getValue()
                             + "'. Supported types are the integral and floating-point real-number types.");
+        }
+    }
+
+    private static long readLong(IndexIterator it, DataType type) {
+        switch (type) {
+            case INT8:
+                return it.getByteNext();
+            case UINT8:
+                return it.getByteNext() & 0xFFL;
+            case INT16:
+                return it.getShortNext();
+            case UINT16:
+                return it.getShortNext() & 0xFFFFL;
+            case INT32:
+                return it.getIntNext();
+            case UINT32:
+                return it.getIntNext() & 0xFFFFFFFFL;
+            case INT64:
+                return it.getLongNext();
+            default:
+                throw new IllegalStateException("Unsupported scale_offset data type: " + type);
+        }
+    }
+
+    private static void writeLong(IndexIterator it, DataType type, long value) {
+        switch (type) {
+            case INT8:
+            case UINT8:
+                it.setByteNext((byte) value);
+                break;
+            case INT16:
+            case UINT16:
+                it.setShortNext((short) value);
+                break;
+            case INT32:
+            case UINT32:
+                it.setIntNext((int) value);
+                break;
+            case INT64:
+                it.setLongNext(value);
+                break;
+            default:
+                throw new IllegalStateException("Unsupported scale_offset data type: " + type);
         }
     }
 
