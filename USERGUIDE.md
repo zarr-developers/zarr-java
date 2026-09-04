@@ -495,12 +495,20 @@ Both Zarr v2 and v3 support the same set of data types:
 | `UINT16` | `uint16` | `<u2` | 2 | Unsigned: 0 to 65,535 |
 | `UINT32` | `uint32` | `<u4` | 4 | Unsigned: 0 to 2³²-1 |
 | `UINT64` | `uint64` | `<u8` | 8 | Unsigned: 0 to 2⁶⁴-1 |
+| `FLOAT16` | `float16` | `<f2` | 2 | Half precision IEEE 754 |
 | `FLOAT32` | `float32` | `<f4` | 4 | Single precision IEEE 754 |
 | `FLOAT64` | `float64` | `<f8` | 8 | Double precision IEEE 754 |
 
 **Note:** v2 dtype strings use numpy conventions:
 - `<` = little-endian (default for multi-byte types)
 - `|` = not applicable (single-byte types)
+
+**Note on `FLOAT16`:** Java has no 16-bit floating point primitive, so `float16` is the one
+data type whose in-memory representation is wider than its encoded form. It occupies 2 bytes
+on disk but is read into and written from a `ucar.ma2.DataType.FLOAT` array (4 bytes per
+element), converted at the `bytes` codec boundary. Widening on read is exact; narrowing on
+write rounds to 11 significant bits (so `0.1f` is stored as `0.0999755859375f`) and values
+at or above `65520.0f` become infinity.
 
 #### Usage Examples
 

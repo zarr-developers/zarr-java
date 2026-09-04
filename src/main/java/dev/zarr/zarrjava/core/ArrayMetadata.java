@@ -63,7 +63,11 @@ public abstract class ArrayMetadata {
                 return fillValueNumber.intValue();
             } else if (dataTypeIsLong) {
                 return fillValueNumber.longValue();
-            } else if (dataTypeIsFloat || dataTypeIsHalfFloat) {
+            } else if (dataTypeIsHalfFloat) {
+                // Narrow through binary16, so that a fill value that float16 cannot represent
+                // exactly reads back the same as that value stored in a chunk.
+                return Float16.halfBitsToFloat(Float16.floatToHalfBits(fillValueNumber.floatValue()));
+            } else if (dataTypeIsFloat) {
                 return fillValueNumber.floatValue();
             } else if (dataTypeIsDouble) {
                 return fillValueNumber.doubleValue();
