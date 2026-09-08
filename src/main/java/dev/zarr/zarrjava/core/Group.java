@@ -150,7 +150,7 @@ public abstract class Group extends AbstractNode {
      * Lists the keys directly below {@code prefix} that may hold a child node, relative to this
      * group.
      */
-    private List<String[]> childKeys(String[] prefix) {
+    private List<String[]> descendantKeys(String[] prefix) {
         try (Stream<String> children = storeHandle.resolve(prefix).listChildren()) {
             return children
                     .filter(name -> !METADATA_KEYS.contains(name))
