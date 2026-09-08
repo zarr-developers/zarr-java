@@ -58,7 +58,7 @@ class OmeObjectMappersTest {
         CapturingHandler handler = new CapturingHandler();
         Level previousLevel = logger.getLevel();
         logger.addHandler(handler);
-        logger.setLevel(Level.INFO);
+        logger.setLevel(Level.FINE);
         try {
             ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
             OmeMetadata parsed = mapper.convertValue(omeRaw, OmeMetadata.class);
@@ -101,7 +101,7 @@ class OmeObjectMappersTest {
         CapturingHandler handler = new CapturingHandler();
         Level previousLevel = logger.getLevel();
         logger.addHandler(handler);
-        logger.setLevel(Level.INFO);
+        logger.setLevel(Level.FINE);
         try {
             ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
             MultiscalesEntry entry = mapper.convertValue(entryRaw, MultiscalesEntry.class);
@@ -356,7 +356,7 @@ class OmeObjectMappersTest {
 
         @Override
         public void publish(LogRecord record) {
-            if (record.getLevel().intValue() >= Level.INFO.intValue()) {
+            if (record.getLevel().intValue() >= Level.FINE.intValue()) {
                 messages.add(record.getMessage());
             }
         }
