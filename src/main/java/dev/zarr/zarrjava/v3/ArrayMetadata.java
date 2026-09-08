@@ -124,7 +124,7 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
             @Nullable @JsonAnySetter Map<String, Object> extraFields
     ) throws ZarrException {
         super(shape, fillValue, dataType);
-        this.extraFields = ExtraFields.validated(extraFields, ExtraFields.ARRAY_METADATA_KEYS);
+        this.extraFields = ExtraFields.validatedArrayFields(extraFields);
         if (zarrFormat != this.zarrFormat) {
             throw new ZarrException(
                     "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");

@@ -64,7 +64,7 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
                     "Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
         }
         this.attributes = attributes;
-        this.extraFields = ExtraFields.validated(extraFields, ExtraFields.GROUP_METADATA_KEYS);
+        this.extraFields = ExtraFields.validatedGroupFields(extraFields);
     }
 
     public static GroupMetadata defaultValue() {

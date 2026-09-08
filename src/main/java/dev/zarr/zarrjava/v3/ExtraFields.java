@@ -24,13 +24,13 @@ import java.util.Set;
  */
 final class ExtraFields {
 
-    static final String MUST_UNDERSTAND = "must_understand";
+    private static final String MUST_UNDERSTAND = "must_understand";
 
     /**
      * Members of a v3 array metadata document that zarr-java knows about. Anything else read from a
      * {@code zarr.json} array document is an extra field.
      */
-    static final Set<String> ARRAY_METADATA_KEYS = unmodifiableSetOf(
+    private static final Set<String> ARRAY_METADATA_KEYS = unmodifiableSetOf(
             "zarr_format", "node_type", "shape", "data_type", "chunk_grid", "chunk_key_encoding",
             "fill_value", "codecs", "attributes", "dimension_names", "storage_transformers"
     );
@@ -39,7 +39,7 @@ final class ExtraFields {
      * Members of a v3 group metadata document that zarr-java knows about. Anything else read from a
      * {@code zarr.json} group document is an extra field.
      */
-    static final Set<String> GROUP_METADATA_KEYS = unmodifiableSetOf(
+    private static final Set<String> GROUP_METADATA_KEYS = unmodifiableSetOf(
             "zarr_format", "node_type", "attributes", "consolidated_metadata"
     );
 
@@ -51,10 +51,34 @@ final class ExtraFields {
     }
 
     /**
+     * Validates the unknown members of a v3 array metadata document.
+     *
+     * @param extraFields the unknown members, may be {@code null}
+     * @return the extra fields, never {@code null}
+     * @throws ZarrException if a member may not be ignored, see {@link #validated}
+     */
+    static Map<String, Object> validatedArrayFields(@Nullable Map<String, Object> extraFields)
+            throws ZarrException {
+        return validated(extraFields, ARRAY_METADATA_KEYS);
+    }
+
+    /**
+     * Validates the unknown members of a v3 group metadata document.
+     *
+     * @param extraFields the unknown members, may be {@code null}
+     * @return the extra fields, never {@code null}
+     * @throws ZarrException if a member may not be ignored, see {@link #validated}
+     */
+    static Map<String, Object> validatedGroupFields(@Nullable Map<String, Object> extraFields)
+            throws ZarrException {
+        return validated(extraFields, GROUP_METADATA_KEYS);
+    }
+
+    /**
      * Whether an unknown metadata member may be ignored, i.e. whether it is a JSON object with a
      * {@code must_understand} member that is set to {@code false}.
      */
-    static boolean isIgnorable(@Nullable Object value) {
+    private static boolean isIgnorable(@Nullable Object value) {
         return value instanceof Map
                 && Boolean.FALSE.equals(((Map<?, ?>) value).get(MUST_UNDERSTAND));
     }
@@ -71,7 +95,7 @@ final class ExtraFields {
      *                       ignored because it is not a JSON object carrying
      *                       {@code "must_understand": false}
      */
-    static Map<String, Object> validated(
+    private static Map<String, Object> validated(
             @Nullable Map<String, Object> extraFields, Set<String> reservedKeys
     ) throws ZarrException {
         if (extraFields == null || extraFields.isEmpty()) {
