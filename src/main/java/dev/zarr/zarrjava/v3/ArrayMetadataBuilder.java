@@ -31,6 +31,7 @@ public class ArrayMetadataBuilder {
     Attributes attributes = new Attributes();
     Map<String, Object>[] storageTransformers = new HashMap[]{};
     String[] dimensionNames = null;
+    Map<String, Object> extraFields = null;
 
     protected ArrayMetadataBuilder() {
     }
