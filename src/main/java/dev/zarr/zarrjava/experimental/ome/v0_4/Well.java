@@ -31,7 +31,14 @@ public final class Well extends OmeV2Group implements dev.zarr.zarrjava.experime
      * Opens an existing OME-Zarr v0.4 well at the given store handle.
      */
     public static Well openWell(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.4 well from a group that is already open, without reading the store again.
+     */
+    public static Well fromGroup(@Nonnull Group group) throws ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         WellMetadata wellMetadata = readAttribute(
                 group.metadata.attributes, storeHandle, "well", WellMetadata.class);
         return new Well(storeHandle, group.metadata, wellMetadata);
