@@ -31,6 +31,7 @@ public class ArrayMetadataBuilder {
     Attributes attributes = new Attributes();
     Map<String, Object>[] storageTransformers = new HashMap[]{};
     String[] dimensionNames = null;
+    Map<String, Object> extraFields = null;
 
     protected ArrayMetadataBuilder() {
     }
@@ -49,6 +50,7 @@ public class ArrayMetadataBuilder {
         builder.codecs = arrayMetadata.codecs;
         builder.dimensionNames = arrayMetadata.dimensionNames;
         builder.storageTransformers = arrayMetadata.storageTransformers;
+        builder.extraFields = arrayMetadata.extraFields();
         if (withAttributes) {
             builder.attributes = arrayMetadata.attributes;
         }
@@ -155,6 +157,17 @@ public class ArrayMetadataBuilder {
         return this;
     }
 
+    /**
+     * Sets members of the metadata document that zarr-java itself does not interpret. Every value
+     * needs to be a map carrying {@code "must_understand": false}, otherwise {@link #build()} fails.
+     *
+     * @param extraFields the extra fields to write into the metadata document
+     */
+    public ArrayMetadataBuilder withExtraFields(Map<String, Object> extraFields) {
+        this.extraFields = extraFields;
+        return this;
+    }
+
     public ArrayMetadata build() throws ZarrException {
         if (shape == null) {
             throw new ZarrException("Shape needs to be provided. Please call `.withShape`.");
@@ -172,7 +185,8 @@ public class ArrayMetadataBuilder {
         return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
                 dimensionNames,
                 attributes,
-                storageTransformers
+                storageTransformers,
+                extraFields
         );
     }
 }
