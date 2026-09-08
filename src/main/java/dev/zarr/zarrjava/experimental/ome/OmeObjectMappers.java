@@ -19,19 +19,19 @@ final class OmeObjectMappers {
     static ObjectMapper makeV2Mapper() {
         ObjectMapper mapper = dev.zarr.zarrjava.v2.Node.makeObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-        mapper.addHandler(new UnknownOmePropertyWarningHandler());
+        mapper.addHandler(new UnknownOmePropertyLoggingHandler());
         return mapper;
     }
 
     static ObjectMapper makeV3Mapper() {
         ObjectMapper mapper = dev.zarr.zarrjava.v3.Node.makeObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
-        mapper.addHandler(new UnknownOmePropertyWarningHandler());
+        mapper.addHandler(new UnknownOmePropertyLoggingHandler());
         return mapper;
     }
 
-    private static final class UnknownOmePropertyWarningHandler extends DeserializationProblemHandler {
-        private static final Logger LOGGER = Logger.getLogger(UnknownOmePropertyWarningHandler.class.getName());
+    private static final class UnknownOmePropertyLoggingHandler extends DeserializationProblemHandler {
+        private static final Logger LOGGER = Logger.getLogger(UnknownOmePropertyLoggingHandler.class.getName());
         private static final Set<String> UNKNOWN_FIELDS = ConcurrentHashMap.newKeySet();
 
         @Override
@@ -47,7 +47,7 @@ final class OmeObjectMappers {
                     : beanOrClass.getClass().getName();
             String key = target + "#" + propertyName;
             if (UNKNOWN_FIELDS.add(key)) {
-                LOGGER.fine(
+                LOGGER.info(
                         "Ignoring unknown OME metadata field '" + propertyName + "' for " + target);
             }
             p.skipChildren();

@@ -24,11 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OmeObjectMappersTest {
 
-    private static final String WARNING_LOGGER_NAME =
-            "dev.zarr.zarrjava.experimental.ome.OmeObjectMappers$UnknownOmePropertyWarningHandler";
+    private static final String HANDLER_LOGGER_NAME =
+            "dev.zarr.zarrjava.experimental.ome.OmeObjectMappers$UnknownOmePropertyLoggingHandler";
 
     @Test
-    void v3MapperWarnsAndContinuesOnUnknownOmeFields() {
+    void v3MapperLogsAndContinuesOnUnknownOmeFields() {
         String unknownTop = "unknown_top_" + UUID.randomUUID();
         String unknownAxis = "unknown_axis_" + UUID.randomUUID();
 
@@ -54,9 +54,11 @@ class OmeObjectMappersTest {
         omeRaw.put("multiscales", Arrays.asList(multiscale));
         omeRaw.put(unknownTop, "surprise");
 
-        Logger logger = Logger.getLogger(WARNING_LOGGER_NAME);
+        Logger logger = Logger.getLogger(HANDLER_LOGGER_NAME);
         CapturingHandler handler = new CapturingHandler();
+        Level previousLevel = logger.getLevel();
         logger.addHandler(handler);
+        logger.setLevel(Level.INFO);
         try {
             ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
             OmeMetadata parsed = mapper.convertValue(omeRaw, OmeMetadata.class);
@@ -66,15 +68,16 @@ class OmeObjectMappersTest {
             assertNotNull(parsed.multiscales);
             assertEquals(1, parsed.multiscales.size());
             assertEquals("x", parsed.multiscales.get(0).axes.get(0).name);
-            assertTrue(handler.containsWarningWith(unknownTop));
-            assertTrue(handler.containsWarningWith(unknownAxis));
+            assertTrue(handler.containsMessageWith(unknownTop));
+            assertTrue(handler.containsMessageWith(unknownAxis));
         } finally {
             logger.removeHandler(handler);
+            logger.setLevel(previousLevel);
         }
     }
 
     @Test
-    void v2MapperWarnsAndContinuesOnUnknownFields() {
+    void v2MapperLogsAndContinuesOnUnknownFields() {
         String unknownEntryField = "unknown_entry_" + UUID.randomUUID();
 
         Map<String, Object> axis = new HashMap<>();
@@ -94,9 +97,11 @@ class OmeObjectMappersTest {
         entryRaw.put("datasets", Arrays.asList(dataset));
         entryRaw.put(unknownEntryField, 123);
 
-        Logger logger = Logger.getLogger(WARNING_LOGGER_NAME);
+        Logger logger = Logger.getLogger(HANDLER_LOGGER_NAME);
         CapturingHandler handler = new CapturingHandler();
+        Level previousLevel = logger.getLevel();
         logger.addHandler(handler);
+        logger.setLevel(Level.INFO);
         try {
             ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
             MultiscalesEntry entry = mapper.convertValue(entryRaw, MultiscalesEntry.class);
@@ -105,9 +110,10 @@ class OmeObjectMappersTest {
             assertEquals(1, entry.axes.size());
             assertEquals(1, entry.datasets.size());
             assertFalse(entry.datasets.get(0).coordinateTransformations.isEmpty());
-            assertTrue(handler.containsWarningWith(unknownEntryField));
+            assertTrue(handler.containsMessageWith(unknownEntryField));
         } finally {
             logger.removeHandler(handler);
+            logger.setLevel(previousLevel);
         }
     }
 
@@ -346,12 +352,12 @@ class OmeObjectMappersTest {
     }
 
     private static final class CapturingHandler extends Handler {
-        private final List<String> warnings = new ArrayList<>();
+        private final List<String> messages = new ArrayList<>();
 
         @Override
         public void publish(LogRecord record) {
-            if (record.getLevel().intValue() >= Level.WARNING.intValue()) {
-                warnings.add(record.getMessage());
+            if (record.getLevel().intValue() >= Level.INFO.intValue()) {
+                messages.add(record.getMessage());
             }
         }
 
@@ -363,9 +369,9 @@ class OmeObjectMappersTest {
         public void close() {
         }
 
-        boolean containsWarningWith(String token) {
-            for (String warning : warnings) {
-                if (warning != null && warning.contains(token)) {
+        boolean containsMessageWith(String token) {
+            for (String message : messages) {
+                if (message != null && message.contains(token)) {
                     return true;
                 }
             }
