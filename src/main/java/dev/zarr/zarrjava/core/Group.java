@@ -163,7 +163,7 @@ public abstract class Group extends AbstractNode {
      * Opens the node at {@code key}, or returns null if there is no node there.
      */
     @Nullable
-    private Node openChild(String[] key) {
+    private Node openDescendant(String[] key) {
         try {
             return get(key);
         } catch (IOException e) {
