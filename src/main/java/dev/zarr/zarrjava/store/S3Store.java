@@ -3,6 +3,8 @@ package dev.zarr.zarrjava.store;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
@@ -12,7 +14,6 @@ import dev.zarr.zarrjava.utils.Utils;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
@@ -184,15 +185,20 @@ public class S3Store implements Store, Store.ListableStore {
                 .delimiter("/")
                 .build();
 
-        ListObjectsV2Response res = s3client.listObjectsV2(req);
-
-        // Combine CommonPrefixes (folders) and Contents (files)
-        Stream<String> folders = res.commonPrefixes().stream().map(CommonPrefix::prefix);
         final String finalFullPrefix = fullPrefix;
-        Stream<String> files = res.contents().stream().map(S3Object::key)
-                .filter(key -> !key.equals(finalFullPrefix));
+        // Combine CommonPrefixes (folders) and Contents (files) across all pages. A single
+        // listObjectsV2 call returns at most 1000 entries, which would silently truncate the
+        // children of a large group.
+        List<String> children = new ArrayList<>();
+        for (ListObjectsV2Response res : s3client.listObjectsV2Paginator(req)) {
+            res.commonPrefixes().forEach(commonPrefix -> children.add(commonPrefix.prefix()));
+            res.contents().stream()
+                    .map(S3Object::key)
+                    .filter(key -> !key.equals(finalFullPrefix))
+                    .forEach(children::add);
+        }
 
-        return Stream.concat(folders, files)
+        return children.stream()
                 .map(k -> keyToRelativeArray(k, finalFullPrefix)[0]);
     }
 

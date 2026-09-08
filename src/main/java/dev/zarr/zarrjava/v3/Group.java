@@ -15,9 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 import static dev.zarr.zarrjava.v3.Node.makeObjectWriter;
@@ -191,25 +189,6 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
             return null;
         }
     }
-
-    @Override
-    public Stream<dev.zarr.zarrjava.core.Node> list() {
-        Stream<String[]> metadataKeys = storeHandle.list()
-                .filter(key -> key[key.length - 1].equals(ZARR_JSON))
-                .filter(key -> key.length > 1); // exclude root from list
-        return metadataKeys.map(key -> {
-            try {
-                return get(Arrays.copyOf(key, key.length - 1));
-            } catch (IOException e) {
-                throw new RuntimeException(
-                        "Failed to read node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
-            } catch (ZarrException e) {
-                throw new RuntimeException(
-                        "Failed to parse node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
-            }
-        });
-    }
-
 
     /**
      * Creates a new subgroup with the provided metadata at the specified key.
