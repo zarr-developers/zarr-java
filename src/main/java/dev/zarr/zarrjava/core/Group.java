@@ -110,7 +110,7 @@ public abstract class Group extends AbstractNode {
     }
 
     /**
-     * Lists all descendants (arrays and groups) of this group, at any depth.
+     * Recursively lists all descendants (arrays and groups) of this group, at any depth.
      * <p>
      * The group hierarchy is walked one level at a time, so only group keys are listed and chunk
      * keys are never enumerated. Descending into an array is not necessary and does not happen.
