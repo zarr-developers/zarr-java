@@ -30,6 +30,8 @@ def parse_codecs_zarr_python(codec_string: str, param_string: str, zarr_version:
         compressor = numcodecs.Blosc(typesize=4, cname=cname, shuffle=shuffle, clevel=int(clevel))
     elif codec_string == "zlib" and zarr_version == 2:
         compressor = numcodecs.Zlib(level=int(param_string))
+    elif codec_string == "gzip" and zarr_version == 2:
+        compressor = numcodecs.GZip(level=int(param_string))
     elif codec_string == "gzip" and zarr_version == 3:
         compressor = GzipCodec(level=int(param_string))
     elif codec_string == "zstd" and zarr_version == 3:

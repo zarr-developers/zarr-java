@@ -7,6 +7,7 @@ import dev.zarr.zarrjava.core.chunkkeyencoding.Separator;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.core.BloscCodec;
+import dev.zarr.zarrjava.v2.codec.core.GzipCodec;
 import dev.zarr.zarrjava.v2.codec.core.ZlibCodec;
 import dev.zarr.zarrjava.v2.codec.core.ZstdCodec;
 
@@ -112,6 +113,19 @@ public class ArrayMetadataBuilder {
 
     public ArrayMetadataBuilder withBloscCompressor() {
         return withBloscCompressor("zstd");
+    }
+
+    public ArrayMetadataBuilder withGzipCompressor(int level) {
+        try {
+            this.compressor = new GzipCodec(level);
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    public ArrayMetadataBuilder withGzipCompressor() {
+        return withGzipCompressor(GzipCodec.DEFAULT_LEVEL);
     }
 
     public ArrayMetadataBuilder withZlibCompressor(int level) {
