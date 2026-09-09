@@ -4,13 +4,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.ZarrException;
@@ -25,7 +21,8 @@ import java.nio.ByteBuffer;
 public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec implements Codec {
 
     /**
-     * Value of 'shuffle' that lets Blosc pick the shuffle variant at write time.
+     * Value of 'shuffle' that lets Blosc pick the shuffle variant at write time: bit shuffle for
+     * single-byte items, byte shuffle otherwise.
      */
     private static final int AUTO_SHUFFLE = -1;
 
@@ -42,25 +39,69 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
     public final int typesize;
     public final int blocksize;
 
+    /**
+     * True if 'shuffle' was given as {@link #AUTO_SHUFFLE} and the variant still needs to be
+     * derived from the item size.
+     */
+    @JsonIgnore
+    public final boolean autoShuffle;
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
-    public BloscCodec(
+    BloscCodec(
             @Nonnull @JsonProperty(value = "cname", defaultValue = "zstd")
             @JsonDeserialize(using = CustomCompressorDeserializer.class)
             Blosc.Compressor cname,
-            @Nonnull @JsonProperty(value = "shuffle", defaultValue = "noshuffle")
-            @JsonDeserialize(using = CustomShuffleDeserializer.class) Blosc.Shuffle shuffle,
+            @JsonProperty(value = "shuffle", defaultValue = "0") int shuffle,
             @JsonProperty(value = "clevel", defaultValue = "5") int clevel,
             @JsonProperty(value = "typesize", defaultValue = "0") int typesize,
             @JsonProperty(value = "blocksize", defaultValue = "0") int blocksize
+    ) throws ZarrException {
+        this(cname, parseShuffle(shuffle, typesize), shuffle == AUTO_SHUFFLE, clevel, typesize,
+                blocksize
+        );
+    }
+
+    public BloscCodec(
+            @Nonnull Blosc.Compressor cname, @Nonnull Blosc.Shuffle shuffle, int clevel,
+            int typesize, int blocksize
+    ) throws ZarrException {
+        this(cname, shuffle, false, clevel, typesize, blocksize);
+    }
+
+    private BloscCodec(
+            @Nonnull Blosc.Compressor cname, @Nonnull Blosc.Shuffle shuffle, boolean autoShuffle,
+            int clevel, int typesize, int blocksize
     ) throws ZarrException {
         if (clevel < 0 || clevel > 9) {
             throw new ZarrException("'clevel' needs to be between 0 and 9.");
         }
         this.cname = cname;
         this.shuffle = shuffle;
+        this.autoShuffle = autoShuffle;
         this.clevel = clevel;
         this.typesize = typesize;
         this.blocksize = blocksize;
+    }
+
+    private static Blosc.Shuffle parseShuffle(int shuffle, int typesize) throws ZarrException {
+        if (shuffle == AUTO_SHUFFLE) {
+            return autoShuffle(typesize);
+        }
+        Blosc.Shuffle parsedShuffle = Blosc.Shuffle.fromInt(shuffle);
+        if (parsedShuffle == null) {
+            throw new ZarrException(
+                    String.format("Could not parse the Blosc.Shuffle. Got '%d'", shuffle));
+        }
+        return parsedShuffle;
+    }
+
+    /**
+     * Blosc bit-shuffles single-byte items and byte-shuffles everything else. A 'typesize' of 0
+     * means that the item size is not known yet, in which case the variant is derived again in
+     * {@link #evolveFromCoreArrayMetadata}.
+     */
+    private static Blosc.Shuffle autoShuffle(int typesize) {
+        return typesize == 1 ? Blosc.Shuffle.BIT_SHUFFLE : Blosc.Shuffle.BYTE_SHUFFLE;
     }
 
     @Override
@@ -80,11 +121,13 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
     @Override
     public BloscCodec evolveFromCoreArrayMetadata(ArrayMetadata.CoreArrayMetadata arrayMetadata) throws ZarrException {
         if (typesize == 0) {
+            int evolvedTypesize = arrayMetadata.dataType.getByteCount();
             return new BloscCodec(
                     this.cname,
-                    this.shuffle,
+                    this.autoShuffle ? autoShuffle(evolvedTypesize) : this.shuffle,
+                    this.autoShuffle,
                     this.clevel,
-                    arrayMetadata.dataType.getByteCount(),
+                    evolvedTypesize,
                     this.blocksize
             );
         }
@@ -106,35 +149,6 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
                               SerializerProvider provider)
                 throws IOException {
             generator.writeNumber(shuffle.ordinal());
-        }
-    }
-
-    public static final class CustomShuffleDeserializer extends StdDeserializer<Blosc.Shuffle> {
-
-        public CustomShuffleDeserializer() {
-            this(null);
-        }
-
-        public CustomShuffleDeserializer(Class<?> vc) {
-            super(vc);
-        }
-
-        @Override
-        public Blosc.Shuffle deserialize(JsonParser jsonParser, DeserializationContext ctxt)
-                throws IOException {
-            int shuffle = jsonParser.getCodec()
-                    .readValue(jsonParser, int.class);
-            if (shuffle == AUTO_SHUFFLE) {
-                return Blosc.Shuffle.BYTE_SHUFFLE;
-            }
-            Blosc.Shuffle parsedShuffle = Blosc.Shuffle.fromInt(shuffle);
-            if (parsedShuffle == null) {
-                throw new JsonParseException(
-                        jsonParser,
-                        String.format("Could not parse the Blosc.Shuffle. Got '%d'", shuffle)
-                );
-            }
-            return parsedShuffle;
         }
     }
 }
