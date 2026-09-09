@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.SerializerProvider;
@@ -22,6 +23,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec implements Codec {
+
+    /**
+     * Value of 'shuffle' that lets Blosc pick the shuffle variant at write time.
+     */
+    private static final int AUTO_SHUFFLE = -1;
 
     @JsonIgnore
     public final String id = "blosc";
@@ -118,7 +124,17 @@ public class BloscCodec extends dev.zarr.zarrjava.core.codec.core.BloscCodec imp
                 throws IOException {
             int shuffle = jsonParser.getCodec()
                     .readValue(jsonParser, int.class);
-            return Blosc.Shuffle.values()[shuffle];
+            if (shuffle == AUTO_SHUFFLE) {
+                return Blosc.Shuffle.BYTE_SHUFFLE;
+            }
+            Blosc.Shuffle parsedShuffle = Blosc.Shuffle.fromInt(shuffle);
+            if (parsedShuffle == null) {
+                throw new JsonParseException(
+                        jsonParser,
+                        String.format("Could not parse the Blosc.Shuffle. Got '%d'", shuffle)
+                );
+            }
+            return parsedShuffle;
         }
     }
 }

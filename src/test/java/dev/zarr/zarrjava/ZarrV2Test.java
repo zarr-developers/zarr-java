@@ -2,7 +2,9 @@ package dev.zarr.zarrjava;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scalableminds.bloscjava.Blosc;
 import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.v2.codec.core.BloscCodec;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
@@ -55,6 +57,45 @@ public class ZarrV2Test extends ZarrTest {
         ucar.ma2.Array outArray = array.read(new long[]{2, 2}, new long[]{8, 8});
         Assertions.assertEquals(8 * 8, outArray.getSize());
         Assertions.assertEquals(0, outArray.getByte(0));
+    }
+
+    /**
+     * Blosc may be configured with a 'shuffle' of -1, meaning that it picks the shuffle variant
+     * itself when the chunks are written. Other implementations write that value to the metadata,
+     * so it needs to be readable here.
+     */
+    @Test
+    public void testReadBloscAutoShuffle() throws IOException, ZarrException {
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("v2_blosc_autoshuffle");
+        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.USHORT, new int[]{16, 16});
+        for (int i = 0; i < testData.getSize(); i++) {
+            testData.setShort(i, (short) i);
+        }
+        Array array = Array.create(
+                storeHandle,
+                Array.metadataBuilder()
+                        .withShape(16, 16)
+                        .withDataType(DataType.UINT16)
+                        .withChunks(8, 8)
+                        .withBloscCompressor("zstd", "shuffle", 5)
+                        .build()
+        );
+        array.write(testData);
+
+        Path zarrayPath = TESTOUTPUT.resolve("v2_blosc_autoshuffle").resolve(ZARRAY);
+        String zarray = new String(Files.readAllBytes(zarrayPath));
+        String autoShuffleZarray = zarray.replaceFirst("\"shuffle\"\\s*:\\s*1", "\"shuffle\": -1");
+        Assertions.assertNotEquals(zarray, autoShuffleZarray, zarray);
+        Files.write(zarrayPath, autoShuffleZarray.getBytes());
+
+        Array reopenedArray = Array.open(storeHandle);
+        Assertions.assertEquals(
+                Blosc.Shuffle.BYTE_SHUFFLE,
+                ((BloscCodec) reopenedArray.metadata().compressor).shuffle
+        );
+        ucar.ma2.Array readData = reopenedArray.read();
+        Assertions.assertEquals(16 * 16, readData.getSize());
+        Assertions.assertEquals(255, readData.getShort(255));
     }
 
     @ParameterizedTest
