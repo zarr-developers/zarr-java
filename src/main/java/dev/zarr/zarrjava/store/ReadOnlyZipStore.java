@@ -50,8 +50,10 @@ public class ReadOnlyZipStore extends ZipStore {
 
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) {
-            isCached = true;
-            return;
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    new String[]{},
+                    new IOException("Could not open the ZIP archive from the underlying store"));
         }
 
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
