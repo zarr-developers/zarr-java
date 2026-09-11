@@ -47,7 +47,7 @@ final class OmeObjectMappers {
                     : beanOrClass.getClass().getName();
             String key = target + "#" + propertyName;
             if (UNKNOWN_FIELDS.add(key)) {
-                LOGGER.fine(
+                LOGGER.info(
                         "Ignoring unknown OME metadata field '" + propertyName + "' for " + target);
             }
             p.skipChildren();
