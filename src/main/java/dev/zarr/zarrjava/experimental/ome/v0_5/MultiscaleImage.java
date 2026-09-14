@@ -12,6 +12,7 @@ import dev.zarr.zarrjava.v3.Array;
 import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 
+import dev.zarr.zarrjava.experimental.ome.OmeNodes;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -38,7 +39,16 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
      * Opens an existing OME-Zarr v0.5 multiscale image at the given store handle.
      */
     public static MultiscaleImage openMultiscaleImage(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.5 multiscale image from a group that is already open, without reading the
+     * store again. Use this when the group came from {@link Group#get}, so that the consolidated
+     * metadata of an ancestor is used instead of one request per node.
+     */
+    public static MultiscaleImage fromGroup(@Nonnull Group group) throws IOException, ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         OmeMetadata omeMetadata = readOmeAttribute(group.metadata.attributes, storeHandle, OmeMetadata.class);
         if (!omeMetadata.version.startsWith("0.5")) {
             throw new ZarrException(
@@ -84,7 +94,12 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
     @Override
     public dev.zarr.zarrjava.core.Array openScaleLevel(int i) throws IOException, ZarrException {
         String path = getMultiscalesEntry(0).datasets.get(i).path;
-        return Array.open(storeHandle.resolve(path));
+        return OmeNodes.childArray(this, path);
+    }
+
+    @Override
+    public Group asV3Group() {
+        return this;
     }
 
     @Override

@@ -30,7 +30,14 @@ public final class Plate extends OmeV2Group implements dev.zarr.zarrjava.experim
      * Opens an existing OME-Zarr v0.4 plate at the given store handle.
      */
     public static Plate openPlate(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.4 plate from a group that is already open, without reading the store again.
+     */
+    public static Plate fromGroup(@Nonnull Group group) throws ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         PlateMetadata plateMetadata = readAttribute(
                 group.metadata.attributes, storeHandle, "plate", PlateMetadata.class);
         return new Plate(storeHandle, group.metadata, plateMetadata);

@@ -9,6 +9,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 
+import dev.zarr.zarrjava.experimental.ome.OmeNodes;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 
@@ -32,7 +33,14 @@ public final class Well extends OmeV3Group implements dev.zarr.zarrjava.experime
      * Opens an existing OME-Zarr v0.6 well at the given store handle.
      */
     public static Well openWell(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.6 well from a group that is already open, without reading the store again.
+     */
+    public static Well fromGroup(@Nonnull Group group) throws IOException, ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         OmeMetadata omeMetadata = readOmeAttribute(
                 group.metadata.attributes, storeHandle, OmeMetadata.class);
         if (!omeMetadata.version.startsWith("0.6")) {
@@ -64,7 +72,7 @@ public final class Well extends OmeV3Group implements dev.zarr.zarrjava.experime
 
     @Override
     public MultiscaleImage openImage(String path) throws IOException, ZarrException {
-        return MultiscaleImage.open(storeHandle.resolve(path));
+        return MultiscaleImage.fromGroup(OmeNodes.childGroup(this, path));
     }
 
     @Override

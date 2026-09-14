@@ -149,3 +149,48 @@ written.createScaleLevel(
 - `ome.v0_6.MultiscaleImage.create(...)`
 
 Use the corresponding metadata classes for each version package.
+
+## Consolidated metadata
+
+A Zarr v3 group can hold a copy of the metadata of all of its descendants in its own `zarr.json`, so
+that the whole hierarchy opens with a single read. See the
+[consolidated metadata section](USERGUIDE.md#consolidated-metadata-v3) of the main guide.
+
+The OME-Zarr nodes use it. Consolidate at the root of the hierarchy, then open there:
+
+```java
+Group.consolidateMetadata(plateHandle);          // once, after writing
+
+Plate plate = Plate.open(plateHandle);           // one request
+Well well = plate.openWell("A/1");               // no request
+MultiscaleImage image = well.openImage("0");     // no request
+Array level0 = (Array) image.openScaleLevel(0);  // no request
+```
+
+Walking down asks the group that is already open, so every descendant is answered from the cache the
+plate loaded. Without a cache the same calls read one `zarr.json` per node, as before.
+
+`getLabels()` and `openLabel(name)` use the cache as well, and so does the image-node discovery of
+`v0_6.Scene`, which otherwise lists the store and opens every child.
+
+Notes:
+
+- This applies to OME-Zarr **0.5 and 0.6**, which are backed by Zarr v3. OME-Zarr 0.4 is backed by
+  Zarr v2, and the v2 `.zmetadata` file is not supported, so 0.4 reads one node at a time.
+- The benefit only exists if you open at the group that holds the cache. Pointing directly at
+  `plate/A/1/0` reads that node from the store, because nothing above it was opened.
+- The cache is a snapshot. A well added to a plate after consolidating is not found until the plate is
+  consolidated again; the error says so. Open the group with `UseConsolidated.IGNORE` to bypass it.
+
+### Building a node from a group you already have
+
+Every version class has a `fromGroup(...)` next to its `openX(StoreHandle)`:
+
+```java
+Plate plate = ome.v0_5.Plate.fromGroup(group);   // no store request
+Plate plate = Plate.fromGroup(group);            // picks 0.5 or 0.6 from the attributes
+```
+
+`openX(StoreHandle)` is now `fromGroup(Group.open(handle))`, so opening a node reads its `zarr.json`
+exactly once. Previously the version-detecting entry points probed and read it, then let the version
+class read it again — three requests for one file.
