@@ -1,7 +1,11 @@
 package dev.zarr.zarrjava;
 
 import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.store.StoreHandle;
+import dev.zarr.zarrjava.v3.Array;
+import dev.zarr.zarrjava.v3.ArrayMetadataBuilder;
 import dev.zarr.zarrjava.v3.DataType;
+import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -12,7 +16,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Stream;
+
+import static dev.zarr.zarrjava.utils.Utils.toLongArray;
 
 public class ZarrTest {
 
@@ -229,6 +236,39 @@ public class ZarrTest {
                     throw new IllegalArgumentException("Invalid DataType: " + dt);
             }
         }
+    }
+
+    /**
+     * Writes {@link #testdata(dev.zarr.zarrjava.core.DataType)} through the given codec pipeline,
+     * reopens the array from the store and asserts the data round-trips unchanged.
+     * Uses the array's default chunk shape.
+     */
+    protected void assertCodecRoundtrip(StoreHandle storeHandle, DataType dataType,
+            Function<CodecBuilder, CodecBuilder> codecs) throws ZarrException, IOException {
+        assertCodecRoundtrip(storeHandle, dataType, null, codecs);
+    }
+
+    /**
+     * Writes {@link #testdata(dev.zarr.zarrjava.core.DataType)} through the given codec pipeline,
+     * reopens the array from the store and asserts the data round-trips unchanged.
+     *
+     * @param chunkShape chunk shape to use, or {@code null} for the default chunk shape
+     */
+    protected void assertCodecRoundtrip(StoreHandle storeHandle, DataType dataType, int[] chunkShape,
+            Function<CodecBuilder, CodecBuilder> codecs) throws ZarrException, IOException {
+        ucar.ma2.Array testData = testdata(dataType);
+        ArrayMetadataBuilder builder = Array.metadataBuilder()
+                .withShape(toLongArray(testData.getShape()))
+                .withDataType(dataType)
+                .withCodecs(codecs);
+        if (chunkShape != null) {
+            builder = builder.withChunkShape(chunkShape);
+        }
+        Array array = Array.create(storeHandle, builder.build());
+        array.write(testData);
+
+        Array reopenedArray = Array.open(storeHandle);
+        assertIsTestdata(reopenedArray.read(), dataType);
     }
 
 
