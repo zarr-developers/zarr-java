@@ -133,6 +133,66 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return withZstd(level, true);
     }
 
+    public CodecBuilder withZfp(ZfpCodec.Configuration configuration) {
+        codecs.add(new ZfpCodec(configuration));
+        return this;
+    }
+
+    /**
+     * Compresses chunks losslessly with zfp.
+     */
+    public CodecBuilder withZfpReversible() {
+        try {
+            return withZfp(ZfpCodec.Configuration.reversible());
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Compresses chunks with zfp, with a guaranteed absolute error bound.
+     */
+    public CodecBuilder withZfpFixedAccuracy(double tolerance) {
+        try {
+            return withZfp(ZfpCodec.Configuration.fixedAccuracy(tolerance));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Compresses chunks with zfp, at a fixed number of compressed bits per value.
+     */
+    public CodecBuilder withZfpFixedRate(double rate) {
+        try {
+            return withZfp(ZfpCodec.Configuration.fixedRate(rate));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Compresses chunks with zfp, retaining a fixed number of bit planes.
+     */
+    public CodecBuilder withZfpFixedPrecision(int precision) {
+        try {
+            return withZfp(ZfpCodec.Configuration.fixedPrecision(precision));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Compresses chunks with zfp, setting all four of zfp's expert mode parameters directly.
+     */
+    public CodecBuilder withZfpExpert(int minbits, int maxbits, int maxprec, int minexp) {
+        try {
+            return withZfp(ZfpCodec.Configuration.expert(minbits, maxbits, maxprec, minexp));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public CodecBuilder withSharding(int[] chunkShape) {
         try {
             codecs.add(

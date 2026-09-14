@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,10 +14,12 @@ import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
+import dev.zarr.zarrjava.v3.codec.CodecRegistry;
 import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
 import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
+import dev.zarr.zarrjava.v3.codec.core.ZfpCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,6 +31,7 @@ import ucar.ma2.MAMath;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -1051,5 +1056,239 @@ public class ZarrV3Test extends ZarrTest {
         Array reopenedArray = Array.open(storeHandle);
         ucar.ma2.Array readData = reopenedArray.read();
         assertIsTestdata(readData, dataType);
+    }
+
+    static Stream<DataType> zfpDataTypeProvider() {
+        return dataTypeProviderV3().filter(dataType -> dataType != DataType.BOOL);
+    }
+
+    static Stream<String> zfpConfigurationJsonProvider() {
+        // The examples of the zfp codec specification
+        return Stream.of(
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"reversible\"}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"expert\",\"minbits\":1,\"maxbits\":13,\"maxprec\":19,\"minexp\":-2}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_accuracy\",\"tolerance\":0.05}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_rate\",\"rate\":10.5}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_precision\",\"precision\":19}}"
+        );
+    }
+
+    static Stream<String> invalidZfpConfigurationJsonProvider() {
+        return Stream.of(
+                // Unknown mode
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_nonsense\"}}",
+                // Missing mode
+                "{\"name\":\"zfp\",\"configuration\":{\"tolerance\":0.05}}",
+                // Missing required parameters
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_accuracy\"}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_rate\"}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_precision\"}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"expert\",\"minbits\":1,\"maxbits\":13,\"maxprec\":19}}",
+                // Parameters that do not belong to the mode
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"reversible\",\"tolerance\":0.05}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_rate\",\"rate\":10.5,\"precision\":19}}",
+                // Parameters out of range
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"expert\",\"minbits\":13,\"maxbits\":1,\"maxprec\":19,\"minexp\":-2}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"expert\",\"minbits\":1,\"maxbits\":13,\"maxprec\":65,\"minexp\":-2}}",
+                "{\"name\":\"zfp\",\"configuration\":{\"mode\":\"fixed_rate\",\"rate\":0}}"
+        );
+    }
+
+    static ObjectMapper zfpObjectMapper() {
+        // Mirrors dev.zarr.zarrjava.v3.Node#makeObjectMapper, which is not visible here
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerSubtypes(CodecRegistry.getNamedTypes());
+        objectMapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
+        return objectMapper;
+    }
+
+    static ZfpCodec zfpCodec(ZfpCodec.Configuration configuration, DataType dataType,
+                             int[] chunkShape) throws ZarrException {
+        ZfpCodec codec = new ZfpCodec(configuration);
+        codec.setCoreArrayMetadata(new ArrayMetadata.CoreArrayMetadata(
+                toLongArray(chunkShape), chunkShape, dataType, null));
+        return codec;
+    }
+
+    static ucar.ma2.Array sineTestData(ucar.ma2.DataType dataType, int[] shape) {
+        ucar.ma2.Array array = ucar.ma2.Array.factory(dataType, shape);
+        for (int i = 0; i < array.getSize(); i++) {
+            array.setDouble(i, Math.sin(i * 0.01) * 100.0);
+        }
+        return array;
+    }
+
+    @ParameterizedTest
+    @MethodSource("zfpDataTypeProvider")
+    public void testZfpCodecReversibleReadWrite(DataType dataType) throws ZarrException, IOException {
+        ucar.ma2.Array testData = testdata(dataType);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZfpCodecReversibleReadWrite", dataType.name());
+        Array writeArray = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(toLongArray(testData.getShape()))
+                .withDataType(dataType)
+                .withChunkShape(8, 8, 8)
+                .withFillValue(0)
+                .withCodecs(CodecBuilder::withZfpReversible)
+                .build());
+        writeArray.write(testData);
+
+        ucar.ma2.Array readData = Array.open(storeHandle).read();
+        assertIsTestdata(readData, dataType);
+    }
+
+    @Test
+    public void testZfpCodecShardingReadWrite() throws ZarrException, IOException {
+        ucar.ma2.Array testData = testdata(DataType.FLOAT32);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZfpCodecShardingReadWrite");
+        Array writeArray = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(toLongArray(testData.getShape()))
+                .withDataType(DataType.FLOAT32)
+                .withChunkShape(16, 16, 16)
+                .withFillValue(0)
+                .withCodecs(c -> c.withSharding(new int[]{4, 8, 8}, CodecBuilder::withZfpReversible))
+                .build());
+        writeArray.write(testData);
+
+        ucar.ma2.Array readData = Array.open(storeHandle).read();
+        assertIsTestdata(readData, DataType.FLOAT32);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"FLOAT32, 0.05", "FLOAT32, 0.5", "FLOAT64, 0.05", "FLOAT64, 0.5"})
+    public void testZfpCodecFixedAccuracy(DataType dataType, double tolerance) throws ZarrException {
+        int[] chunkShape = new int[]{8, 16, 32};
+        ucar.ma2.Array testData = sineTestData(dataType.getMA2DataType(), chunkShape);
+
+        ZfpCodec codec = zfpCodec(ZfpCodec.Configuration.fixedAccuracy(tolerance), dataType, chunkShape);
+        ByteBuffer encoded = codec.encode(testData);
+        ucar.ma2.Array decoded = codec.decode(encoded.duplicate());
+
+        Assertions.assertTrue(encoded.remaining() < testData.getSize() * dataType.getByteCount(),
+                "zfp should compress smooth data");
+        for (int i = 0; i < testData.getSize(); i++) {
+            Assertions.assertEquals(testData.getDouble(i), decoded.getDouble(i), tolerance);
+        }
+    }
+
+    @Test
+    public void testZfpCodecFixedRate() throws ZarrException {
+        int[] chunkShape = new int[]{8, 8, 8};
+        ucar.ma2.Array testData = sineTestData(ucar.ma2.DataType.DOUBLE, chunkShape);
+
+        // Every one of the 2*2*2 blocks of 4*4*4 values takes exactly 8 * 64 bits
+        ZfpCodec codec = zfpCodec(ZfpCodec.Configuration.fixedRate(8), DataType.FLOAT64, chunkShape);
+        ByteBuffer encoded = codec.encode(testData);
+        Assertions.assertEquals(8 * 8 * 64 / 8, encoded.remaining());
+
+        ucar.ma2.Array decoded = codec.decode(encoded.duplicate());
+        for (int i = 0; i < testData.getSize(); i++) {
+            Assertions.assertEquals(testData.getDouble(i), decoded.getDouble(i), 1.0);
+        }
+    }
+
+    @Test
+    public void testZfpCodecFixedPrecision() throws ZarrException {
+        int[] chunkShape = new int[]{8, 16, 32};
+        ucar.ma2.Array testData = sineTestData(ucar.ma2.DataType.FLOAT, chunkShape);
+
+        ZfpCodec codec = zfpCodec(ZfpCodec.Configuration.fixedPrecision(24), DataType.FLOAT32, chunkShape);
+        ByteBuffer encoded = codec.encode(testData);
+        ucar.ma2.Array decoded = codec.decode(encoded.duplicate());
+
+        Assertions.assertTrue(encoded.remaining() < testData.getSize() * Float.BYTES,
+                "zfp should compress smooth data");
+        for (int i = 0; i < testData.getSize(); i++) {
+            Assertions.assertEquals(testData.getDouble(i), decoded.getDouble(i), 0.01);
+        }
+    }
+
+    @Test
+    public void testZfpCodecExpert() throws ZarrException {
+        int[] chunkShape = new int[]{8, 16, 32};
+        ucar.ma2.Array testData = sineTestData(ucar.ma2.DataType.DOUBLE, chunkShape);
+
+        // Reversible mode expressed through its expert mode parameters
+        ZfpCodec codec = zfpCodec(ZfpCodec.Configuration.expert(1, 16658, 64, -1075), DataType.FLOAT64,
+                chunkShape);
+        ucar.ma2.Array decoded = codec.decode(codec.encode(testData));
+        for (int i = 0; i < testData.getSize(); i++) {
+            Assertions.assertEquals(testData.getDouble(i), decoded.getDouble(i));
+        }
+    }
+
+    @Test
+    public void testZfpCodecOneDimensionalAndZeroDimensional() throws ZarrException {
+        ucar.ma2.Array oneDimensional = sineTestData(ucar.ma2.DataType.DOUBLE, new int[]{64});
+        ZfpCodec oneDimensionalCodec = zfpCodec(ZfpCodec.Configuration.reversible(), DataType.FLOAT64,
+                new int[]{64});
+        ucar.ma2.Array decoded = oneDimensionalCodec.decode(oneDimensionalCodec.encode(oneDimensional));
+        for (int i = 0; i < oneDimensional.getSize(); i++) {
+            Assertions.assertEquals(oneDimensional.getDouble(i), decoded.getDouble(i));
+        }
+
+        // The chunk of a zero-dimensional array is a 1D zfp field holding a single value
+        ucar.ma2.Array zeroDimensional = ucar.ma2.Array.factory(ucar.ma2.DataType.DOUBLE, new int[0],
+                new double[]{42.5});
+        ZfpCodec zeroDimensionalCodec = zfpCodec(ZfpCodec.Configuration.reversible(), DataType.FLOAT64,
+                new int[0]);
+        ucar.ma2.Array decodedScalar =
+                zeroDimensionalCodec.decode(zeroDimensionalCodec.encode(zeroDimensional));
+        Assertions.assertEquals(42.5, decodedScalar.getDouble(0));
+    }
+
+    @Test
+    public void testZfpCodecClampsLargeUnsignedValues() throws ZarrException {
+        // uint32 and uint64 values beyond the signed range are clamped, matching zarrs
+        int[] chunkShape = new int[]{4};
+        ucar.ma2.Array uint32Data = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, chunkShape,
+                new int[]{0, 1, Integer.MAX_VALUE, (int) 4_000_000_000L});
+        ZfpCodec uint32Codec = zfpCodec(ZfpCodec.Configuration.reversible(), DataType.UINT32, chunkShape);
+        ucar.ma2.Array decodedUint32 = uint32Codec.decode(uint32Codec.encode(uint32Data));
+        Assertions.assertArrayEquals(new long[]{0, 1, Integer.MAX_VALUE, Integer.MAX_VALUE},
+                new long[]{decodedUint32.getLong(0), decodedUint32.getLong(1), decodedUint32.getLong(2),
+                        decodedUint32.getLong(3)});
+
+        ucar.ma2.Array uint64Data = ucar.ma2.Array.factory(ucar.ma2.DataType.ULONG, chunkShape,
+                new long[]{0, 1, Long.MAX_VALUE, Long.MIN_VALUE});
+        ZfpCodec uint64Codec = zfpCodec(ZfpCodec.Configuration.reversible(), DataType.UINT64, chunkShape);
+        ucar.ma2.Array decodedUint64 = uint64Codec.decode(uint64Codec.encode(uint64Data));
+        Assertions.assertArrayEquals(new long[]{0, 1, Long.MAX_VALUE, Long.MAX_VALUE},
+                new long[]{decodedUint64.getLong(0), decodedUint64.getLong(1), decodedUint64.getLong(2),
+                        decodedUint64.getLong(3)});
+    }
+
+    @Test
+    public void testZfpCodecRejectsBool() throws ZarrException {
+        int[] chunkShape = new int[]{4, 4};
+        ZfpCodec codec = zfpCodec(ZfpCodec.Configuration.reversible(), DataType.BOOL, chunkShape);
+        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.BOOLEAN, chunkShape);
+        assertThrows(ZarrException.class, () -> codec.encode(testData));
+    }
+
+    @Test
+    public void testZfpCodecRejectsMoreThanFourDimensions() throws ZarrException {
+        int[] chunkShape = new int[]{2, 2, 2, 2, 2};
+        ZfpCodec codec = zfpCodec(ZfpCodec.Configuration.reversible(), DataType.FLOAT64, chunkShape);
+        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.DOUBLE, chunkShape);
+        assertThrows(ZarrException.class, () -> codec.encode(testData));
+    }
+
+    @ParameterizedTest
+    @MethodSource("zfpConfigurationJsonProvider")
+    public void testZfpCodecJsonRoundTrip(String json) throws IOException {
+        ObjectMapper objectMapper = zfpObjectMapper();
+        Codec codec = objectMapper.readValue(json, Codec.class);
+        Assertions.assertInstanceOf(ZfpCodec.class, codec);
+        Assertions.assertEquals(objectMapper.readTree(json),
+                objectMapper.readTree(objectMapper.writeValueAsString(codec)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidZfpConfigurationJsonProvider")
+    public void testZfpCodecInvalidConfiguration(String json) {
+        ObjectMapper objectMapper = zfpObjectMapper();
+        assertThrows(JsonProcessingException.class, () -> objectMapper.readValue(json, Codec.class));
     }
 }
