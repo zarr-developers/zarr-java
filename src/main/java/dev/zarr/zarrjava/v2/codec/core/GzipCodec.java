@@ -8,6 +8,7 @@ import dev.zarr.zarrjava.core.ArrayMetadata;
 import dev.zarr.zarrjava.v2.codec.Codec;
 
 import java.nio.ByteBuffer;
+import java.util.zip.Deflater;
 
 public class GzipCodec extends dev.zarr.zarrjava.core.codec.core.GzipCodec implements Codec {
 
@@ -20,8 +21,8 @@ public class GzipCodec extends dev.zarr.zarrjava.core.codec.core.GzipCodec imple
     public GzipCodec(
             @JsonProperty(value = "level", defaultValue = "" + DEFAULT_LEVEL) int level)
             throws ZarrException {
-        if (level < 0 || level > 9) {
-            throw new ZarrException("'level' needs to be between 0 and 9.");
+        if (level < Deflater.DEFAULT_COMPRESSION || level > 9) {
+            throw new ZarrException("'level' needs to be between -1 and 9.");
         }
         this.level = level;
     }
