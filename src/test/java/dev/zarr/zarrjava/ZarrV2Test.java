@@ -109,6 +109,41 @@ public class ZarrV2Test extends ZarrTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"gzip", "zlib"})
+    public void testReadDefaultCompressionLevel(String compressorId)
+            throws IOException, ZarrException {
+        String arrayName = "v2_default_level_" + compressorId;
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve(arrayName);
+        ucar.ma2.Array testData =
+                ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{16, 16});
+        for (int i = 0; i < testData.getSize(); i++) {
+            testData.setInt(i, i % 128);
+        }
+        ArrayMetadataBuilder metadataBuilder = Array.metadataBuilder()
+                .withShape(16, 16)
+                .withDataType(DataType.UINT8)
+                .withChunks(8, 8);
+        Array array = Array.create(
+                storeHandle,
+                (compressorId.equals("gzip")
+                        ? metadataBuilder.withGzipCompressor(1)
+                        : metadataBuilder.withZlibCompressor(1)).build()
+        );
+        array.write(testData);
+
+        Path zarrayPath = TESTOUTPUT.resolve(arrayName).resolve(ZARRAY);
+        String zarray = new String(Files.readAllBytes(zarrayPath));
+        String defaultLevelZarray = zarray.replaceFirst("\"level\"\\s*:\\s*1", "\"level\": -1");
+        Assertions.assertTrue(defaultLevelZarray.contains("\"level\": -1"), zarray);
+        Files.write(zarrayPath, defaultLevelZarray.getBytes());
+
+        Array reopenedArray = Array.open(storeHandle);
+        ucar.ma2.Array readData = reopenedArray.read();
+        Assertions.assertEquals(16 * 16, readData.getSize());
+        Assertions.assertEquals(127, readData.getInt(127));
+    }
+
+    @ParameterizedTest
     @CsvSource({
             "BOOL", "FLOAT64"
     })
