@@ -16,21 +16,35 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
     public final int zarrFormat = ZARR_FORMAT;
     @JsonProperty("node_type")
     public final String nodeType = "group";
+
+    /**
+     * An optional cache of the metadata of all descendants of this group, or null if this group has
+     * not been consolidated. See {@link ConsolidatedMetadata} and {@link Group#consolidateMetadata()}.
+     */
+    @Nullable
     @JsonProperty("consolidated_metadata")
-    public final Object consolidatedMetadata = null;
+    public final ConsolidatedMetadata consolidatedMetadata;
 
     @Nullable
     public final Attributes attributes;
 
     public GroupMetadata(@Nullable Attributes attributes) throws ZarrException {
-        this(ZARR_FORMAT, NODE_TYPE, attributes);
+        this(ZARR_FORMAT, NODE_TYPE, attributes, null);
+    }
+
+    public GroupMetadata(
+            @Nullable Attributes attributes,
+            @Nullable ConsolidatedMetadata consolidatedMetadata
+    ) throws ZarrException {
+        this(ZARR_FORMAT, NODE_TYPE, attributes, consolidatedMetadata);
     }
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public GroupMetadata(
             @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
             @JsonProperty(value = "node_type", required = true) String nodeType,
-            @Nullable @JsonProperty(value = "attributes") Attributes attributes
+            @Nullable @JsonProperty(value = "attributes") Attributes attributes,
+            @Nullable @JsonProperty(value = "consolidated_metadata") ConsolidatedMetadata consolidatedMetadata
     ) throws ZarrException {
         if (zarrFormat != this.zarrFormat) {
             throw new ZarrException(
@@ -40,16 +54,35 @@ public final class GroupMetadata extends dev.zarr.zarrjava.core.GroupMetadata {
             throw new ZarrException(
                     "Expected node type '" + this.nodeType + "', got '" + nodeType + "'.");
         }
+        if (consolidatedMetadata != null && !consolidatedMetadata.isInline()) {
+            throw new ZarrException(
+                    "Consolidated metadata kind='" + consolidatedMetadata.kind + "' is not supported.");
+        }
         this.attributes = attributes;
+        this.consolidatedMetadata = consolidatedMetadata;
     }
 
     public static GroupMetadata defaultValue() {
         try {
-            return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new Attributes());
+            return new GroupMetadata(ZARR_FORMAT, NODE_TYPE, new Attributes(), null);
         } catch (ZarrException e) {
             // This should never happen with default values
             throw new IllegalStateException(
                     "Failed to create default GroupMetadata - this indicates a programming error", e);
+        }
+    }
+
+    /**
+     * Returns a copy of this metadata with a different consolidated metadata cache, or without one if
+     * {@code newConsolidatedMetadata} is null.
+     */
+    public GroupMetadata withConsolidatedMetadata(@Nullable ConsolidatedMetadata newConsolidatedMetadata) {
+        try {
+            return new GroupMetadata(zarrFormat, nodeType, attributes, newConsolidatedMetadata);
+        } catch (ZarrException e) {
+            // This should never happen, the format and node type are copied from a valid instance
+            throw new IllegalStateException(
+                    "Failed to copy GroupMetadata - this indicates a programming error", e);
         }
     }
 
