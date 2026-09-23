@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.zarr.zarrjava.core.Attributes;
+import dev.zarr.zarrjava.core.InnerChunkWriter;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.HttpStore;
 import dev.zarr.zarrjava.store.MemoryStore;
@@ -25,8 +26,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import ucar.ma2.MAMath;
 
+import javax.annotation.Nullable;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -1051,5 +1054,587 @@ public class ZarrV3Test extends ZarrTest {
         Array reopenedArray = Array.open(storeHandle);
         ucar.ma2.Array readData = reopenedArray.read();
         assertIsTestdata(readData, dataType);
+    }
+
+    @Test
+    public void testDirectChunkReadWrite() throws IOException, ZarrException {
+        // Source array: write data normally so a real encoded chunk lands in the store.
+        StoreHandle sourceHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectChunkReadWriteV3", "source");
+        ArrayMetadata metadata = Array.metadataBuilder()
+                .withShape(4, 4)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(2, 2)
+                .withCodecs(c -> c.withBytes("LITTLE").withGzip())
+                .build();
+        Array source = Array.create(sourceHandle, metadata);
+        int[] chunkData = new int[]{1, 2, 3, 4};
+        source.writeChunk(new long[]{0, 0}, ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 2}, chunkData));
+
+        // readChunkDirect returns the raw encoded bytes, byte-for-byte identical to what is on disk.
+        ByteBuffer encoded = source.readChunkDirect(new long[]{0, 0});
+        Assertions.assertNotNull(encoded);
+        ByteBuffer rawFromStore = sourceHandle.resolve(metadata.chunkKeyEncoding().encodeChunkKey(new long[]{0, 0})).read();
+        Assertions.assertEquals(rawFromStore, encoded);
+
+        // Write those encoded bytes directly into a fresh array, bypassing the codec pipeline.
+        StoreHandle targetHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectChunkReadWriteV3", "target");
+        Array target = Array.create(targetHandle, metadata);
+        target.writeChunkDirect(new long[]{0, 0}, encoded);
+
+        // Decoding the directly-written chunk yields the original data: the bytes were a valid chunk.
+        ucar.ma2.Array roundTripped = target.readChunk(new long[]{0, 0});
+        Assertions.assertArrayEquals(chunkData, (int[]) roundTripped.get1DJavaArray(ucar.ma2.DataType.INT));
+
+        // writeChunkDirect(null) deletes the chunk: a subsequent direct read is null and a normal read is fill value.
+        target.writeChunkDirect(new long[]{0, 0}, null);
+        Assertions.assertNull(target.readChunkDirect(new long[]{0, 0}));
+
+        // Out-of-domain coordinates are rejected for both direct methods.
+        assertThrows(ZarrException.class, () -> target.readChunkDirect(new long[]{99, 99}));
+        assertThrows(ZarrException.class, () -> target.writeChunkDirect(new long[]{99, 99}, encoded));
+
+        // Without sharding the inner chunk grid is the chunk grid, so both direct reads agree.
+        Assertions.assertArrayEquals(new int[]{2, 2}, source.innerChunkShape());
+        Assertions.assertEquals(source.readChunkDirect(new long[]{0, 0}),
+                source.readInnerChunkDirect(new long[]{0, 0}));
+    }
+
+    /**
+     * Extracts a single encoded inner chunk out of a shard and checks it is a standalone encoded
+     * chunk, by writing it directly into an unsharded array whose codecs match the shard's inner
+     * codecs and decoding it there.
+     */
+    private void assertInnerChunkDecodesTo(
+            Array shardedArray, long[] innerChunkCoords, String storePath, int[] expected
+    ) throws IOException, ZarrException {
+        ByteBuffer innerChunkBytes = shardedArray.readInnerChunkDirect(innerChunkCoords);
+        Assertions.assertNotNull(innerChunkBytes);
+
+        Array plainArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve(storePath),
+                Array.metadataBuilder()
+                        .withShape(2, 2)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(2, 2)
+                        .withCodecs(c -> c.withBytes("LITTLE"))
+                        .build());
+        plainArray.writeChunkDirect(new long[]{0, 0}, innerChunkBytes);
+        Assertions.assertArrayEquals(expected,
+                (int[]) plainArray.readChunk(new long[]{0, 0}).get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
+    @Test
+    public void testDirectInnerChunkRead() throws IOException, ZarrException {
+        // 8x8 array, 4x4 shards, 2x2 inner chunks: 4 shards of 4 inner chunks each.
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectInnerChunkRead", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+
+        Assertions.assertArrayEquals(new int[]{2, 2}, array.innerChunkShape());
+
+        // Inner chunk (3,1) covers rows 6-7, cols 2-3: shard (1,0), inner chunk (1,1) within it.
+        assertInnerChunkDecodesTo(array, new long[]{3, 1},
+                "testDirectInnerChunkRead/plain", new int[]{50, 51, 58, 59});
+
+        // The extracted bytes are only that inner chunk, not the whole shard.
+        ByteBuffer innerChunkBytes = array.readInnerChunkDirect(new long[]{3, 1});
+        ByteBuffer shardBytes = array.readChunkDirect(new long[]{1, 0});
+        Assertions.assertNotNull(shardBytes);
+        Assertions.assertTrue(innerChunkBytes.remaining() < shardBytes.remaining());
+
+        // Out-of-domain inner chunk coordinates are rejected.
+        assertThrows(ZarrException.class, () -> array.readInnerChunkDirect(new long[]{4, 0}));
+        assertThrows(ZarrException.class, () -> array.readInnerChunkDirect(new long[]{0, -1}));
+    }
+
+    @Test
+    public void testDirectInnerChunkReadAbsent() throws IOException, ZarrException {
+        // Only the top-left 4x4 region is written, and it is all fill value except one inner chunk.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectInnerChunkReadAbsent", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+        int[] shardData = new int[4 * 4];
+        shardData[0] = 42;
+        array.write(new long[]{0, 0}, ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{4, 4}, shardData));
+
+        // Inner chunk (0,0) holds the 42 and is present.
+        Assertions.assertNotNull(array.readInnerChunkDirect(new long[]{0, 0}));
+        // Inner chunk (1,1) is all fill value, so the shard index marks it as missing.
+        Assertions.assertNull(array.readInnerChunkDirect(new long[]{1, 1}));
+        // Inner chunk (3,3) lives in shard (1,1), which was never written at all.
+        Assertions.assertNull(array.readInnerChunkDirect(new long[]{3, 3}));
+    }
+
+    @Test
+    public void testDirectInnerChunkReadNestedSharding() throws IOException, ZarrException {
+        // 8x8 array in one 8x8 shard of 4x4 shards of 2x2 inner chunks.
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testDirectInnerChunkReadNestedSharding", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(8, 8)
+                .withCodecs(c -> c.withSharding(new int[]{4, 4},
+                        c1 -> c1.withSharding(new int[]{2, 2}, c2 -> c2.withBytes("LITTLE"))))
+                .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+
+        // The addressable unit is the innermost chunk shape, not the intermediate shard shape.
+        Assertions.assertArrayEquals(new int[]{2, 2}, array.innerChunkShape());
+
+        // Inner chunk (1,2) covers rows 2-3, cols 4-5: outer shard (0,0), nested shard (0,1),
+        // inner chunk (1,0) within that.
+        assertInnerChunkDecodesTo(array, new long[]{1, 2},
+                "testDirectInnerChunkReadNestedSharding/plain", new int[]{20, 21, 28, 29});
+    }
+
+    /**
+     * The inverse of {@link #assertInnerChunkDecodesTo}: encodes a 2x2 UINT32 chunk through a plain
+     * array, yielding bytes that are a valid inner chunk for a shard whose inner codecs match.
+     */
+    private ByteBuffer encodedInnerChunk(String storePath, int[] values)
+            throws IOException, ZarrException {
+        Array plainArray = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve(storePath),
+                Array.metadataBuilder()
+                        .withShape(2, 2)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(2, 2)
+                        .withCodecs(c -> c.withBytes("LITTLE"))
+                        .build());
+        plainArray.writeChunk(new long[]{0, 0},
+                ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 2}, values));
+        return plainArray.readChunkDirect(new long[]{0, 0});
+    }
+
+    /**
+     * An 8x8 UINT32 array of 4x4 shards of 2x2 inner chunks, filled with a 0..63 ramp.
+     */
+    private Array shardedRampArray(String storePath, String indexLocation)
+            throws IOException, ZarrException {
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        Array array = Array.create(new FilesystemStore(TESTOUTPUT).resolve(storePath),
+                Array.metadataBuilder()
+                        .withShape(8, 8)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(4, 4)
+                        .withCodecs(c -> c.withSharding(new int[]{2, 2},
+                                c1 -> c1.withBytes("LITTLE"), indexLocation))
+                        .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+        return array;
+    }
+
+    /**
+     * The expected contents of {@link #shardedRampArray}, with the 2x2 inner chunk at
+     * {@code innerChunkCoords} replaced by {@code values}, or by the fill value if {@code values} is
+     * null.
+     */
+    private int[] rampWithInnerChunk(long[] innerChunkCoords, @Nullable int[] values) {
+        int[] expected = new int[8 * 8];
+        Arrays.setAll(expected, p -> p);
+        for (int row = 0; row < 2; row++) {
+            for (int col = 0; col < 2; col++) {
+                expected[(int) (innerChunkCoords[0] * 2 + row) * 8 + (int) (innerChunkCoords[1] * 2 + col)] =
+                        values == null ? 0 : values[row * 2 + col];
+            }
+        }
+        return expected;
+    }
+
+    private void assertArrayHolds(Array array, int[] expected) throws ZarrException {
+        Assertions.assertArrayEquals(expected,
+                (int[]) array.read().get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
+    @Test
+    public void testInnerChunkWriteRoundTrip() throws IOException, ZarrException {
+        Array array = shardedRampArray("testInnerChunkWriteRoundTrip/sharded", "end");
+        int[] newValues = new int[]{900, 901, 902, 903};
+        ByteBuffer newBytes =
+                encodedInnerChunk("testInnerChunkWriteRoundTrip/donor", newValues);
+
+        // Inner chunk (3,1) covers rows 6-7, cols 2-3: shard (1,0), inner chunk (1,1) within it.
+        array.innerChunkWriter().put(new long[]{3, 1}, newBytes).flush();
+
+        // Only that 2x2 block changed, and the stored bytes are the ones handed over verbatim.
+        assertArrayHolds(array, rampWithInnerChunk(new long[]{3, 1}, newValues));
+        Assertions.assertEquals(newBytes, array.readInnerChunkDirect(new long[]{3, 1}));
+    }
+
+    @Test
+    public void testInnerChunkWriteLeavesOtherBlobsByteIdentical() throws IOException, ZarrException {
+        Array array =
+                shardedRampArray("testInnerChunkWriteLeavesOtherBlobsByteIdentical/sharded", "end");
+
+        // Snapshot the three inner chunks of shard (0,0) that are not going to be touched.
+        long[][] untouched = new long[][]{{0, 1}, {1, 0}, {1, 1}};
+        ByteBuffer[] before = new ByteBuffer[untouched.length];
+        for (int i = 0; i < untouched.length; i++) {
+            before[i] = array.readInnerChunkDirect(untouched[i]);
+            Assertions.assertNotNull(before[i]);
+        }
+
+        int[] newValues = new int[]{700, 701, 702, 703};
+        array.innerChunkWriter()
+                .put(new long[]{0, 0},
+                        encodedInnerChunk("testInnerChunkWriteLeavesOtherBlobsByteIdentical/donor", newValues))
+                .flush();
+
+        // The kept inner chunks were copied through still encoded, so their bytes are unchanged.
+        for (int i = 0; i < untouched.length; i++) {
+            Assertions.assertEquals(before[i], array.readInnerChunkDirect(untouched[i]),
+                    "inner chunk " + Arrays.toString(untouched[i]) + " changed");
+        }
+        assertArrayHolds(array, rampWithInnerChunk(new long[]{0, 0}, newValues));
+    }
+
+    @Test
+    public void testInnerChunkWriteBatchesShards() throws IOException, ZarrException {
+        Array array = shardedRampArray("testInnerChunkWriteBatchesShards/sharded", "end");
+
+        // Two inner chunks in shard (0,0) and two in shard (1,1), all in one flush.
+        long[][] coords = new long[][]{{0, 0}, {1, 1}, {2, 2}, {3, 3}};
+        int[][] values = new int[][]{{10, 11, 12, 13}, {20, 21, 22, 23}, {30, 31, 32, 33},
+                {40, 41, 42, 43}};
+
+        InnerChunkWriter writer = array.innerChunkWriter();
+        for (int i = 0; i < coords.length; i++) {
+            writer.put(coords[i],
+                    encodedInnerChunk("testInnerChunkWriteBatchesShards/donor" + i, values[i]));
+        }
+        writer.flush();
+
+        int[] expected = new int[8 * 8];
+        Arrays.setAll(expected, p -> p);
+        for (int i = 0; i < coords.length; i++) {
+            for (int row = 0; row < 2; row++) {
+                for (int col = 0; col < 2; col++) {
+                    expected[(int) (coords[i][0] * 2 + row) * 8 + (int) (coords[i][1] * 2 + col)] =
+                            values[i][row * 2 + col];
+                }
+            }
+        }
+        assertArrayHolds(array, expected);
+
+        // The writer is reusable and does not re-apply the first batch.
+        int[] secondValues = new int[]{50, 51, 52, 53};
+        writer.put(new long[]{0, 1},
+                        encodedInnerChunk("testInnerChunkWriteBatchesShards/donorSecond", secondValues))
+                .flush();
+        for (int row = 0; row < 2; row++) {
+            for (int col = 0; col < 2; col++) {
+                expected[row * 8 + 2 + col] = secondValues[row * 2 + col];
+            }
+        }
+        assertArrayHolds(array, expected);
+    }
+
+    @Test
+    public void testInnerChunkWriteCreatesShard() throws IOException, ZarrException {
+        StoreHandle storeHandle =
+                new FilesystemStore(TESTOUTPUT).resolve("testInnerChunkWriteCreatesShard", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+
+        // Shard (1,1) has never been written, so there is no stored object to splice into.
+        StoreHandle shardHandle = storeHandle.resolve(
+                array.metadata().chunkKeyEncoding().encodeChunkKey(new long[]{1, 1}));
+        Assertions.assertFalse(shardHandle.exists());
+
+        int[] newValues = new int[]{61, 62, 63, 64};
+        array.innerChunkWriter()
+                .put(new long[]{3, 3}, encodedInnerChunk("testInnerChunkWriteCreatesShard/donor", newValues))
+                .flush();
+
+        Assertions.assertTrue(shardHandle.exists());
+        // The written inner chunk reads back, and the rest of the new shard is still fill value.
+        Assertions.assertArrayEquals(newValues, (int[]) array.read(new long[]{6, 6}, new long[]{2, 2})
+                .get1DJavaArray(ucar.ma2.DataType.INT));
+        Assertions.assertNull(array.readInnerChunkDirect(new long[]{2, 2}));
+        Assertions.assertArrayEquals(new int[]{0, 0, 0, 0},
+                (int[]) array.read(new long[]{4, 4}, new long[]{2, 2}).get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
+    @Test
+    public void testInnerChunkWriteDelete() throws IOException, ZarrException {
+        Array array = shardedRampArray("testInnerChunkWriteDelete/sharded", "end");
+
+        ByteBuffer siblingBefore = array.readInnerChunkDirect(new long[]{0, 1});
+        array.innerChunkWriter().put(new long[]{0, 0}, null).flush();
+
+        // The removed inner chunk is marked absent in the shard index and reads back as fill value.
+        Assertions.assertNull(array.readInnerChunkDirect(new long[]{0, 0}));
+        assertArrayHolds(array, rampWithInnerChunk(new long[]{0, 0}, null));
+        Assertions.assertEquals(siblingBefore, array.readInnerChunkDirect(new long[]{0, 1}));
+
+        // Removing every remaining inner chunk removes the shard object itself.
+        StoreHandle shardHandle = array.storeHandle.resolve(
+                array.metadata().chunkKeyEncoding().encodeChunkKey(new long[]{0, 0}));
+        Assertions.assertTrue(shardHandle.exists());
+        array.innerChunkWriter()
+                .put(new long[]{0, 1}, null)
+                .put(new long[]{1, 0}, null)
+                .put(new long[]{1, 1}, null)
+                .flush();
+        Assertions.assertFalse(shardHandle.exists());
+        Assertions.assertNull(array.readChunkDirect(new long[]{0, 0}));
+    }
+
+    @Test
+    public void testInnerChunkWriteIndexLocationStart() throws IOException, ZarrException {
+        Array array = shardedRampArray("testInnerChunkWriteIndexLocationStart/sharded", "start");
+
+        ByteBuffer siblingBefore = array.readInnerChunkDirect(new long[]{1, 1});
+        int[] newValues = new int[]{800, 801, 802, 803};
+        array.innerChunkWriter()
+                .put(new long[]{0, 0},
+                        encodedInnerChunk("testInnerChunkWriteIndexLocationStart/donor", newValues))
+                .flush();
+
+        // Offsets are shifted past the leading index, so a wrong shift would corrupt every blob.
+        assertArrayHolds(array, rampWithInnerChunk(new long[]{0, 0}, newValues));
+        Assertions.assertEquals(siblingBefore, array.readInnerChunkDirect(new long[]{1, 1}));
+    }
+
+    @Test
+    public void testInnerChunkWriteCompressedInnerCodecs() throws IOException, ZarrException {
+        // Inner chunks are gzipped, so replacing one changes its encoded byte length.
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p * 7919);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT)
+                .resolve("testInnerChunkWriteCompressedInnerCodecs", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE").withGzip()))
+                .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+
+        // A uniform inner chunk compresses better than the ramp, so the new blob is shorter.
+        Array donor = Array.create(
+                new FilesystemStore(TESTOUTPUT).resolve("testInnerChunkWriteCompressedInnerCodecs", "donor"),
+                Array.metadataBuilder()
+                        .withShape(2, 2)
+                        .withDataType(DataType.UINT32)
+                        .withChunkShape(2, 2)
+                        .withCodecs(c -> c.withBytes("LITTLE").withGzip())
+                        .build());
+        int[] newValues = new int[]{5, 5, 5, 5};
+        donor.writeChunk(new long[]{0, 0},
+                ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 2}, newValues));
+        ByteBuffer newBytes = donor.readChunkDirect(new long[]{0, 0});
+
+        ByteBuffer siblingBefore = array.readInnerChunkDirect(new long[]{0, 1});
+        int oldShardLength = array.readChunkDirect(new long[]{0, 0}).remaining();
+        int oldBlobLength = array.readInnerChunkDirect(new long[]{0, 0}).remaining();
+        Assertions.assertTrue(newBytes.remaining() < oldBlobLength,
+                "expected the replacement blob to be shorter than the one it replaces");
+
+        array.innerChunkWriter().put(new long[]{0, 0}, newBytes).flush();
+
+        // The shard shrank by exactly the difference, the kept blobs are untouched, and the data decodes.
+        Assertions.assertEquals(oldShardLength - (oldBlobLength - newBytes.remaining()),
+                array.readChunkDirect(new long[]{0, 0}).remaining());
+        Assertions.assertEquals(siblingBefore, array.readInnerChunkDirect(new long[]{0, 1}));
+
+        int[] expected = new int[8 * 8];
+        Arrays.setAll(expected, p -> p * 7919);
+        for (int row = 0; row < 2; row++) {
+            for (int col = 0; col < 2; col++) {
+                expected[row * 8 + col] = newValues[row * 2 + col];
+            }
+        }
+        assertArrayHolds(array, expected);
+    }
+
+    @Test
+    public void testInnerChunkWriteNestedSharding() throws IOException, ZarrException {
+        // 8x8 array in one 8x8 shard of 4x4 shards of 2x2 inner chunks.
+        int[] testData = new int[8 * 8];
+        Arrays.setAll(testData, p -> p);
+
+        StoreHandle storeHandle =
+                new FilesystemStore(TESTOUTPUT).resolve("testInnerChunkWriteNestedSharding", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(8, 8)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(8, 8)
+                .withCodecs(c -> c.withSharding(new int[]{4, 4},
+                        c1 -> c1.withSharding(new int[]{2, 2}, c2 -> c2.withBytes("LITTLE"))))
+                .build());
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{8, 8}, testData));
+
+        // (1,3) sits in the same nested shard as the target (1,2); (3,3) sits in a different one.
+        ByteBuffer sameNestedShardBefore = array.readInnerChunkDirect(new long[]{1, 3});
+        ByteBuffer otherNestedShardBefore = array.readInnerChunkDirect(new long[]{3, 3});
+
+        int[] newValues = new int[]{600, 601, 602, 603};
+        array.innerChunkWriter()
+                .put(new long[]{1, 2}, encodedInnerChunk("testInnerChunkWriteNestedSharding/donor", newValues))
+                .flush();
+
+        // The nested shard was rebuilt and spliced back into the outer shard, inside out.
+        assertArrayHolds(array, rampWithInnerChunk(new long[]{1, 2}, newValues));
+        Assertions.assertEquals(sameNestedShardBefore, array.readInnerChunkDirect(new long[]{1, 3}));
+        Assertions.assertEquals(otherNestedShardBefore, array.readInnerChunkDirect(new long[]{3, 3}));
+    }
+
+    @Test
+    public void testInnerChunkWriteIdempotent() throws IOException, ZarrException {
+        Array array = shardedRampArray("testInnerChunkWriteIdempotent/sharded", "end");
+        ByteBuffer newBytes =
+                encodedInnerChunk("testInnerChunkWriteIdempotent/donor", new int[]{1, 2, 3, 4});
+
+        array.innerChunkWriter().put(new long[]{1, 1}, newBytes).flush();
+        ByteBuffer afterFirst = array.readChunkDirect(new long[]{0, 0});
+
+        // Rebuilding a shard from the same staged bytes is byte-identical, so a retry is safe.
+        array.innerChunkWriter().put(new long[]{1, 1}, newBytes).flush();
+        Assertions.assertEquals(afterFirst, array.readChunkDirect(new long[]{0, 0}));
+    }
+
+    @Test
+    public void testInnerChunkWriteBoundaryShard() throws IOException, ZarrException {
+        // 6x6 array of 4x4 shards: the right and bottom shards overhang the array.
+        StoreHandle storeHandle =
+                new FilesystemStore(TESTOUTPUT).resolve("testInnerChunkWriteBoundaryShard", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(6, 6)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(4, 4)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+        int[] testData = new int[6 * 6];
+        Arrays.setAll(testData, p -> p);
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{6, 6}, testData));
+
+        // Inner chunk (2,2) covers rows 4-5, cols 4-5, entirely inside the array.
+        int[] newValues = new int[]{91, 92, 93, 94};
+        array.innerChunkWriter()
+                .put(new long[]{2, 2}, encodedInnerChunk("testInnerChunkWriteBoundaryShard/donor", newValues))
+                .flush();
+        Assertions.assertArrayEquals(newValues, (int[]) array.read(new long[]{4, 4}, new long[]{2, 2})
+                .get1DJavaArray(ucar.ma2.DataType.INT));
+
+        // Inner chunk (3,3) starts at row 6, outside the array, and is rejected like on the read side.
+        assertThrows(ZarrException.class, () -> array.readInnerChunkDirect(new long[]{3, 3}));
+        assertThrows(ZarrException.class,
+                () -> array.innerChunkWriter().put(new long[]{3, 3}, ByteBuffer.allocate(16)));
+    }
+
+    @Test
+    public void testInnerChunkWriteRejects() throws IOException, ZarrException {
+        Array array = shardedRampArray("testInnerChunkWriteRejects/sharded", "end");
+        ByteBuffer bytes = encodedInnerChunk("testInnerChunkWriteRejects/donor", new int[]{1, 2, 3, 4});
+
+        // Wrong rank, out-of-domain and negative coordinates are rejected before any store access.
+        assertThrows(IllegalArgumentException.class,
+                () -> array.innerChunkWriter().put(new long[]{0, 0, 0}, bytes));
+        assertThrows(ZarrException.class, () -> array.innerChunkWriter().put(new long[]{4, 0}, bytes));
+        assertThrows(ZarrException.class, () -> array.innerChunkWriter().put(new long[]{0, -1}, bytes));
+        // An empty buffer would be stored as a present but zero-length inner chunk.
+        assertThrows(ZarrException.class,
+                () -> array.innerChunkWriter().put(new long[]{0, 0}, ByteBuffer.allocate(0)));
+
+        // A shard that cannot be parsed is never overwritten.
+        array.writeChunkDirect(new long[]{0, 0}, ByteBuffer.wrap(new byte[]{1, 2, 3}));
+        assertThrows(ZarrException.class,
+                () -> array.innerChunkWriter().put(new long[]{0, 0}, bytes).flush());
+        Assertions.assertEquals(3, array.readChunkDirect(new long[]{0, 0}).remaining());
+    }
+
+    @Test
+    public void testInnerChunkWriteUnsharded() throws IOException, ZarrException {
+        StoreHandle storeHandle =
+                new FilesystemStore(TESTOUTPUT).resolve("testInnerChunkWriteUnsharded", "plain");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(4, 4)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(2, 2)
+                .withCodecs(c -> c.withBytes("LITTLE"))
+                .build());
+
+        // Without sharding the inner chunk grid is the chunk grid, so this stores the chunk verbatim.
+        int[] newValues = new int[]{7, 8, 9, 10};
+        ByteBuffer bytes = encodedInnerChunk("testInnerChunkWriteUnsharded/donor", newValues);
+        array.writeInnerChunkDirect(new long[]{1, 1}, bytes);
+        Assertions.assertEquals(bytes, array.readChunkDirect(new long[]{1, 1}));
+        Assertions.assertArrayEquals(newValues, (int[]) array.readChunk(new long[]{1, 1})
+                .get1DJavaArray(ucar.ma2.DataType.INT));
+
+        array.writeInnerChunkDirect(new long[]{1, 1}, null);
+        Assertions.assertNull(array.readChunkDirect(new long[]{1, 1}));
+    }
+
+    @Test
+    public void testInnerChunkWriteDegenerateSharding() throws IOException, ZarrException {
+        // Sharding where the inner chunk shape equals the chunk shape: one inner chunk per shard, but
+        // the stored object still carries a shard index, so the inner chunk is not the whole object.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT)
+                .resolve("testInnerChunkWriteDegenerateSharding", "sharded");
+        Array array = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(4, 4)
+                .withDataType(DataType.UINT32)
+                .withChunkShape(2, 2)
+                .withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withBytes("LITTLE")))
+                .build());
+        int[] testData = new int[4 * 4];
+        Arrays.setAll(testData, p -> p);
+        array.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{4, 4}, testData));
+
+        // The inner chunk bytes are shorter than the shard object, which also holds the index.
+        ByteBuffer innerChunkBytes = array.readInnerChunkDirect(new long[]{0, 0});
+        Assertions.assertNotNull(innerChunkBytes);
+        Assertions.assertTrue(
+                innerChunkBytes.remaining() < array.readChunkDirect(new long[]{0, 0}).remaining());
+
+        int[] newValues = new int[]{11, 12, 13, 14};
+        array.writeInnerChunkDirect(new long[]{1, 1},
+                encodedInnerChunk("testInnerChunkWriteDegenerateSharding/donor", newValues));
+        Assertions.assertArrayEquals(newValues, (int[]) array.read(new long[]{2, 2}, new long[]{2, 2})
+                .get1DJavaArray(ucar.ma2.DataType.INT));
+    }
+
+    @Test
+    public void testInnerChunkWriteMatchesNormalWrite() throws IOException, ZarrException {
+        // The same logical content, written once through the codec pipeline and once by splicing
+        // encoded inner chunks, must read back identically.
+        int[] newValues = new int[]{321, 322, 323, 324};
+
+        Array spliced = shardedRampArray("testInnerChunkWriteMatchesNormalWrite/spliced", "end");
+        spliced.innerChunkWriter()
+                .put(new long[]{2, 1},
+                        encodedInnerChunk("testInnerChunkWriteMatchesNormalWrite/donor", newValues))
+                .flush();
+
+        Array normal = shardedRampArray("testInnerChunkWriteMatchesNormalWrite/normal", "end");
+        normal.write(new long[]{4, 2},
+                ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 2}, newValues));
+
+        Assertions.assertArrayEquals((int[]) normal.read().get1DJavaArray(ucar.ma2.DataType.INT),
+                (int[]) spliced.read().get1DJavaArray(ucar.ma2.DataType.INT));
     }
 }

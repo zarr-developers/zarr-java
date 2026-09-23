@@ -6,8 +6,10 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import ucar.ma2.Array;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 
 public class CodecPipeline {
 
@@ -81,6 +83,73 @@ public class CodecPipeline {
 
     public boolean supportsPartialDecode() {
         return codecs.length == 1 && codecs[0] instanceof ArrayBytesCodec.WithPartialDecode;
+    }
+
+    /**
+     * The shape of the smallest unit this pipeline encodes independently, i.e. the unit that
+     * {@link #readInnerChunkEncoded} addresses and the grid its coordinates are on.
+     * <p>
+     * For a sharded array this is the sharding codec's inner chunk shape. Shards may be nested, in
+     * which case this is the innermost inner chunk shape still addressable by byte offset: the
+     * recursion stops at any level whose inner codecs are not a single sharding codec, since the
+     * nested shard's bytes would have to be decoded before its index could be located. For any
+     * other pipeline this is the chunk shape itself.
+     */
+    public int[] innerChunkShape() {
+        if (!supportsPartialDecode()) {
+            return arrayMetadata.chunkShape;
+        }
+        return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).innerChunkShape();
+    }
+
+    /**
+     * Reads the encoded bytes of a single inner chunk out of a stored chunk, without decoding them.
+     *
+     * @param storeHandle      the store handle of the stored chunk
+     * @param innerChunkCoords the coordinates of the inner chunk relative to the stored chunk, on the
+     *                         grid given by {@link #innerChunkShape()}
+     * @return the encoded inner chunk bytes, or {@code null} if the inner chunk is not present
+     */
+    @Nullable
+    public ByteBuffer readInnerChunkEncoded(
+            @Nonnull StoreHandle storeHandle, long[] innerChunkCoords
+    ) throws ZarrException {
+        if (!supportsPartialDecode()) {
+            throw new ZarrException(
+                    "Reading individual inner chunks is not supported for these codecs. " + Arrays.toString(
+                            codecs));
+        }
+        return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).readInnerChunkEncoded(
+                storeHandle, innerChunkCoords);
+    }
+
+    /**
+     * Rebuilds a stored chunk so that the given inner chunks hold the given already-encoded bytes,
+     * copying every inner chunk that is kept through without decoding it.
+     * <p>
+     * Splicing encoded bytes into a stored chunk is only sound because a pipeline that supports this
+     * consists of the single {@link ArrayBytesCodec.WithPartialDecode} codec: no bytes-to-bytes codec
+     * wraps its output, so the bytes that codec produces are the stored object verbatim.
+     *
+     * @param chunkBytes the current bytes of the stored chunk, or {@code null} if the stored chunk does
+     *                   not exist yet
+     * @param updates    the inner chunks to replace or remove, with coordinates relative to the stored
+     *                   chunk on the grid given by {@link #innerChunkShape()}
+     * @return the new bytes of the stored chunk, or {@code null} if the stored chunk would hold no
+     *         inner chunks at all and should therefore be removed
+     */
+    @Nullable
+    public ByteBuffer mergeInnerChunksEncoded(
+            @Nullable ByteBuffer chunkBytes,
+            List<ArrayBytesCodec.WithPartialDecode.InnerChunkUpdate> updates
+    ) throws ZarrException {
+        if (!supportsPartialDecode()) {
+            throw new ZarrException(
+                    "Writing individual inner chunks is not supported for these codecs. "
+                            + Arrays.toString(codecs));
+        }
+        return ((ArrayBytesCodec.WithPartialDecode) getArrayBytesCodec()).mergeInnerChunksEncoded(
+                chunkBytes, updates);
     }
 
     @Nonnull
