@@ -2,7 +2,6 @@ package dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -11,14 +10,14 @@ public final class ScaleCoordinateTransformation
         extends dev.zarr.zarrjava.experimental.ome.metadata.transform.ScaleCoordinateTransformation
         implements CoordinateTransformation {
 
-    @Nullable public final String input;
-    @Nullable public final String output;
+    @Nullable public final CoordinateSystemRef input;
+    @Nullable public final CoordinateSystemRef output;
     @Nullable public final String name;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ScaleCoordinateTransformation(
-            @Nullable @JsonProperty("input") @JsonDeserialize(using = CoordinateSystemRefSerde.Deserializer.class) String input,
-            @Nullable @JsonProperty("output") @JsonDeserialize(using = CoordinateSystemRefSerde.Deserializer.class) String output,
+            @Nullable @JsonProperty("input") CoordinateSystemRef input,
+            @Nullable @JsonProperty("output") CoordinateSystemRef output,
             @Nullable @JsonProperty("name") String name,
             @Nullable @JsonProperty("scale") List<Double> scale,
             @Nullable @JsonProperty("path") String path
@@ -35,12 +34,12 @@ public final class ScaleCoordinateTransformation
     }
 
     @Override
-    public String getInput() {
+    public CoordinateSystemRef getInput() {
         return input;
     }
 
     @Override
-    public String getOutput() {
+    public CoordinateSystemRef getOutput() {
         return output;
     }
 
