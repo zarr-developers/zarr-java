@@ -72,17 +72,19 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
 
     @JsonIgnore
     public final String name = "jpeg";
-    @Nullable
     public final Configuration configuration;
 
     @JsonCreator
     public JpegCodec(
-            @JsonProperty(value = "configuration") Configuration configuration) {
+            @JsonProperty(value = "configuration") Configuration configuration) throws ZarrException {
+        if (configuration == null) {
+            throw new ZarrException("The jpeg codec requires a 'configuration'.");
+        }
         this.configuration = configuration;
     }
 
-    public JpegCodec() {
-        this((Configuration) null);
+    public JpegCodec() throws ZarrException {
+        this(Configuration.DEFAULT_QUALITY);
     }
 
     public JpegCodec(int quality) throws ZarrException {
@@ -95,17 +97,16 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
     }
 
     private int getQualityInternal() {
-        return configuration == null ? Configuration.DEFAULT_QUALITY : configuration.quality;
+        return configuration.quality;
     }
 
     @Nullable
     private String getEncodedColorSpace() {
-        return configuration == null ? null : configuration.encodedColorSpace;
+        return configuration.encodedColorSpace;
     }
 
-    @Nullable
     private int[][] getSubsampling() {
-        return configuration == null ? null : configuration.subsampling;
+        return configuration.subsampling;
     }
 
     /**
@@ -146,9 +147,9 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
                 throw new ZarrException(
                         "'encoded_color_space' must not be set for grayscale (1-component) data.");
             }
-            if (subsampling != null) {
+            if (subsampling.length != 1 || !Configuration.isNoSubsampling(subsampling)) {
                 throw new ZarrException(
-                        "'subsampling' must not be set for grayscale (1-component) data.");
+                        "'subsampling' must be [[1, 1]] for grayscale (1-component) data.");
             }
         } else {
             if (encodedColorSpace == null) {
@@ -156,7 +157,7 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
                         "'encoded_color_space' is required for 3-component data; set it to \"ycbcr\" "
                                 + "(natural color images) or \"rgb\" (independent scientific channels).");
             }
-            if (subsampling != null && subsampling.length != numChannels) {
+            if (subsampling.length != numChannels) {
                 throw new ZarrException(
                         "'subsampling' must have one entry per component (" + numChannels + "), got "
                                 + subsampling.length + ".");
@@ -167,13 +168,10 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
     /**
      * Resolve the luma component's sampling factors ({@code [horizontal, vertical]}) from the
      * configured subsampling, which is expressed as per-component JPEG sampling factors (chroma is
-     * always {@code [1, 1]}). Defaults to {@code [2, 2]} (the 4:2:0 scheme) when unset.
+     * always {@code [1, 1]}).
      */
     private int[] lumaSamplingFactors() {
         int[][] subsampling = getSubsampling();
-        if (subsampling == null) {
-            return Configuration.DEFAULT_LUMA_SAMPLING.clone();
-        }
         return new int[]{subsampling[0][0], subsampling[0][1]};
     }
 
@@ -499,8 +497,6 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
     public static final class Configuration {
 
         static final int DEFAULT_QUALITY = 90;
-        /** Default luma sampling factors when subsampling is unset (the 4:2:0 scheme). */
-        static final int[] DEFAULT_LUMA_SAMPLING = {2, 2};
 
         public final int quality;
         @Nullable
@@ -508,21 +504,27 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
         public final String encodedColorSpace;
         /**
          * Per-component JPEG sampling factors, one {@code [horizontal, vertical]} pair per component
-         * (e.g. {@code [[2, 2], [1, 1], [1, 1]]} for the common 4:2:0 scheme), or {@code null} for the
-         * default. Chroma components must be {@code [1, 1]}.
+         * (e.g. {@code [[2, 2], [1, 1], [1, 1]]} for the common 4:2:0 scheme, or {@code [[1, 1]]}
+         * for grayscale). Chroma components must be {@code [1, 1]}.
          */
-        @Nullable
         public final int[][] subsampling;
 
+        /** A grayscale (1-component) configuration with the given quality. */
         public Configuration(int quality) throws ZarrException {
-            this(quality, null, null);
+            this(quality, null, new int[][]{{1, 1}});
         }
 
         @JsonCreator
         public Configuration(
-                @JsonProperty(value = "quality", defaultValue = "90") int quality,
+                @JsonProperty("quality") Integer quality,
                 @Nullable @JsonProperty("encoded_color_space") String encodedColorSpace,
-                @Nullable @JsonProperty("subsampling") int[][] subsampling) throws ZarrException {
+                @JsonProperty("subsampling") int[][] subsampling) throws ZarrException {
+            if (quality == null) {
+                throw new ZarrException("'quality' is required for the jpeg codec.");
+            }
+            if (subsampling == null) {
+                throw new ZarrException("'subsampling' is required for the jpeg codec.");
+            }
             if (quality < 0 || quality > 100) {
                 throw new ZarrException("'quality' needs to be between 0 and 100.");
             }
@@ -531,14 +533,12 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
                 throw new ZarrException(
                         "'encoded_color_space' must be \"ycbcr\" or \"rgb\", got \"" + encodedColorSpace + "\".");
             }
-            if (subsampling != null) {
-                validateSubsampling(subsampling);
-                if ("rgb".equals(encodedColorSpace) && !isNoSubsampling(subsampling)) {
-                    throw new ZarrException(
-                            "'subsampling' must be [[1, 1], [1, 1], [1, 1]] (or omitted) with "
-                                    + "encoded_color_space \"rgb\", since those components are independent and "
-                                    + "must not be subsampled.");
-                }
+            validateSubsampling(subsampling);
+            if ("rgb".equals(encodedColorSpace) && !isNoSubsampling(subsampling)) {
+                throw new ZarrException(
+                        "'subsampling' must be [[1, 1], [1, 1], [1, 1]] with encoded_color_space "
+                                + "\"rgb\", since those components are independent and must not be "
+                                + "subsampled.");
             }
             this.quality = quality;
             this.encodedColorSpace = encodedColorSpace;
@@ -575,7 +575,7 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
             }
         }
 
-        private static boolean isNoSubsampling(int[][] subsampling) {
+        static boolean isNoSubsampling(int[][] subsampling) {
             for (int[] factors : subsampling) {
                 if (factors.length != 2 || factors[0] != 1 || factors[1] != 1) {
                     return false;

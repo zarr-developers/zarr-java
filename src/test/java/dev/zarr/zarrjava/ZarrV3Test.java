@@ -539,6 +539,68 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
+    public void testJpegCodecDefaultWritesFullConfiguration() throws ZarrException, IOException {
+        // All required parameters are written explicitly, even for the default grayscale codec.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegDefaultMetadata");
+        Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(16, 16)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(16, 16)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg())
+                .build());
+
+        String zarrJson = new String(Files.readAllBytes(
+                Paths.get("testoutput", "testJpegDefaultMetadata", ZARR_JSON))).replaceAll("\\s+", "");
+        Assertions.assertTrue(zarrJson.contains("\"quality\":90"), zarrJson);
+        Assertions.assertTrue(zarrJson.contains("\"subsampling\":[[1,1]]"), zarrJson);
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+            "\"quality\":90,|''",
+            "\"subsampling\":[[1,1]]|''",
+            "\"configuration\":{\"quality\":90,\"subsampling\":[[1,1]]}|\"configuration\":null"})
+    public void testJpegCodecRejectsMissingRequiredParameter(String present, String replacement)
+            throws ZarrException, IOException {
+        // quality, subsampling and the configuration itself are required and must not be defaulted.
+        String name = "testJpegRejectsMissing" + Math.abs(present.hashCode());
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve(name);
+        Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(16, 16)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(16, 16)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(90))
+                .build());
+
+        Path zarrJsonPath = Paths.get("testoutput", name, ZARR_JSON);
+        String zarrJson = new String(Files.readAllBytes(zarrJsonPath)).replaceAll("\\s+", "");
+        Assertions.assertTrue(zarrJson.contains(present), zarrJson);
+        Files.write(zarrJsonPath, zarrJson.replace(present, replacement).getBytes());
+
+        assertThrows(Exception.class, () -> Array.open(storeHandle));
+    }
+
+    @Test
+    public void testJpegCodecRejectsSubsampledGrayscale() throws ZarrException, IOException {
+        // Grayscale data must use subsampling [[1, 1]].
+        byte[] testData = new byte[16 * 16];
+        Arrays.fill(testData, (byte) 1);
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegRejectsGraySubsampling");
+        Array writeArray = Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(16, 16)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(16, 16)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(90, null, new int[][]{{2, 2}}))
+                .build());
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{16, 16}, testData)));
+        Assertions.assertTrue(ex.getMessage().contains("[[1, 1]]"), ex.getMessage());
+    }
+
+    @Test
     public void testShardingWithZstdCodecReadWrite() throws ZarrException, IOException {
         int[] testData = new int[16 * 16 * 16];
         Arrays.setAll(testData, p -> p);
