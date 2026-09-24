@@ -42,6 +42,7 @@ public final class Well extends OmeV3Group implements dev.zarr.zarrjava.experime
         if (omeMetadata.well == null) {
             throw new ZarrException("No 'well' found in ome metadata at " + storeHandle);
         }
+        OmeValidator.warnIfInvalid(storeHandle.toString(), OmeValidator.validateWell(omeMetadata.well));
         return new Well(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -52,6 +53,7 @@ public final class Well extends OmeV3Group implements dev.zarr.zarrjava.experime
             @Nonnull StoreHandle storeHandle,
             @Nonnull WellMetadata wellMetadata
     ) throws IOException, ZarrException {
+        OmeValidator.throwIfInvalid(storeHandle.toString(), OmeValidator.validateWell(wellMetadata));
         OmeMetadata omeMetadata = new OmeMetadata("0.6", null, null, null, null, null, wellMetadata);
         Group group = Group.create(storeHandle, omeAttributes(omeMetadata));
         return new Well(storeHandle, group.metadata, omeMetadata);

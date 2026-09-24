@@ -57,6 +57,7 @@ public final class Scene extends OmeV3Group {
         if (omeMetadata.scene == null) {
             throw new ZarrException("No 'scene' found in ome metadata at " + storeHandle);
         }
+        OmeValidator.warnIfInvalid(storeHandle.toString(), OmeValidator.validateScene(omeMetadata.scene));
 
         Map<String, MultiscaleImage> discovered = new LinkedHashMap<>();
         for (String child : asList(storeHandle.listChildren())) {
@@ -76,6 +77,7 @@ public final class Scene extends OmeV3Group {
             @Nonnull StoreHandle storeHandle,
             @Nonnull SceneMetadata sceneMetadata
     ) throws IOException, ZarrException {
+        OmeValidator.throwIfInvalid(storeHandle.toString(), OmeValidator.validateScene(sceneMetadata));
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.OmeMetadata omeMetadata =
                 new dev.zarr.zarrjava.experimental.ome.v0_6.metadata.OmeMetadata("0.6", null, null, sceneMetadata);
         Group group = Group.create(storeHandle, omeAttributes(omeMetadata));

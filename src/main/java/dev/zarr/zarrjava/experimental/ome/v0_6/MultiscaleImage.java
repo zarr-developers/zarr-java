@@ -61,6 +61,9 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             }
             throw new ZarrException("No 'multiscales' found in ome metadata at " + storeHandle);
         }
+        for (MultiscalesEntry entry : omeMetadata.multiscales) {
+            OmeValidator.warnIfInvalid(storeHandle.toString(), OmeValidator.validateMultiscalesEntry(entry));
+        }
         return new MultiscaleImage(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -71,6 +74,7 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             @Nonnull StoreHandle storeHandle,
             @Nonnull MultiscalesEntry multiscalesEntry
     ) throws IOException, ZarrException {
+        OmeValidator.throwIfInvalid(storeHandle.toString(), OmeValidator.validateMultiscalesEntry(multiscalesEntry, true));
         OmeMetadata omeMetadata = new OmeMetadata("0.6", Collections.singletonList(multiscalesEntry));
         Group group = Group.create(storeHandle, omeAttributes(omeMetadata));
         return new MultiscaleImage(storeHandle, group.metadata, omeMetadata);
@@ -122,7 +126,6 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         if (!(arrayMetadata instanceof dev.zarr.zarrjava.v3.ArrayMetadata)) {
             throw new ZarrException("Expected v3.ArrayMetadata for OME-Zarr v0.6, got " + arrayMetadata.getClass());
         }
-        Array.create(storeHandle.resolve(path), (dev.zarr.zarrjava.v3.ArrayMetadata) arrayMetadata);
 
         // Convert ome.metadata.CoordinateTransformation to v0.6 CoordinateTransformation
         List<dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation> v06Transforms = new ArrayList<>();
@@ -216,6 +219,8 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
 
         MultiscalesEntry current = omeMetadata.multiscales.get(0);
         MultiscalesEntry updated = current.withDataset(new dev.zarr.zarrjava.experimental.ome.v0_6.metadata.Dataset(path, v06Transforms));
+        validateScaleLevel(updated, arrayMetadata);
+        Array.create(storeHandle.resolve(path), (dev.zarr.zarrjava.v3.ArrayMetadata) arrayMetadata);
         List<MultiscalesEntry> updatedList = new ArrayList<>(omeMetadata.multiscales);
         updatedList.set(0, updated);
         omeMetadata = new OmeMetadata(
@@ -227,6 +232,24 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
                 omeMetadata.plate,
                 omeMetadata.well);
         setAttributes(omeAttributes(omeMetadata));
+    }
+
+    private void validateScaleLevel(MultiscalesEntry updated, dev.zarr.zarrjava.core.ArrayMetadata newArray)
+            throws ZarrException {
+        List<String> violations = new ArrayList<>(OmeValidator.validateMultiscalesEntry(updated));
+        List<dev.zarr.zarrjava.core.ArrayMetadata> arrays = new ArrayList<>();
+        for (int i = 0; i < updated.datasets.size() - 1; i++) {
+            dev.zarr.zarrjava.core.ArrayMetadata existing = null;
+            try {
+                existing = Array.open(storeHandle.resolve(updated.datasets.get(i).path)).metadata();
+            } catch (Exception ignored) {
+                // existing level cannot be opened; skip it in the array consistency check
+            }
+            arrays.add(existing);
+        }
+        arrays.add(newArray);
+        violations.addAll(OmeValidator.validateScaleLevelArrays(updated, arrays));
+        OmeValidator.throwIfInvalid(storeHandle.toString(), violations);
     }
 
     @Override

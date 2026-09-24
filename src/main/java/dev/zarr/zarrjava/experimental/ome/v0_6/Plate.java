@@ -41,6 +41,7 @@ public final class Plate extends OmeV3Group implements dev.zarr.zarrjava.experim
         if (omeMetadata.plate == null) {
             throw new ZarrException("No 'plate' found in ome metadata at " + storeHandle);
         }
+        OmeValidator.warnIfInvalid(storeHandle.toString(), OmeValidator.validatePlate(omeMetadata.plate));
         return new Plate(storeHandle, group.metadata, omeMetadata);
     }
 
@@ -51,6 +52,7 @@ public final class Plate extends OmeV3Group implements dev.zarr.zarrjava.experim
             @Nonnull StoreHandle storeHandle,
             @Nonnull PlateMetadata plateMetadata
     ) throws IOException, ZarrException {
+        OmeValidator.throwIfInvalid(storeHandle.toString(), OmeValidator.validatePlate(plateMetadata));
         OmeMetadata omeMetadata = new OmeMetadata("0.6", null, null, null, null, plateMetadata, null);
         Group group = Group.create(storeHandle, omeAttributes(omeMetadata));
         return new Plate(storeHandle, group.metadata, omeMetadata);
@@ -63,7 +65,10 @@ public final class Plate extends OmeV3Group implements dev.zarr.zarrjava.experim
 
     @Override
     public dev.zarr.zarrjava.experimental.ome.Well openWell(String rowColPath) throws IOException, ZarrException {
-        return Well.openWell(storeHandle.resolve(rowColPath));
+        Well well = Well.openWell(storeHandle.resolve(rowColPath));
+        OmeValidator.warnIfInvalid(well.getStoreHandle().toString(),
+                OmeValidator.validateWellAcquisitions(well.getWellMetadata(), omeMetadata.plate));
+        return well;
     }
 
     @Override
