@@ -34,6 +34,8 @@ exists or is specified elsewhere, and use that as context. Check in this order:
    cases, error handling) that zarr-java must match.
    - Local clone: `../zarr-python`; the installed version is in `.venv/lib/python*/site-packages/zarr`
    - https://github.com/zarr-developers/zarr-python
+4. **OME-Zarr (NGFF)**: for anything under `experimental/ome/`, the current OME-NGFF
+   specification is at https://ngff.openmicroscopy.org/specifications/0.6/index.html.
 
 Prefer the local clones (grep) over fetching the web. If the spec and zarr-python disagree,
 match zarr-python and mention the discrepancy. If nothing relevant is found, say so before
