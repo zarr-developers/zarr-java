@@ -32,7 +32,7 @@ Add the following dependency to your `pom.xml`:
 <dependency>
     <groupId>dev.zarr</groupId>
     <artifactId>zarr-java-core</artifactId>
-    <version>0.1.3</version>
+    <version>0.3.1</version>
 </dependency>
 ```
 For OME-Zarr support, also add:
@@ -40,16 +40,16 @@ For OME-Zarr support, also add:
 <dependency>
     <groupId>dev.zarr</groupId>
     <artifactId>zarr-java-ome</artifactId>
-    <version>0.1.3</version>
+    <version>0.3.1</version>
 </dependency>
 ```
 ### Gradle
 Add the following to your `build.gradle`:
 ```gradle
 dependencies {
-    implementation 'dev.zarr:zarr-java-core:0.1.3'
+    implementation 'dev.zarr:zarr-java-core:0.3.1'
     // Optional: OME-Zarr support
-    implementation 'dev.zarr:zarr-java-ome:0.1.3'
+    implementation 'dev.zarr:zarr-java-ome:0.3.1'
 }
 ```
 ### Requirements

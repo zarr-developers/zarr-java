@@ -42,6 +42,13 @@ public class ReadOnlyZipStoreTest extends StoreTest {
     }
 
 
+    @Test
+    public void testUnreadableArchiveThrows() {
+        ReadOnlyZipStore zipStore = new ReadOnlyZipStore(TESTOUTPUT.resolve("does_not_exist.zip"));
+        Assertions.assertThrows(StoreException.class, () -> zipStore.resolve().listChildren().count());
+        Assertions.assertThrows(StoreException.class, () -> zipStore.resolve("array", "0.0.0").exists());
+    }
+
     @Override
     @Test
     public void testListChildren() {

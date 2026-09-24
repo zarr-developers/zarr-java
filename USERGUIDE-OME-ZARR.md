@@ -10,20 +10,20 @@ Add it alongside the core library:
 <dependency>
     <groupId>dev.zarr</groupId>
     <artifactId>zarr-java-core</artifactId>
-    <version>0.1.3</version>
+    <version>0.3.1</version>
 </dependency>
 <dependency>
     <groupId>dev.zarr</groupId>
     <artifactId>zarr-java-ome</artifactId>
-    <version>0.1.3</version>
+    <version>0.3.1</version>
 </dependency>
 ```
 
 ### Gradle
 ```gradle
 dependencies {
-    implementation 'dev.zarr:zarr-java-core:0.1.3'
-    implementation 'dev.zarr:zarr-java-ome:0.1.3'
+    implementation 'dev.zarr:zarr-java-core:0.3.1'
+    implementation 'dev.zarr:zarr-java-ome:0.3.1'
 }
 ```
 

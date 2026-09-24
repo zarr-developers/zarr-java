@@ -47,6 +47,29 @@ public abstract class StoreTest extends ZarrTest {
     }
 
     @Test
+    public void testInputStreamOpenEnded() throws IOException {
+        StoreHandle storeHandle = storeHandleWithData();
+        ByteBuffer expected = storeHandle.read();
+        try (InputStream is = storeHandle.getInputStream()) {
+            Assertions.assertNotNull(is, "Open-ended getInputStream() returned null");
+            byte[] actual = readFully(is);
+            byte[] expectedBytes = new byte[expected.remaining()];
+            expected.get(expectedBytes);
+            Assertions.assertArrayEquals(expectedBytes, actual);
+        }
+    }
+
+    private static byte[] readFully(InputStream is) throws IOException {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int len;
+        while ((len = is.read(buffer)) != -1) {
+            baos.write(buffer, 0, len);
+        }
+        return baos.toByteArray();
+    }
+
+    @Test
     public void testExists() throws ZarrException, IOException {
         Assertions.assertTrue(storeHandleWithData().exists());
         Assertions.assertFalse(storeHandleWithoutData().exists());
