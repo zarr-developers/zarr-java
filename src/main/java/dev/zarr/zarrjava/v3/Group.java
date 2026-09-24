@@ -15,6 +15,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.Set;
 import java.util.function.Function;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
@@ -22,6 +24,11 @@ import static dev.zarr.zarrjava.v3.Node.makeObjectWriter;
 
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node {
+
+    /**
+     * Keys that hold metadata of a v3 group itself and never point at a child node.
+     */
+    private static final Set<String> METADATA_KEYS = Collections.singleton(ZARR_JSON);
 
     public GroupMetadata metadata;
 
@@ -288,6 +295,11 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     @Override
     public String toString() {
         return String.format("<v3.Group {%s}>", storeHandle);
+    }
+
+    @Override
+    protected Set<String> metadataKeys() {
+        return METADATA_KEYS;
     }
 
     @Override

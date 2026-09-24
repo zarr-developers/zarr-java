@@ -11,9 +11,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,12 +19,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class Group extends AbstractNode {
-
-    /**
-     * Keys that hold metadata of the group itself and never point at a child node.
-     */
-    private static final Set<String> METADATA_KEYS = Collections.unmodifiableSet(
-            new HashSet<>(Arrays.asList(ZARR_JSON, ZARRAY, ZATTRS, ZGROUP)));
 
     protected Group(@Nonnull StoreHandle storeHandle) {
         super(storeHandle);
@@ -85,6 +76,11 @@ public abstract class Group extends AbstractNode {
     public Node get(String key) throws ZarrException, IOException {
         return get(new String[]{key});
     }
+
+    /**
+     * Keys that hold metadata of the group itself and never point at a child node.
+     */
+    protected abstract Set<String> metadataKeys();
 
     /**
      * Lists the immediate children (arrays and subgroups) of this group.
@@ -151,9 +147,10 @@ public abstract class Group extends AbstractNode {
      * group.
      */
     private List<String[]> descendantKeys(String[] prefix) {
+        Set<String> metadataKeys = metadataKeys();
         try (Stream<String> children = storeHandle.resolve(prefix).listChildren()) {
             return children
-                    .filter(name -> !METADATA_KEYS.contains(name))
+                    .filter(name -> !metadataKeys.contains(name))
                     .map(name -> Utils.concatArrays(prefix, new String[]{name}))
                     .collect(Collectors.toList());
         }
