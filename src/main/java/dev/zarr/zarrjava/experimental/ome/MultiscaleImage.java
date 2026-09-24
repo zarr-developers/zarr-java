@@ -69,15 +69,24 @@ public interface MultiscaleImage {
     default List<String> getLabels() throws IOException, ZarrException {
         StoreHandle labelsHandle = getStoreHandle().resolve("labels");
 
-        // Try v0.5: labels/zarr.json with {"attributes": {"labels": [...]}}
+        // Try v0.5+: labels/zarr.json with {"attributes": {"ome": {"labels": [...]}}}.
+        // Falls back to the non-conformant legacy layout {"attributes": {"labels": [...]}}.
         StoreHandle zarrJson = labelsHandle.resolve(Node.ZARR_JSON);
         if (zarrJson.exists()) {
             com.fasterxml.jackson.databind.ObjectMapper mapper = dev.zarr.zarrjava.v3.Node.makeObjectMapper();
             byte[] bytes = Utils.toArray(zarrJson.readNonNull());
             com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
             com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
-            if (attrs != null && attrs.has("labels")) {
-                com.fasterxml.jackson.databind.JsonNode labelsNode = attrs.get("labels");
+            com.fasterxml.jackson.databind.JsonNode labelsNode = null;
+            if (attrs != null) {
+                com.fasterxml.jackson.databind.JsonNode ome = attrs.get("ome");
+                if (ome != null && ome.has("labels")) {
+                    labelsNode = ome.get("labels");
+                } else if (attrs.has("labels")) {
+                    labelsNode = attrs.get("labels");
+                }
+            }
+            if (labelsNode != null) {
                 List<String> result = new ArrayList<>();
                 for (com.fasterxml.jackson.databind.JsonNode item : labelsNode) {
                     result.add(item.asText());

@@ -1,8 +1,11 @@
 {
   "attributes": {
-    "labels": [
-      "nuclei"
-    ]
+    "ome": {
+      "version": "0.5",
+      "labels": [
+        "nuclei"
+      ]
+    }
   },
   "zarr_format": 3,
   "node_type": "group"
