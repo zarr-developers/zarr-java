@@ -81,6 +81,14 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         return omeMetadata.bioformats2rawLayout;
     }
 
+    /**
+     * Returns the {@code image-label} metadata if this multiscale image is a label image, or null if not.
+     */
+    @Nullable
+    public dev.zarr.zarrjava.experimental.ome.metadata.ImageLabel getImageLabel() {
+        return omeMetadata.imageLabel;
+    }
+
     @Override
     public dev.zarr.zarrjava.core.Array openScaleLevel(int i) throws IOException, ZarrException {
         String path = getMultiscalesEntry(0).datasets.get(i).path;
@@ -107,7 +115,7 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         MultiscalesEntry updated = current.withDataset(new Dataset(path, coordinateTransformations));
         List<MultiscalesEntry> updatedList = new java.util.ArrayList<>(omeMetadata.multiscales);
         updatedList.set(0, updated);
-        omeMetadata = new OmeMetadata(omeMetadata.version, updatedList);
+        omeMetadata = omeMetadata.withMultiscales(updatedList);
         setAttributes(omeAttributes(omeMetadata));
     }
 }
