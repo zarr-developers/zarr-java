@@ -4,14 +4,14 @@ import javax.annotation.Nullable;
 
 abstract class BaseCoordinateTransformation implements CoordinateTransformation {
     public final String type;
-    @Nullable public final String input;
-    @Nullable public final String output;
+    @Nullable public final CoordinateSystemRef input;
+    @Nullable public final CoordinateSystemRef output;
     @Nullable public final String name;
 
     protected BaseCoordinateTransformation(
             String type,
-            @Nullable String input,
-            @Nullable String output,
+            @Nullable CoordinateSystemRef input,
+            @Nullable CoordinateSystemRef output,
             @Nullable String name
     ) {
         this.type = type;
@@ -26,12 +26,12 @@ abstract class BaseCoordinateTransformation implements CoordinateTransformation 
     }
 
     @Override
-    public String getInput() {
+    public CoordinateSystemRef getInput() {
         return input;
     }
 
     @Override
-    public String getOutput() {
+    public CoordinateSystemRef getOutput() {
         return output;
     }
 
