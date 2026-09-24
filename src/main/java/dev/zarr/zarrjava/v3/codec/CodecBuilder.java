@@ -129,6 +129,45 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return withZstd(5, true);
     }
 
+    public CodecBuilder withJpeg(int quality) {
+        try {
+            codecs.add(new JpegCodec(new JpegCodec.Configuration(quality)));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    /**
+     * Adds a 3-component jpeg codec with the conventional subsampling for the color space: 4:2:0
+     * for {@code ycbcr}, none for {@code rgb}.
+     */
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace) {
+        int[][] subsampling = "rgb".equals(encodedColorSpace)
+                ? new int[][]{{1, 1}, {1, 1}, {1, 1}}
+                : new int[][]{{2, 2}, {1, 1}, {1, 1}};
+        return withJpeg(quality, encodedColorSpace, subsampling);
+    }
+
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace, int[][] subsampling) {
+        try {
+            codecs.add(new JpegCodec(
+                    new JpegCodec.Configuration(quality, encodedColorSpace, subsampling)));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    public CodecBuilder withJpeg() {
+        try {
+            codecs.add(new JpegCodec());
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
     public CodecBuilder withZstd(int level) {
         return withZstd(level, true);
     }
