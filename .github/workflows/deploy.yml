@@ -43,9 +43,9 @@ jobs:
 
       - name: Download testdata
         run: |
-          mkdir testoutput
-          curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
-          cd testdata
+          mkdir -p zarr-java-core/testoutput zarr-java-ome/testoutput
+          curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o zarr-java-core/testdata/l4_sample.zip
+          cd zarr-java-core/testdata
           unzip l4_sample.zip
 
       # End copy from ci.yml
