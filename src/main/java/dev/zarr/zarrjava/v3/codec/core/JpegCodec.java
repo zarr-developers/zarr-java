@@ -89,7 +89,7 @@ public class JpegCodec extends ArrayBytesCodec implements Codec {
         this(new Configuration(quality));
     }
 
-    public JpegCodec(int quality, @Nullable String encodedColorSpace, @Nullable String subsampling)
+    public JpegCodec(int quality, @Nullable String encodedColorSpace, @Nullable int[][] subsampling)
             throws ZarrException {
         this(new Configuration(quality, encodedColorSpace, subsampling));
     }
