@@ -96,8 +96,8 @@ public abstract class Group extends AbstractNode {
      * @throws UnsupportedOperationException if the underlying store does not support listing
      */
     public Stream<Node> members() {
-        return childKeys(new String[0]).parallelStream()
-                .map(this::openChild)
+        return descendantKeys(new String[0]).parallelStream()
+                .map(this::openDescendant)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList())
                 .stream();
@@ -129,8 +129,8 @@ public abstract class Group extends AbstractNode {
     }
 
     private Stream<Node> listDescendants(String[] prefix) {
-        List<Map.Entry<String[], Node>> children = childKeys(prefix).parallelStream()
-                .map(key -> new AbstractMap.SimpleEntry<String[], Node>(key, openChild(key)))
+        List<Map.Entry<String[], Node>> children = descendantKeys(prefix).parallelStream()
+                .map(key -> new AbstractMap.SimpleEntry<String[], Node>(key, openDescendant(key)))
                 .collect(Collectors.toList());
 
         return children.stream().flatMap(child -> {
