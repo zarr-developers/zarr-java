@@ -87,6 +87,28 @@ class HttpStoreTest extends StoreTest {
         }
     }
 
+    @Test
+    public void testOpenEndedRangeHeader() throws IOException, InterruptedException {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setBody("data").setResponseCode(206));
+            server.start();
+            HttpStore httpStore = new HttpStore(server.url("/").toString(), 1, 3, 10);
+            Assertions.assertNotNull(httpStore.getInputStream(new String[]{"path"}, 0, -1));
+            Assertions.assertEquals("bytes=0-", server.takeRequest().getHeader("Range"));
+        }
+    }
+
+    @Test
+    public void testBoundedRangeHeader() throws IOException, InterruptedException {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse().setBody("dat").setResponseCode(206));
+            server.start();
+            HttpStore httpStore = new HttpStore(server.url("/").toString(), 1, 3, 10);
+            Assertions.assertNotNull(httpStore.getInputStream(new String[]{"path"}, 1, 4));
+            Assertions.assertEquals("bytes=1-3", server.takeRequest().getHeader("Range"));
+        }
+    }
+
     @Override
     @Test
     @Disabled("List is not supported in HttpStore")

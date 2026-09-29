@@ -72,6 +72,18 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
     public CodecBuilder withScaleOffset() {
         codecs.add(new ScaleOffsetCodec(null));
         return this;
+    public CodecBuilder withCastValue(CastValueCodec.Configuration configuration) {
+        codecs.add(new CastValueCodec(configuration));
+        return this;
+    }
+
+    public CodecBuilder withCastValue(DataType dataType) {
+        return withCastValue(new CastValueCodec.Configuration(dataType, null, null, null));
+    }
+
+    public CodecBuilder withCastValue(DataType dataType, CastValueCodec.Rounding rounding,
+                                      CastValueCodec.OutOfRange outOfRange) {
+        return withCastValue(new CastValueCodec.Configuration(dataType, rounding, outOfRange, null));
     }
 
     /**
