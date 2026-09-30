@@ -28,7 +28,7 @@ jobs:
       - name: Prepare JAR for testing
         run: |
           # Find the JAR
-          JAR_PATH=$(ls target/zarr-java-*.jar | grep -v original | grep -v javadoc | grep -v sources | head -1)
+          JAR_PATH=$(ls zarr-java-core/target/zarr-java-core-*-shaded.jar | head -1)
           FULL_JAR_PATH="${GITHUB_WORKSPACE}/${JAR_PATH}"
           echo "JAR_PATH=${FULL_JAR_PATH}" >> $GITHUB_ENV
           echo "Found JAR at: ${FULL_JAR_PATH}"
