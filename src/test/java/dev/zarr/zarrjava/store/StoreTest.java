@@ -129,6 +129,26 @@ public abstract class StoreTest extends ZarrTest {
     }
 
     @Test
+    public void testGetSuffix() {
+        // a negative start denotes a suffix read (the last -start bytes), as used for sharding indexes
+        StoreHandle storeHandle = storeHandleWithData();
+        long size = storeHandle.getSize();
+        if (size < 20) {
+            Assertions.fail("Store size is too small to test suffix reads");
+        }
+        ByteBuffer buffer = storeHandle.read(-10);
+        Assertions.assertEquals(10, buffer.remaining());
+
+        ByteBuffer fullBuffer = storeHandle.read();
+        byte[] expectedBytes = new byte[10];
+        fullBuffer.position((int) (size - 10));
+        fullBuffer.get(expectedBytes, 0, 10);
+        byte[] actualBytes = new byte[10];
+        buffer.get(actualBytes, 0, 10);
+        Assertions.assertArrayEquals(expectedBytes, actualBytes);
+    }
+
+    @Test
     public abstract void testList() throws ZarrException, IOException;
 
     byte[] testData() {
