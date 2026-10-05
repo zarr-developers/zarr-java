@@ -20,7 +20,7 @@ zarr-java is a Java implementation of the [Zarr specification](https://zarr.dev/
 ### Key Features
 - **Full Zarr v2 and v3 support**: Read and write arrays in both formats
 - **Multiple storage backends**: Filesystem, HTTP, S3, ZIP, and in-memory storage
-- **Compression codecs**: Blosc, Gzip, Zstd, and more
+- **Compression codecs**: Blosc, Gzip, Zstd, Zfp, and more
 - **Sharding support**: Efficient storage for many small chunks (v3)
 - **Parallel I/O**: Optional parallel reading and writing for performance
 - **Type-safe API**: Strong typing with covariant return types
@@ -448,6 +448,19 @@ Array array = Array.create(
 ```java
 .withCodecs(c -> c.withZstd(3))  // Level 1-22
 ```
+#### Zfp Compression
+Compresses numerical chunks with [zfp](https://zfp.io), lossless or with a chosen error bound:
+```java
+.withCodecs(c -> c.withZfpReversible())          // Lossless
+.withCodecs(c -> c.withZfpFixedAccuracy(0.05))   // Absolute error bound
+.withCodecs(c -> c.withZfpFixedRate(8))          // Compressed bits per value
+.withCodecs(c -> c.withZfpFixedPrecision(19))    // Bit planes retained
+.withCodecs(c -> c.withZfpExpert(1, 13, 19, -2)) // zfp's expert mode parameters
+```
+Zfp replaces the `bytes` codec, so it cannot be combined with it. Chunks may have at most four
+dimensions, and `bool` is not supported. Data types narrower than 32 bits are promoted to `int32`;
+`uint32` and `uint64` values beyond the signed range are clamped, so they do not survive a round trip
+even in reversible mode.
 #### Transpose Codec
 ```java
 .withCodecs(c -> c

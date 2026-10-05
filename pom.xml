@@ -48,6 +48,7 @@
         <aws.version>2.34.6</aws.version>
         <netcdfJavaVersion>5.9.1</netcdfJavaVersion>
         <zstdVersion>1.5.5-7</zstdVersion>
+        <zfpVersion>0.1-1.0.1</zfpVersion>
         <junit-jupiter-version>5.14.0</junit-jupiter-version>
         <findbugs.version>3.0.2</findbugs.version>
     </properties>
@@ -103,6 +104,11 @@
             <groupId>com.scalableminds</groupId>
             <artifactId>blosc-java</artifactId>
             <version>0.3-1.21.6</version>
+        </dependency>
+        <dependency>
+            <groupId>com.scalableminds</groupId>
+            <artifactId>zfp-java</artifactId>
+            <version>${zfpVersion}</version>
         </dependency>
         <dependency>
             <groupId>com.github.luben</groupId>
