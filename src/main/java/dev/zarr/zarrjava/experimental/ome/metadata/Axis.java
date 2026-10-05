@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava.experimental.ome.metadata;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -16,8 +17,9 @@ public final class Axis {
     public final String unit;
     @Nullable
     public final Boolean discrete;
+    /** Human-readable axis name, serialized as {@code longName} ({@code long_name} is accepted on read). */
     @Nullable
-    @JsonProperty("long_name")
+    @JsonProperty("longName")
     public final String longName;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -26,7 +28,7 @@ public final class Axis {
             @Nullable @JsonProperty("type") String type,
             @Nullable @JsonProperty("unit") String unit,
             @Nullable @JsonProperty("discrete") Boolean discrete,
-            @Nullable @JsonProperty("long_name") String longName
+            @Nullable @JsonProperty("longName") @JsonAlias("long_name") String longName
     ) {
         this.name = name;
         this.type = type;

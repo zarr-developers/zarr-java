@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -22,14 +23,18 @@ public final class ByDimensionCoordinateTransformation extends BaseCoordinateTra
     }
 
     public static final class ByDimensionTransformation {
-        @Nullable public final List<Integer> inputAxes;
-        @Nullable public final List<Integer> outputAxes;
+        @Nullable
+        @JsonProperty("inputAxes")
+        public final List<Integer> inputAxes;
+        @Nullable
+        @JsonProperty("outputAxes")
+        public final List<Integer> outputAxes;
         @Nullable public final CoordinateTransformation transformation;
 
         @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
         public ByDimensionTransformation(
-                @Nullable @JsonProperty("input_axes") List<Integer> inputAxes,
-                @Nullable @JsonProperty("output_axes") List<Integer> outputAxes,
+                @Nullable @JsonProperty("inputAxes") @JsonAlias("input_axes") List<Integer> inputAxes,
+                @Nullable @JsonProperty("outputAxes") @JsonAlias("output_axes") List<Integer> outputAxes,
                 @Nullable @JsonProperty("transformation") CoordinateTransformation transformation
         ) {
             this.inputAxes = inputAxes;
