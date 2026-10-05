@@ -107,6 +107,8 @@ public class ZarrPythonTests extends ZarrTest {
                 new Object[]{"blosc", "lz4hc_bitshuffle_3", dev.zarr.zarrjava.v2.DataType.INT32},
                 new Object[]{"blosc", "zlib_shuffle_5", dev.zarr.zarrjava.v2.DataType.INT32},
                 new Object[]{"blosc", "zstd_bitshuffle_9", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"gzip", "0", dev.zarr.zarrjava.v2.DataType.INT32},
+                new Object[]{"gzip", "5", dev.zarr.zarrjava.v2.DataType.INT32},
                 new Object[]{"zstd", "0_true", dev.zarr.zarrjava.v2.DataType.INT32},
                 new Object[]{"zstd", "5_false", dev.zarr.zarrjava.v2.DataType.INT32}
         );
@@ -240,6 +242,9 @@ public class ZarrPythonTests extends ZarrTest {
                 String shuffle = compressorParam.split("_")[1];
                 int clevel_blosc = Integer.parseInt(compressorParam.split("_")[2]);
                 builder = builder.withBloscCompressor(cname, shuffle, clevel_blosc);
+                break;
+            case "gzip":
+                builder = builder.withGzipCompressor(Integer.parseInt(compressorParam));
                 break;
             case "zlib":
                 builder = builder.withZlibCompressor(Integer.parseInt(compressorParam));

@@ -27,8 +27,8 @@ public class ZlibCodec extends BytesBytesCodec implements Codec {
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ZlibCodec(
             @JsonProperty(value = "level", defaultValue = "1") int level) throws ZarrException {
-        if (level < 0 || level > 9) {
-            throw new ZarrException("'level' needs to be between 0 and 9.");
+        if (level < Deflater.DEFAULT_COMPRESSION || level > 9) {
+            throw new ZarrException("'level' needs to be between -1 and 9.");
         }
         this.level = level;
     }

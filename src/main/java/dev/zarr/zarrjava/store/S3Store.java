@@ -1,17 +1,28 @@
 package dev.zarr.zarrjava.store;
 
-import dev.zarr.zarrjava.utils.Utils;
-import software.amazon.awssdk.core.ResponseInputStream;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.*;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.stream.Stream;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
+import dev.zarr.zarrjava.utils.Utils;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 public class S3Store implements Store, Store.ListableStore {
 
@@ -82,7 +93,9 @@ public class S3Store implements Store, Store.ListableStore {
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                .range(String.format("bytes=%d-", start))
+                  .range(start < 0 // negative start implies indexing from the end, i.e. last bytes
+                    ? String.format("bytes=%d", start)
+                    : String.format("bytes=%d-", start))
                 .build();
         return get(req);
     }
@@ -90,10 +103,17 @@ public class S3Store implements Store, Store.ListableStore {
     @Nullable
     @Override
     public ByteBuffer get(String[] keys, long start, long end) {
+        if (start < 0) {
+            throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
+        }
+        // S3 ranges are inclusive; a negative end means "until the end of the object".
+        String range = end < 0
+                ? String.format("bytes=%d-", start)
+                : String.format("bytes=%d-%d", start, end - 1);
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
+                .range(range)
                 .build();
         return get(req);
     }
@@ -208,10 +228,17 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public InputStream getInputStream(String[] keys, long start, long end) {
+        if (start < 0) {
+            throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
+        }
+        // S3 ranges are inclusive; a negative end means "until the end of the object".
+        String range = end < 0
+                ? String.format("bytes=%d-", start)
+                : String.format("bytes=%d-%d", start, end - 1);
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
+                .range(range)
                 .build();
         return s3client.getObject(req);
     }
