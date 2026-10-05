@@ -46,12 +46,24 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
 
+      - name: Cache testdata
+        id: cache-testdata
+        uses: actions/cache@v4
+        with:
+          path: testdata/l4_sample
+          key: testdata-l4_sample-v1
+
       - name: Download testdata
+        if: steps.cache-testdata.outputs.cache-hit != 'true'
         run: |
-          mkdir testoutput
-          curl https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
+          curl -fL --retry 5 --retry-delay 10 --retry-all-errors \
+            https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
           cd testdata
-          unzip l4_sample.zip
+          unzip -q l4_sample.zip
+          rm l4_sample.zip
+
+      - name: Create testoutput
+        run: mkdir -p testoutput
 
       - name: Build
         run: mvn compile
