@@ -2,6 +2,8 @@ package dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+import javax.annotation.Nullable;
 import java.util.List;
 
 @JsonTypeInfo(
@@ -25,19 +27,43 @@ import java.util.List;
 })
 public interface CoordinateTransformation {
     String getType();
-    String getInput();
-    String getOutput();
+    @Nullable CoordinateSystemRef getInput();
+    @Nullable CoordinateSystemRef getOutput();
     String getName();
 
-    static CoordinateTransformation scale(List<Double> scale, String input, String output) {
+    /**
+     * Scale transformation from {@code input} to {@code output}. For a {@code multiscales > datasets}
+     * entry use {@code CoordinateSystemRef.ofPath(datasetPath)} as input and
+     * {@code CoordinateSystemRef.ofName(intrinsicName)} as output.
+     */
+    static CoordinateTransformation scale(
+            List<Double> scale, @Nullable CoordinateSystemRef input, @Nullable CoordinateSystemRef output) {
         return new ScaleCoordinateTransformation(input, output, null, scale, null);
     }
 
-    static CoordinateTransformation translation(List<Double> translation, String input, String output) {
+    /** Scale transformation without input/output, e.g. for use inside a {@code sequence}. */
+    static CoordinateTransformation scale(List<Double> scale) {
+        return scale(scale, null, null);
+    }
+
+    static CoordinateTransformation translation(
+            List<Double> translation, @Nullable CoordinateSystemRef input, @Nullable CoordinateSystemRef output) {
         return new TranslationCoordinateTransformation(input, output, null, translation, null);
     }
 
-    static CoordinateTransformation identity(String input, String output) {
+    /** Translation transformation without input/output, e.g. for use inside a {@code sequence}. */
+    static CoordinateTransformation translation(List<Double> translation) {
+        return translation(translation, null, null);
+    }
+
+    static CoordinateTransformation identity(@Nullable CoordinateSystemRef input, @Nullable CoordinateSystemRef output) {
         return new IdentityCoordinateTransformation(input, output, null, null);
+    }
+
+    static CoordinateTransformation sequence(
+            List<CoordinateTransformation> transformations,
+            @Nullable CoordinateSystemRef input,
+            @Nullable CoordinateSystemRef output) {
+        return new SequenceCoordinateTransformation(input, output, null, transformations);
     }
 }

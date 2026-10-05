@@ -74,6 +74,25 @@ Scene roots (groups with `ome.scene`) are supported via `dev.zarr.zarrjava.exper
 Notes:
 - Parsing is permissive and explicit (no strict full-spec validation).
 - Scene-level references (`input`/`output`) are resolved against scene-root coordinate systems and child image coordinate systems for graph inspection.
+
+### v0.6 coordinate system references
+
+In v0.6, the `input`/`output` of a coordinate transformation is a `CoordinateSystemRef` (`{"name": ..., "path": ...}`, both optional):
+
+```java
+import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef;
+import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation;
+
+// multiscales > datasets: input references the dataset path, output the intrinsic coordinate system
+CoordinateTransformation.scale(Arrays.asList(0.5, 0.5),
+    CoordinateSystemRef.ofPath("s0"), CoordinateSystemRef.ofName("physical"));
+// scene > coordinateTransformations: name + path of the image group
+CoordinateTransformation.identity(
+    CoordinateSystemRef.of("physical", "imageA"), CoordinateSystemRef.of("physical", "imageB"));
+```
+
+`createScaleLevel(...)` on a v0.6 image fills these in automatically (input `{"path": <level path>}`, output `{"name": <intrinsic>}`, where the intrinsic name is taken from existing datasets or the first entry of `coordinateSystems`); passing several transformations wraps them in a `sequence`.
+Pre-release string references (e.g. `"input": "s0"`, `"output": "physical"`) are still read: a bare string is a coordinate system name, except the input of a dataset transformation, which is the dataset path. They are always written back in object form.
 - Path-based transform assets can be normalized with `Scene.normalizeCoordinateTransformPath(...)` and grouped under `coordinateTransformations/` via `createCoordinateTransformationsGroup()`.
 
 ## Read example

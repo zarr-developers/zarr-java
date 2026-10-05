@@ -197,8 +197,9 @@ class OmeObjectMappersTest {
                 (dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.GenericCoordinateTransformation)
                         entry.datasets.get(0).coordinateTransformations.get(0);
         assertEquals("customNonLinear", generic.type);
-        assertEquals("s0", generic.input);
-        assertEquals("physical", generic.output);
+        // legacy bare-string refs: dataset input -> path, output -> name
+        assertEquals(dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef.ofPath("s0"), generic.input);
+        assertEquals(dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef.ofName("physical"), generic.output);
         assertEquals("custom-stage", generic.name);
         assertEquals(Arrays.asList(1, 4, 9), generic.raw.get("lut"));
         assertEquals(extension, generic.raw.get("extension"));
@@ -336,8 +337,10 @@ class OmeObjectMappersTest {
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation parsedTranslation =
                 seq.transformations.get(0);
         assertEquals("translation", parsedTranslation.getType());
-        assertEquals("imgA#physical", parsedTranslation.getInput());
-        assertEquals(".#world", parsedTranslation.getOutput());
+        assertEquals(dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef.of("physical", "imgA"),
+                parsedTranslation.getInput());
+        assertEquals(dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef.ofName("world"),
+                parsedTranslation.getOutput());
 
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation parsedByDim =
                 seq.transformations.get(1);
