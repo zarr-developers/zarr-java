@@ -1,5 +1,6 @@
 package dev.zarr.zarrjava.v2;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
 public enum DataType implements dev.zarr.zarrjava.core.DataType {
@@ -30,6 +31,24 @@ public enum DataType implements dev.zarr.zarrjava.core.DataType {
     DataType(String dtype, Endianness endianness) {
         this.dtype = dtype;
         this.endianness = endianness;
+    }
+
+    @JsonCreator
+    public static DataType fromValue(String value) {
+        for (DataType dataType : values()) {
+            if (dataType.getValue().equals(value)) {
+                return dataType;
+            }
+        }
+        // byte order is irrelevant for single-byte types, but numpy accepts (and some writers emit) "<u1" or ">u1"
+        if (value.startsWith(Endianness.LITTLE.getValue()) || value.startsWith(Endianness.BIG.getValue())) {
+            for (DataType dataType : values()) {
+                if (dataType.endianness == Endianness.UNSPECIFIED && dataType.dtype.equals(value.substring(1))) {
+                    return dataType;
+                }
+            }
+        }
+        throw new IllegalArgumentException("Unsupported data type: " + value);
     }
 
     public Endianness getEndianness() {

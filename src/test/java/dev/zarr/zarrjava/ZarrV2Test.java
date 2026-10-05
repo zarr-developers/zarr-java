@@ -18,6 +18,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -607,6 +609,16 @@ public class ZarrV2Test extends ZarrTest {
             JsonNode JSON = new ObjectMapper().readTree(jsonInString);
             Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"|u1,UINT8", "<u1,UINT8", ">u1,UINT8", ">i1,INT8", "<b1,BOOL", ">u2,UINT16_BE"})
+    public void testReadDataTypeWithAnyByteOrder(String dtype, DataType expected) throws ZarrException, IOException {
+        StoreHandle storeHandle = new MemoryStore().resolve("array");
+        storeHandle.resolve(ZARRAY).set(ByteBuffer.wrap(("{\"zarr_format\": 2, \"shape\": [2], \"chunks\": [2], " +
+                "\"dtype\": \"" + dtype + "\", \"compressor\": null, \"fill_value\": 0, \"filters\": null, " +
+                "\"order\": \"C\"}").getBytes(StandardCharsets.UTF_8)));
+        Assertions.assertEquals(expected, Array.open(storeHandle).metadata().dataType);
     }
 
     @Test
