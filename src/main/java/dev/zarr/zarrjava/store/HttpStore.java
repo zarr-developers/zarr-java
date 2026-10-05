@@ -128,8 +128,12 @@ public class HttpStore implements Store {
         if (start < 0) {
             throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
         }
-        Request request = new Request.Builder().url(resolveKeys(keys)).header(
-                "Range", String.format("bytes=%d-%d", start, end - 1)).build();
+        // A negative end means "until the end of the object", which HTTP expresses as an
+        // open-ended range.
+        String range = end < 0
+                ? String.format("bytes=%d-", start)
+                : String.format("bytes=%d-%d", start, end - 1);
+        Request request = new Request.Builder().url(resolveKeys(keys)).header("Range", range).build();
 
         try {
             // We do NOT use try-with-resources here because the stream must remain open
