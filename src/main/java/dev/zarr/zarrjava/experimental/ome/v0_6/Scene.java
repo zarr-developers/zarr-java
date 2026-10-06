@@ -13,6 +13,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 
+import dev.zarr.zarrjava.experimental.ome.OmeNodes;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,7 +48,16 @@ public final class Scene extends OmeV3Group {
     }
 
     public static Scene openScene(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.6 scene from a group that is already open, without reading its own metadata
+     * again. If the group has consolidated metadata, discovering the image nodes below it costs no
+     * store request at all: neither the listing nor the metadata of the children is read.
+     */
+    public static Scene fromGroup(@Nonnull Group group) throws IOException, ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.OmeMetadata omeMetadata = readOmeAttribute(
                 group.metadata.attributes, storeHandle, dev.zarr.zarrjava.experimental.ome.v0_6.metadata.OmeMetadata.class);
         if (!omeMetadata.version.startsWith("0.6")) {
@@ -59,9 +69,9 @@ public final class Scene extends OmeV3Group {
         }
 
         Map<String, MultiscaleImage> discovered = new LinkedHashMap<>();
-        for (String child : asList(storeHandle.listChildren())) {
+        for (String child : OmeNodes.childNames(group)) {
             try {
-                MultiscaleImage image = MultiscaleImage.openMultiscaleImage(storeHandle.resolve(child));
+                MultiscaleImage image = MultiscaleImage.fromGroup(OmeNodes.childGroup(group, child));
                 if (image.getRawOmeMetadata().multiscales != null && !image.getRawOmeMetadata().multiscales.isEmpty()) {
                     discovered.put(child, image);
                 }
@@ -105,7 +115,7 @@ public final class Scene extends OmeV3Group {
         if (discovered != null) {
             return discovered;
         }
-        MultiscaleImage opened = MultiscaleImage.openMultiscaleImage(storeHandle.resolve(path));
+        MultiscaleImage opened = MultiscaleImage.fromGroup(OmeNodes.childGroup(this, path));
         if (opened.getRawOmeMetadata().multiscales == null || opened.getRawOmeMetadata().multiscales.isEmpty()) {
             throw new ZarrException("No multiscales metadata found at image node path '" + path + "'");
         }
@@ -272,11 +282,4 @@ public final class Scene extends OmeV3Group {
         return null;
     }
 
-    private static List<String> asList(java.util.stream.Stream<String> stream) {
-        try {
-            return stream.collect(java.util.stream.Collectors.toList());
-        } finally {
-            stream.close();
-        }
-    }
 }

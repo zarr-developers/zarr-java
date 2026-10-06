@@ -288,6 +288,61 @@ Array array = group.createArray(
         .build()
 );
 ```
+### Consolidated Metadata (v3)
+A group can keep a copy of the metadata of all of its descendants inside its own `zarr.json`, so that
+the whole hierarchy can be opened with a single read instead of one read per node. This matters most
+over HTTP and S3, where every node otherwise costs a request.
+
+```java
+// Write the cache. This walks the hierarchy once and stores the metadata of every
+// descendant in the metadata of this group.
+Group root = Group.consolidateMetadata(storeHandle);
+Group root = Group.consolidateMetadata("/data/my.zarr");   // or a path
+
+// Consolidate a subtree instead of the whole hierarchy
+Group.consolidateMetadata(storeHandle.resolve("sub"));
+
+// The same, on a group that is already open
+Group root = Group.open(storeHandle).consolidateMetadata();
+
+// Reads and listings are answered from the cache, without touching the store.
+Group sub = (Group) root.get("sub");
+Array array = (Array) sub.get("nested");
+Node[] everything = root.listAsArray();
+
+// Remove the cache again
+root.dropConsolidatedMetadata();
+```
+
+On opening, the cache is used if the group has one. Pass `UseConsolidated` to say otherwise:
+
+```java
+Group auto = Group.open(storeHandle);                                   // use it if present
+Group required = Group.open(storeHandle, UseConsolidated.REQUIRE);      // fail if absent
+Group required = Group.openConsolidated(storeHandle);                   // the same, shorter
+Group fresh = Group.open(storeHandle, UseConsolidated.IGNORE);          // read every node instead
+```
+
+`UseConsolidated.IGNORE` drops the cache from the metadata held in memory, so writing that metadata
+again - with `setAttributes()` for example - removes the cache from the store as well. The choice
+applies to the group being opened only: a subgroup reached through `get()` uses a cache of its own if
+it has one.
+
+The cache is written in the same format as `zarr.consolidate_metadata()` in zarr-python, and behaves
+the same way on reading, so both libraries can read each other's output.
+
+**The cache is authoritative.** While a group is using its cache, `get()` and `list()` answer from it
+alone and never fall back to the store. A key the cache does not hold is reported as absent.
+
+**The cache is a snapshot.** Nothing invalidates it when a node is added, removed or changed
+afterwards, so it has to be written again after modifying the hierarchy. Until then a node added
+afterwards is invisible, and a node changed afterwards is served as it was. Open the group with
+`UseConsolidated.IGNORE` if in doubt.
+
+Consolidated metadata is a Zarr v3 feature here; the v2 `.zmetadata` file is not supported. Note that
+consolidated metadata is not part of the Zarr v3 specification, so other implementations may not
+support it; `consolidateMetadata()` logs a warning saying so, as zarr-python does.
+
 ### Hierarchical Example
 ```java
 Group root = Group.create(

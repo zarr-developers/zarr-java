@@ -32,34 +32,33 @@ public interface Plate {
      * Opens an OME-Zarr plate at the given store handle, auto-detecting the Zarr version.
      */
     static Plate open(StoreHandle storeHandle) throws IOException, ZarrException {
-        // Try version >= 0.5: zarr.json with "ome" -> "plate"
-        StoreHandle zarrJson = storeHandle.resolve(Node.ZARR_JSON);
-        if (zarrJson.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV3Mapper();
-            byte[] bytes = Utils.toArray(zarrJson.readNonNull());
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
-            com.fasterxml.jackson.databind.JsonNode attrs = root.get("attributes");
-            if (attrs != null && attrs.has("ome") && attrs.get("ome").has("plate")) {
-                com.fasterxml.jackson.databind.JsonNode omeNode = attrs.get("ome");
-                String version = omeNode.has("version") ? omeNode.get("version").asText() : "";
-                if (version.startsWith("0.6")) {
-                    return dev.zarr.zarrjava.experimental.ome.v0_6.Plate.openPlate(storeHandle);
-                }
-                return dev.zarr.zarrjava.experimental.ome.v0_5.Plate.openPlate(storeHandle);
-            }
+        // Zarr v3 (OME-Zarr 0.5 and 0.6): a zarr.json holding an "ome" -> "plate" attribute. The group
+        // is read once here and handed to the version class, which does not read it again.
+        dev.zarr.zarrjava.v3.Group v3Group = OmeNodes.openV3GroupOrNull(storeHandle);
+        if (v3Group != null && OmeNodes.omeHas(v3Group.metadata.attributes, "plate")) {
+            return fromGroup(v3Group);
         }
 
-        // Try v0.4: .zattrs with "plate"
-        StoreHandle zattrs = storeHandle.resolve(Node.ZATTRS);
-        if (zattrs.exists()) {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = OmeObjectMappers.makeV2Mapper();
-            byte[] bytes = Utils.toArray(zattrs.readNonNull());
-            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(bytes);
-            if (root.has("plate")) {
-                return dev.zarr.zarrjava.experimental.ome.v0_4.Plate.openPlate(storeHandle);
-            }
+        // Zarr v2 (OME-Zarr 0.4): a .zattrs holding a "plate" key.
+        dev.zarr.zarrjava.v2.Group v2Group = OmeNodes.openV2GroupOrNull(storeHandle);
+        if (v2Group != null && v2Group.metadata.attributes != null
+                && v2Group.metadata.attributes.containsKey("plate")) {
+            return dev.zarr.zarrjava.experimental.ome.v0_4.Plate.fromGroup(v2Group);
         }
 
         throw new ZarrException("No OME-Zarr plate metadata found at " + storeHandle);
+    }
+
+    /**
+     * Builds a plate from a Zarr v3 group that is already open, picking the OME-Zarr version from its
+     * attributes. No store request is made, so a group that came from {@code Group.get()} is served
+     * from the consolidated metadata of its ancestor.
+     */
+    static Plate fromGroup(dev.zarr.zarrjava.v3.Group group) throws IOException, ZarrException {
+        String version = OmeNodes.omeVersion(group.metadata.attributes);
+        if (version != null && version.startsWith("0.6")) {
+            return dev.zarr.zarrjava.experimental.ome.v0_6.Plate.fromGroup(group);
+        }
+        return dev.zarr.zarrjava.experimental.ome.v0_5.Plate.fromGroup(group);
     }
 }

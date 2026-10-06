@@ -49,7 +49,15 @@ public final class MultiscaleImage extends OmeV2Group implements MultiscalesMeta
      * Opens an existing OME-Zarr v0.4 multiscale image at the given store handle.
      */
     public static MultiscaleImage openMultiscaleImage(@Nonnull StoreHandle storeHandle) throws IOException, ZarrException {
-        Group group = Group.open(storeHandle);
+        return fromGroup(Group.open(storeHandle));
+    }
+
+    /**
+     * Builds an OME-Zarr v0.4 multiscale image from a group that is already open, without reading the
+     * store again.
+     */
+    public static MultiscaleImage fromGroup(@Nonnull Group group) throws ZarrException {
+        StoreHandle storeHandle = group.storeHandle;
         Attributes attributes = group.metadata.attributes;
         List<MultiscalesEntry> multiscales = readTypedAttribute(
                 attributes, storeHandle, "multiscales", new TypeReference<List<MultiscalesEntry>>() {});
