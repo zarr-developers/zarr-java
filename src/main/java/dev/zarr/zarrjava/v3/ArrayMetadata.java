@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.v3;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,6 +50,14 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
     @JsonProperty("storage_transformers")
     public final Map<String, Object>[] storageTransformers;
 
+    /**
+     * Members of the metadata document that zarr-java does not know about. The Zarr v3 specification
+     * requires that these are ignored when they declare {@code "must_understand": false}, and that
+     * they are rejected otherwise. They are kept here so that rewriting the metadata does not drop
+     * extensions written by another implementation.
+     */
+    private final Map<String, Object> extraFields;
+
     @JsonIgnore
     public CoreArrayMetadata coreArrayMetadata;
 
@@ -65,6 +75,39 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         );
     }
 
+    public ArrayMetadata(
+            long[] shape, DataType dataType, ChunkGrid chunkGrid, ChunkKeyEncoding chunkKeyEncoding,
+            Object fillValue,
+            @Nonnull Codec[] codecs,
+            @Nullable String[] dimensionNames,
+            @Nullable Attributes attributes,
+            @Nullable Map<String, Object>[] storageTransformers,
+            @Nullable Map<String, Object> extraFields
+    ) throws ZarrException {
+        this(ZARR_FORMAT, NODE_TYPE, shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
+                dimensionNames,
+                attributes, storageTransformers, extraFields
+        );
+    }
+
+    public ArrayMetadata(
+            int zarrFormat,
+            String nodeType,
+            long[] shape,
+            DataType dataType,
+            ChunkGrid chunkGrid,
+            ChunkKeyEncoding chunkKeyEncoding,
+            Object fillValue,
+            @Nonnull Codec[] codecs,
+            @Nullable String[] dimensionNames,
+            @Nullable Attributes attributes,
+            @Nullable Map<String, Object>[] storageTransformers
+    ) throws ZarrException {
+        this(zarrFormat, nodeType, shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
+                dimensionNames, attributes, storageTransformers, null
+        );
+    }
+
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ArrayMetadata(
             @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
@@ -77,9 +120,11 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
             @Nonnull @JsonProperty(value = "codecs") Codec[] codecs,
             @Nullable @JsonProperty(value = "dimension_names") String[] dimensionNames,
             @Nullable @JsonProperty(value = "attributes") Attributes attributes,
-            @Nullable @JsonProperty(value = "storage_transformers") Map<String, Object>[] storageTransformers
+            @Nullable @JsonProperty(value = "storage_transformers") Map<String, Object>[] storageTransformers,
+            @Nullable @JsonAnySetter Map<String, Object> extraFields
     ) throws ZarrException {
         super(shape, fillValue, dataType);
+        this.extraFields = ExtraFields.validatedArrayFields(extraFields);
         if (zarrFormat != this.zarrFormat) {
             throw new ZarrException(
                     "Expected zarr format '" + this.zarrFormat + "', got '" + zarrFormat + "'.");
@@ -127,6 +172,18 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         this.dimensionNames = dimensionNames;
         this.attributes = attributes;
         this.storageTransformers = storageTransformers;
+    }
+
+    /**
+     * The members of the metadata document that zarr-java does not know about, but that declared
+     * {@code "must_understand": false} and could therefore be ignored. They are written back out
+     * unchanged, so that extensions written by another implementation survive a metadata rewrite.
+     *
+     * @return the extra fields, never {@code null}
+     */
+    @JsonAnyGetter
+    public Map<String, Object> extraFields() {
+        return extraFields;
     }
 
     public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
