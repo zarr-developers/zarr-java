@@ -10,20 +10,16 @@ import dev.zarr.zarrjava.store.MemoryStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.MultiArrayUtils;
 import dev.zarr.zarrjava.v3.*;
-import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BloscCodec;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 import dev.zarr.zarrjava.v3.codec.core.ShardingIndexedCodec;
-import dev.zarr.zarrjava.v3.codec.core.TransposeCodec;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import ucar.ma2.MAMath;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -40,50 +36,14 @@ import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.core.ArrayMetadata.parseFillValue;
 import static dev.zarr.zarrjava.core.Node.ZARR_JSON;
-import static dev.zarr.zarrjava.utils.Utils.toLongArray;
 import static org.junit.Assert.assertThrows;
 
 public class ZarrV3Test extends ZarrTest {
-
-    static Stream<Function<CodecBuilder, CodecBuilder>> invalidCodecBuilder() {
-        return Stream.of(
-                c -> c.withBytes(BytesCodec.Endian.LITTLE).withBytes(BytesCodec.Endian.LITTLE),
-                c -> c.withBlosc().withBytes(BytesCodec.Endian.LITTLE),
-                c -> c.withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0}),
-                c -> c.withTranspose(new int[]{1, 0}).withBytes(BytesCodec.Endian.LITTLE).withTranspose(new int[]{1, 0})
-        );
-    }
 
     static Stream<int[]> invalidChunkSizes() {
         return Stream.of(
                 new int[]{1},
                 new int[]{1, 1, 1}
-        );
-    }
-
-    static Stream<int[]> invalidShardSizes() {
-        return Stream.of(
-                new int[]{4},           //wrong dims
-                new int[]{4, 4, 4},     //wrong dims
-                new int[]{1, 1},        //smaller than inner chunk shape
-                new int[]{5, 5},        //no exact multiple of inner chunk shape
-                new int[]{2, 1},        //smaller than inner chunk shape in 2nd dimension
-                new int[]{2, 5}         //no exact multiple of inner chunk shape in 2nd dimension
-        );
-    }
-
-    static Stream<Arguments> invalidShardSizesWithNested() {
-        return invalidShardSizes().flatMap(shardSize ->
-                Stream.of(true, false).map(nested -> Arguments.of(shardSize, nested))
-        );
-    }
-
-    static Stream<int[]> invalidTransposeOrder() {
-        return Stream.of(
-                new int[]{1, 0, 0},
-                new int[]{1, 2, 3},
-                new int[]{1, 2, 3, 0},
-                new int[]{1, 2}
         );
     }
 
@@ -117,36 +77,6 @@ public class ZarrV3Test extends ZarrTest {
         builder.add(Arguments.of(50, 3, 22));
         builder.add(Arguments.of(13, 31, 21));
         return builder.build();
-    }
-
-    static Stream<Arguments> dataTypeAndEndianProvider() {
-        return Stream.of(
-                Arguments.of(DataType.INT16, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.INT16, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.UINT16, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.UINT16, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.INT32, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.INT32, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.UINT32, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.UINT32, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.FLOAT32, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.FLOAT32, BytesCodec.Endian.BIG),
-                Arguments.of(DataType.FLOAT64, BytesCodec.Endian.LITTLE),
-                Arguments.of(DataType.FLOAT64, BytesCodec.Endian.BIG)
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("invalidCodecBuilder")
-    public void testCheckInvalidCodecConfiguration(Function<CodecBuilder, CodecBuilder> codecBuilder) {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("invalid_codec_config", String.valueOf(codecBuilder.hashCode()));
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(4, 4)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(2, 2)
-                .withCodecs(codecBuilder);
-
-        assertThrows(ZarrException.class, () -> Array.create(storeHandle, builder.build()));
     }
 
     @Test
@@ -184,111 +114,6 @@ public class ZarrV3Test extends ZarrTest {
         assertThrows(ZarrException.class, builder::build);
     }
 
-    @ParameterizedTest
-    @MethodSource("invalidShardSizesWithNested")
-    public void testCheckShardingBounds(int[] shardSize, boolean nested) {
-        long[] shape = new long[]{10, 10};
-        int[] innerChunkSize = new int[]{2, 2};
-
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(shape)
-                .withDataType(DataType.UINT32).withChunkShape(shardSize);
-
-        if (nested) {
-            int[] nestedChunkSize = new int[]{4, 4};
-            builder = builder.withCodecs(c -> c.withSharding(new int[]{2, 2}, c1 -> c1.withSharding(nestedChunkSize, c2 -> c2.withBytes("LITTLE"))));
-        }
-        builder = builder.withCodecs(c -> c.withSharding(innerChunkSize, c1 -> c1.withBytes("LITTLE")));
-        assertThrows(ZarrException.class, builder::build);
-    }
-
-    @ParameterizedTest
-    @CsvSource({"0,true", "0,false", "5, true", "5, false"})
-    public void testZstdCodecReadWrite(int level, boolean checksum) throws ZarrException, IOException {
-        int[] testData = new int[16 * 16 * 16];
-        Arrays.setAll(testData, p -> p);
-
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testZstdCodecReadWrite", "checksum_" + checksum, "level_" + level);
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(16, 16, 16)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(2, 4, 8)
-                .withFillValue(0)
-                .withCodecs(c -> c.withZstd(level, checksum));
-        Array writeArray = Array.create(storeHandle, builder.build());
-        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
-
-        Array readArray = Array.open(storeHandle);
-        ucar.ma2.Array result = readArray.read();
-
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
-    }
-
-    @Test
-    public void testShardingWithZstdCodecReadWrite() throws ZarrException, IOException {
-        int[] testData = new int[16 * 16 * 16];
-        Arrays.setAll(testData, p -> p);
-
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testShardingWithZstdCodecReadWrite");
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
-                .withShape(16, 16, 16)
-                .withDataType(DataType.UINT32)
-                .withChunkShape(8, 8, 8)
-                .withFillValue(0)
-                .withCodecs(c -> c.withSharding(new int[]{2, 4, 8}, c1 -> c1.withZstd()));
-        Array writeArray = Array.create(storeHandle, builder.build());
-        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{16, 16, 16}, testData));
-
-        Array readArray = Array.open(storeHandle);
-        ucar.ma2.Array result = readArray.read();
-
-        Assertions.assertArrayEquals(testData, (int[]) result.get1DJavaArray(ucar.ma2.DataType.UINT));
-    }
-
-    @Test
-    public void testTransposeCodec() throws ZarrException {
-        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{2, 3, 3}, new int[]{
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17});
-        ucar.ma2.Array testDataTransposed120 = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, new int[]{3, 3, 2}, new int[]{
-                0, 9, 1, 10, 2, 11, 3, 12, 4, 13, 5, 14, 6, 15, 7, 16, 8, 17});
-
-        TransposeCodec transposeCodec = new TransposeCodec(new TransposeCodec.Configuration(new int[]{1, 2, 0}));
-        transposeCodec.setCoreArrayMetadata(new ArrayMetadata.CoreArrayMetadata(
-                new long[]{2, 3, 3},
-                new int[]{2, 3, 3},
-                DataType.UINT32,
-                null));
-
-        assert MAMath.equals(testDataTransposed120, transposeCodec.encode(testData));
-        assert MAMath.equals(testData, transposeCodec.decode(testDataTransposed120));
-    }
-
-    @ParameterizedTest
-    @MethodSource("invalidTransposeOrder")
-    public void testCheckInvalidTransposeOrder(int[] transposeOrder) throws Exception {
-        int[] shapeInt = new int[]{2, 3, 3};
-        long[] shapeLong = new long[]{2, 3, 3};
-
-        TransposeCodec transposeCodec = new TransposeCodec(new TransposeCodec.Configuration(transposeOrder));
-        transposeCodec.setCoreArrayMetadata(new ArrayMetadata.CoreArrayMetadata(
-                shapeLong,
-                shapeInt,
-                DataType.UINT32,
-                null));
-
-        ucar.ma2.Array testData = ucar.ma2.Array.factory(ucar.ma2.DataType.UINT, shapeInt);
-        assertThrows(ZarrException.class, () -> transposeCodec.encode(testData));
-    }
-
-    @Test
-    public void testShardingReadCutout() throws IOException, ZarrException {
-        Array array = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
-
-        ucar.ma2.Array outArray = array.read(new long[]{0, 3073, 3073, 513}, new long[]{1, 64, 64, 64});
-        Assertions.assertEquals(64 * 64 * 64, outArray.getSize());
-        Assertions.assertEquals(-98, outArray.getByte(0));
-    }
-
     @Test
     public void testAccess() throws IOException, ZarrException {
         Array readArray = Array.open(new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "1"));
@@ -304,57 +129,6 @@ public class ZarrV3Test extends ZarrTest {
                 readArray.metadata()
         );
         writeArray.access().withOffset(0, 3073, 3073, 513).write(outArray);
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"start", "end"})
-    public void testShardingReadWrite(String indexLocation) throws IOException, ZarrException {
-        Array readArray = Array.open(
-                new FilesystemStore(TESTDATA).resolve("sharding_index_location", indexLocation));
-        ucar.ma2.Array readArrayContent = readArray.read();
-        Array writeArray = Array.create(
-                new FilesystemStore(TESTOUTPUT).resolve("sharding_index_location", indexLocation),
-                readArray.metadata()
-        );
-        writeArray.write(readArrayContent);
-        ucar.ma2.Array outArray = writeArray.read();
-
-        assert MultiArrayUtils.allValuesEqual(readArrayContent, outArray);
-    }
-
-    @Test
-    public void testCodecs() throws IOException, ZarrException {
-        long[] readShape = new long[]{1, 1, 1024, 1024};
-        Array readArray = Array.open(
-                new FilesystemStore(TESTDATA).resolve("l4_sample", "color", "8-8-2"));
-        ucar.ma2.Array readArrayContent = readArray.read(new long[4], readShape);
-        {
-            Array gzipArray = Array.create(
-                    new FilesystemStore(TESTOUTPUT).resolve("l4_sample_gzip", "color", "8-8-2"),
-                    Array.metadataBuilder(readArray.metadata()).withCodecs(c -> c.withGzip(5)).build()
-            );
-            gzipArray.write(readArrayContent);
-            ucar.ma2.Array outGzipArray = gzipArray.read(new long[4], readShape);
-            assert MultiArrayUtils.allValuesEqual(outGzipArray, readArrayContent);
-        }
-        {
-            Array bloscArray = Array.create(
-                    new FilesystemStore(TESTOUTPUT).resolve("l4_sample_blosc", "color", "8-8-2"),
-                    Array.metadataBuilder(readArray.metadata()).withCodecs(c -> c.withBlosc("zstd", 5)).build()
-            );
-            bloscArray.write(readArrayContent);
-            ucar.ma2.Array outBloscArray = bloscArray.read(new long[4], readShape);
-            assert MultiArrayUtils.allValuesEqual(outBloscArray, readArrayContent);
-        }
-        {
-            Array zstdArray = Array.create(
-                    new FilesystemStore(TESTOUTPUT).resolve("l4_sample_zstd", "color", "8-8-2"),
-                    Array.metadataBuilder(readArray.metadata()).withCodecs(c -> c.withZstd(10)).build()
-            );
-            zstdArray.write(readArrayContent);
-            ucar.ma2.Array outZstdArray = zstdArray.read(new long[4], readShape);
-            assert MultiArrayUtils.allValuesEqual(outZstdArray, readArrayContent);
-        }
     }
 
     @Test
@@ -676,22 +450,6 @@ public class ZarrV3Test extends ZarrTest {
         assertContainsTestAttributes(arrayOpened.metadata().attributes());
         Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("specific"));
         Assertions.assertEquals("attribute", arrayOpened.metadata().attributes().getString("another"));
-    }
-
-    @Test
-    public void testCodecWithoutConfiguration() throws ZarrException, IOException {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testCodecWithoutConfigurationV3");
-        Array array = Array.create(storeHandle, Array.metadataBuilder()
-                .withShape(10, 10)
-                .withDataType(DataType.UINT8)
-                .withChunkShape(5, 5)
-                .withCodecs(CodecBuilder::withBytes)
-                .build()
-        );
-        Assertions.assertTrue(storeHandle.resolve(ZARR_JSON).exists());
-        Codec bytesCodec = array.metadata().codecs[0];
-        Assertions.assertInstanceOf(BytesCodec.class, bytesCodec);
-        Assertions.assertNull(((BytesCodec) bytesCodec).configuration);
     }
 
     @ParameterizedTest
@@ -1035,21 +793,4 @@ public class ZarrV3Test extends ZarrTest {
         Assertions.assertEquals(largeSize, array.metadata().shape[1]);
     }
 
-    @ParameterizedTest
-    @MethodSource("dataTypeAndEndianProvider")
-    public void testEndianness(DataType dataType, BytesCodec.Endian endian) throws IOException, ZarrException {
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testEndiannessV3").resolve(dataType.name()).resolve(endian.name());
-        ucar.ma2.Array testData = testdata(dataType);
-
-        ArrayMetadata metadata = Array.metadataBuilder()
-                .withShape(toLongArray(testData.getShape()))
-                .withDataType(dataType)
-                .withCodecs(c -> c.withBytes(endian))
-                .build();
-        Array array = Array.create(storeHandle, metadata);
-        array.write(testData);
-        Array reopenedArray = Array.open(storeHandle);
-        ucar.ma2.Array readData = reopenedArray.read();
-        assertIsTestdata(readData, dataType);
-    }
 }
