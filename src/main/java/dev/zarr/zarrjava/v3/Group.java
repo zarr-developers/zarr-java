@@ -15,15 +15,20 @@ import java.nio.ByteBuffer;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
+import java.util.Collections;
+import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v3.Node.makeObjectMapper;
 import static dev.zarr.zarrjava.v3.Node.makeObjectWriter;
 
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node {
+
+    /**
+     * Keys that hold metadata of a v3 group itself and never point at a child node.
+     */
+    private static final Set<String> METADATA_KEYS = Collections.singleton(ZARR_JSON);
 
     public GroupMetadata metadata;
 
@@ -192,25 +197,6 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
         }
     }
 
-    @Override
-    public Stream<dev.zarr.zarrjava.core.Node> list() {
-        Stream<String[]> metadataKeys = storeHandle.list()
-                .filter(key -> key[key.length - 1].equals(ZARR_JSON))
-                .filter(key -> key.length > 1); // exclude root from list
-        return metadataKeys.map(key -> {
-            try {
-                return get(Arrays.copyOf(key, key.length - 1));
-            } catch (IOException e) {
-                throw new RuntimeException(
-                        "Failed to read node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
-            } catch (ZarrException e) {
-                throw new RuntimeException(
-                        "Failed to parse node metadata for key '" + String.join("/", key) + "': " + e.getMessage(), e);
-            }
-        });
-    }
-
-
     /**
      * Creates a new subgroup with the provided metadata at the specified key.
      *
@@ -309,6 +295,11 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     @Override
     public String toString() {
         return String.format("<v3.Group {%s}>", storeHandle);
+    }
+
+    @Override
+    protected Set<String> metadataKeys() {
+        return METADATA_KEYS;
     }
 
     @Override
