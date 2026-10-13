@@ -69,9 +69,7 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
                     "reshape codec received an array of shape " + Arrays.toString(chunkArray.getShape())
                             + " but expected the chunk shape " + Arrays.toString(inputShape) + ".");
         }
-        // Array.reshape copies the elements in lexicographical (C) order, hence ravel(B) == ravel(A)
-        // even when the input array is a non-contiguous view.
-        return chunkArray.reshape(outputChunkShape);
+        return reshapeView(chunkArray, outputChunkShape);
     }
 
     @Override
@@ -83,7 +81,16 @@ public class ReshapeCodec extends ArrayArrayCodec implements Codec {
                             + " but expected the reshaped shape " + Arrays.toString(outputChunkShape) + ".");
         }
         // Inverse operation: reshape back to the original chunk shape.
-        return chunkArray.reshape(inputShape);
+        return reshapeView(chunkArray, inputShape);
+    }
+
+    /**
+     * Reshapes {@code chunkArray} to {@code shape}, constructing a virtual view rather than copying
+     * whenever that is possible, as the specification asks for.
+     */
+    private static Array reshapeView(Array chunkArray, int[] shape) {
+        ucar.ma2.DataType dataType = chunkArray.getDataType();
+        return Array.factory(dataType, shape, chunkArray.get1DJavaArray(dataType));
     }
 
     @Override
