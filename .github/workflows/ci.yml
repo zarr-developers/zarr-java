@@ -50,20 +50,20 @@ jobs:
         id: cache-testdata
         uses: actions/cache@v4
         with:
-          path: zarr-java-core/testdata/l4_sample
+          path: testdata/l4_sample
           key: testdata-l4_sample-v1
 
       - name: Download testdata
         if: steps.cache-testdata.outputs.cache-hit != 'true'
         run: |
           curl -fL --retry 5 --retry-delay 10 --retry-all-errors \
-            https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o zarr-java-core/testdata/l4_sample.zip
-          cd zarr-java-core/testdata
+            https://static.webknossos.org/data/zarr_v3/l4_sample.zip -o testdata/l4_sample.zip
+          cd testdata
           unzip -q l4_sample.zip
           rm l4_sample.zip
 
       - name: Create testoutput
-        run: mkdir -p zarr-java-core/testoutput zarr-java-ome/testoutput
+        run: mkdir -p testoutput
 
       - name: Build
         run: mvn compile
@@ -83,6 +83,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: jar-${{ runner.os }}
-          path: |
-            zarr-java-core/target/*.jar
-            zarr-java-ome/target/*.jar
+          path: target/*.jar

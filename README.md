@@ -15,6 +15,15 @@ For comprehensive documentation, see the [**User Guide**](USERGUIDE.md), which i
 - Best practices
 - Troubleshooting
 
+## Conventions
+
+zarr-java also ships support for Zarr conventions built on top of the core format, under the `dev.zarr.conventions`
+namespace. Currently this includes [OME-Zarr](https://ngff.openmicroscopy.org/) (v0.4, v0.5 and v0.6) in
+`dev.zarr.conventions.ome`; see the [**OME-Zarr Guide**](USERGUIDE-OME-ZARR.md).
+
+We are open to hosting other conventions as well. If you would like to add one, please open an issue or a pull request
+that places it in its own `dev.zarr.conventions.<name>` package.
+
 ## Quick Usage Example
 
 ```java
@@ -55,31 +64,6 @@ write(
 data
 );
 ```
-
-## Interactive Notebooks
-
-The `notebooks/` directory contains IJava (Java kernel for Jupyter) notebooks that let you explore and verify the library interactively without publishing it.
-
-**Prerequisites:** Java 17+, Maven 3.6+, Python 3, `curl`, `unzip`
-
-```bash
-./notebooks/start.sh
-```
-
-This single command:
-1. Builds the project and installs JARs to your local Maven cache (`~/.m2`)
-2. Wires up the classpath so the notebooks can import the library directly — no internet access needed for the library itself
-3. Installs Jupyter and the IJava kernel into `~/.jupyter-venv` on first run (one-time, ~1 min)
-4. Opens JupyterLab in your browser
-
-Available notebooks (in `notebooks/notebooks/`):
-
-| Notebook | Covers |
-|---|---|
-| `zarr_core.ipynb` | v2/v3 arrays, stores, codecs, sharding, groups, attributes, ZIP |
-| `ome_zarr_integration.ipynb` | OME-Zarr v0.4/v0.5, multiscale images, HCS plates and wells |
-
----
 
 ## Development Start-Guide
 

@@ -1,35 +1,8 @@
 # OME-Zarr Guide for zarr-java
 
-## Separate module
-
-OME-Zarr support lives in a dedicated module: **`zarr-java-ome`**.  
-Add it alongside the core library:
-
-### Maven
-```xml
-<dependency>
-    <groupId>dev.zarr</groupId>
-    <artifactId>zarr-java-core</artifactId>
-    <version>0.3.1</version>
-</dependency>
-<dependency>
-    <groupId>dev.zarr</groupId>
-    <artifactId>zarr-java-ome</artifactId>
-    <version>0.3.1</version>
-</dependency>
-```
-
-### Gradle
-```gradle
-dependencies {
-    implementation 'dev.zarr:zarr-java-core:0.3.1'
-    implementation 'dev.zarr:zarr-java-ome:0.3.1'
-}
-```
-
 ## Scope and supported versions
 
-`dev.zarr.omezarr` supports:
+`dev.zarr.conventions.ome` supports:
 
 - v0.4 (Zarr v2 layout)
 - v0.5 (Zarr v3 layout)
@@ -59,7 +32,7 @@ MultiscaleImage image = MultiscaleImage.open(s3);
 
 Metadata:
 
-- `getMultiscaleNode(int i)` → normalized `omezarr.metadata.MultiscalesEntry`
+- `getMultiscaleNode(int i)` → normalized `ome.metadata.MultiscalesEntry`
 - `getAxisNames()` → axis names from multiscale `0`
 - `getScaleLevelCount()` → number of datasets/levels in multiscale `0`
 - `getLabels()` / `openLabel(String)` → labels subgroup helpers
@@ -91,7 +64,7 @@ If you need the raw version-specific metadata model instead of normalized `Multi
 
 ## v0.6 Scene metadata
 
-Scene roots (groups with `ome.scene`) are supported via `dev.zarr.omezarr.v0_6.Scene`:
+Scene roots (groups with `ome.scene`) are supported via `dev.zarr.conventions.ome.v0_6.Scene`:
 
 - `Scene.openScene(StoreHandle)` / `Scene.open(StoreHandle)`
 - `Scene.createScene(StoreHandle, SceneMetadata)` / `Scene.create(...)`
@@ -106,10 +79,9 @@ Notes:
 ## Read example
 
 ```java
-import dev.zarr.omezarr.MultiscaleImage;
-import dev.zarr.omezarr.Plate;
-import dev.zarr.omezarr.Well;
-import dev.zarr.omezarr.metadata.MultiscalesEntry;
+import dev.zarr.conventions.ome.MultiscaleImage;
+import dev.zarr.conventions.ome.Plate;
+import dev.zarr.conventions.ome.Well;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 
@@ -118,7 +90,7 @@ MultiscaleImage image = MultiscaleImage.open(imageHandle);
 
 int scaleCount = image.getScaleLevelCount();
 java.util.List<String> axisNames = image.getAxisNames();
-MultiscalesEntry entry0 = image.getMultiscaleNode(0);
+dev.zarr.conventions.ome.metadata.MultiscalesEntry entry0 = image.getMultiscaleNode(0);
 
 dev.zarr.zarrjava.core.Array s0 = image.openScaleLevel(0);
 ucar.ma2.Array full = s0.read();
@@ -140,10 +112,9 @@ MultiscaleImage wellImage = well.openImage("0");
 Creation is version-specific, but the pattern is the same: create node with version metadata, then append levels/datasets with scale transforms. For example, for v0.5:
 
 ```java
-import dev.zarr.omezarr.metadata.Axis;
-import dev.zarr.omezarr.metadata.Dataset;
-import dev.zarr.omezarr.metadata.MultiscalesEntry;
-import dev.zarr.omezarr.metadata.transform.CoordinateTransformation;
+import dev.zarr.conventions.ome.metadata.Axis;
+import dev.zarr.conventions.ome.metadata.CoordinateTransformation;
+import dev.zarr.conventions.ome.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.store.FilesystemStore;
 import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.v3.Array;
@@ -155,9 +126,9 @@ import java.util.Collections;
 StoreHandle out = new FilesystemStore("/tmp/ome_v05.zarr").resolve();
 MultiscalesEntry ms = new MultiscalesEntry(
     Arrays.asList(new Axis("y", "space", "micrometer"), new Axis("x", "space", "micrometer")),
-    Collections.<Dataset>emptyList()
+    Collections.<Dataset>emptyList());
 );
-dev.zarr.omezarr.v0_5.MultiscaleImage written = dev.zarr.omezarr.v0_5.MultiscaleImage.create(out, ms);
+dev.zarr.conventions.ome.v0_5.MultiscaleImage written = dev.zarr.conventions.ome.v0_5.MultiscaleImage.create(out, ms);
 
 written.createScaleLevel(
     "s0",
@@ -173,8 +144,8 @@ written.createScaleLevel(
 
 ## Write entry points by version
 
-- `dev.zarr.omezarr.v0_4.MultiscaleImage.create(...)`
-- `dev.zarr.omezarr.v0_5.MultiscaleImage.create(...)`
-- `dev.zarr.omezarr.v0_6.MultiscaleImage.create(...)`
+- `ome.v0_4.MultiscaleImage.create(...)`
+- `ome.v0_5.MultiscaleImage.create(...)`
+- `ome.v0_6.MultiscaleImage.create(...)`
 
 Use the corresponding metadata classes for each version package.
