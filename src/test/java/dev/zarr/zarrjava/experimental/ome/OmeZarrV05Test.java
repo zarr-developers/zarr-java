@@ -24,7 +24,9 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -188,8 +190,11 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
         StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v05_labels"));
         dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.create(handle, new MultiscalesEntry(axes, Collections.emptyList()));
 
+        Map<String, Object> labelsOme = new LinkedHashMap<>();
+        labelsOme.put("version", "0.5");
+        labelsOme.put("labels", Arrays.asList("nuclei"));
         Attributes labelsAttrs = new Attributes();
-        labelsAttrs.put("labels", Arrays.asList("nuclei"));
+        labelsAttrs.put("ome", labelsOme);
         dev.zarr.zarrjava.v3.Group.create(handle.resolve("labels"), labelsAttrs);
 
         dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage nuclei = dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.create(
@@ -201,6 +206,75 @@ public class OmeZarrV05Test extends OmeZarrBaseTest {
         MultiscaleImage reopened = MultiscaleImage.open(handle);
         assertEquals(Collections.singletonList("nuclei"), reopened.getLabels());
         assertEquals(Arrays.asList("z", "y"), reopened.openLabel("nuclei").getAxisNames());
+    }
+
+    @Test
+    void labelsListLegacyLayout() throws Exception {
+        // Older files put "labels" directly under attributes instead of attributes.ome.
+        List<Axis> axes = Arrays.asList(
+                new Axis("y", "space", "micrometer"),
+                new Axis("x", "space", "micrometer"));
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v05_labels_legacy"));
+        dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.create(handle, new MultiscalesEntry(axes, Collections.emptyList()));
+        Attributes labelsAttrs = new Attributes();
+        labelsAttrs.put("labels", Arrays.asList("cells", "nuclei"));
+        dev.zarr.zarrjava.v3.Group.create(handle.resolve("labels"), labelsAttrs);
+
+        assertEquals(Arrays.asList("cells", "nuclei"), MultiscaleImage.open(handle).getLabels());
+    }
+
+    @Test
+    void labelsGroupAndImageLabelRoundTrip() throws Exception {
+        String labelsGroupJson = "{\"version\":\"0.5\",\"labels\":[\"nuclei\"]}";
+        String labelImageJson = "{\"version\":\"0.5\","
+                + "\"multiscales\":[{\"axes\":[{\"name\":\"y\"},{\"name\":\"x\"}],"
+                + "\"datasets\":[{\"path\":\"0\",\"coordinateTransformations\":[{\"type\":\"scale\",\"scale\":[1.0,1.0]}]}]}],"
+                + "\"image-label\":{"
+                + "\"colors\":[{\"label-value\":0,\"rgba\":[0,0,128,128]},{\"label-value\":1,\"rgba\":[0,128,0,128],\"note\":\"x\"}],"
+                + "\"properties\":[{\"label-value\":0,\"class\":\"background\"},{\"label-value\":1,\"area (pixels)\":1650,\"cell type\":\"neuron\"}],"
+                + "\"source\":{\"image\":\"../../\"}}}";
+        assertOmeRoundTrip(labelsGroupJson, dev.zarr.zarrjava.experimental.ome.metadata.OmeMetadata.class);
+        dev.zarr.zarrjava.experimental.ome.metadata.OmeMetadata parsed =
+                assertOmeRoundTrip(labelImageJson, dev.zarr.zarrjava.experimental.ome.metadata.OmeMetadata.class);
+        assertEquals(2, parsed.imageLabel.colors.size());
+        assertEquals(1, parsed.imageLabel.colors.get(1).labelValue);
+        assertEquals("x", parsed.imageLabel.colors.get(1).getAdditionalProperties().get("note"));
+        assertEquals("neuron", parsed.imageLabel.properties.get(1).getAdditionalProperties().get("cell type"));
+        assertEquals("../../", parsed.imageLabel.source.image);
+    }
+
+    @Test
+    void imageLabelSourceDefaultNotWritten() throws Exception {
+        String json = "{\"version\":\"0.5\",\"image-label\":{\"source\":{}}}";
+        dev.zarr.zarrjava.experimental.ome.metadata.OmeMetadata parsed =
+                assertOmeRoundTrip(json, dev.zarr.zarrjava.experimental.ome.metadata.OmeMetadata.class);
+        assertNull(parsed.imageLabel.source.image);
+        assertEquals("../../", parsed.imageLabel.source.resolveImage());
+    }
+
+    @Test
+    void imageLabelPreservedOnCreateScaleLevel() throws Exception {
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v05_image_label_preserved"));
+        dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.create(handle, new MultiscalesEntry(
+                Arrays.asList(new Axis("y", "space", null), new Axis("x", "space", null)), Collections.emptyList()));
+        // Add image-label out of band, then reopen and append a scale level through the API.
+        Attributes attrs = dev.zarr.zarrjava.v3.Group.open(handle).metadata.attributes;
+        @SuppressWarnings("unchecked")
+        Map<String, Object> ome = (Map<String, Object>) attrs.get("ome");
+        ome.put("image-label", Collections.singletonMap("colors",
+                Collections.singletonList(Collections.singletonMap("label-value", 3))));
+        dev.zarr.zarrjava.v3.Group.open(handle).setAttributes(attrs);
+
+        dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage image =
+                dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.openMultiscaleImage(handle);
+        image.createScaleLevel("0",
+                Array.metadataBuilder().withShape(4, 4).withChunkShape(4, 4).withDataType(DataType.UINT8).build(),
+                Collections.singletonList(CoordinateTransformation.scale(Arrays.asList(1.0, 1.0))));
+
+        dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage reopened =
+                dev.zarr.zarrjava.experimental.ome.v0_5.MultiscaleImage.openMultiscaleImage(handle);
+        assertNotNull(reopened.getImageLabel());
+        assertEquals(3, reopened.getImageLabel().colors.get(0).labelValue);
     }
 
     @Test
