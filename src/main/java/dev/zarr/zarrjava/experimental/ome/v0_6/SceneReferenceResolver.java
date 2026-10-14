@@ -3,6 +3,7 @@ package dev.zarr.zarrjava.experimental.ome.v0_6;
 import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.CoordinateSystem;
 import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.MultiscalesEntry;
 import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.SceneMetadata;
+import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -40,15 +41,16 @@ final class SceneReferenceResolver {
         }
     }
 
+    /**
+     * Resolves a scene-level reference. A {@code null}/empty path refers to the scene's own
+     * {@code coordinateSystems}; otherwise the path names an image subgroup of the scene.
+     */
     @Nullable
-    ResolvedCoordinateSystem resolve(@Nullable String reference) {
-        if (reference == null || reference.isEmpty()) {
+    ResolvedCoordinateSystem resolve(@Nullable CoordinateSystemRef reference) {
+        if (reference == null || reference.name == null) {
             return null;
         }
-        if (!reference.contains("#")) {
-            return null;
-        }
-        return index.get(reference);
+        return index.get(nodeId(reference.path, reference.name));
     }
 
     List<ResolvedCoordinateSystem> list() {
@@ -59,9 +61,22 @@ final class SceneReferenceResolver {
         if (coordinateSystem == null || coordinateSystem.name == null) {
             return;
         }
-        String canonicalPath = groupPath == null || groupPath.isEmpty() ? "." : groupPath;
-        String id = canonicalPath + "#" + coordinateSystem.name;
+        String canonicalPath = canonicalGroupPath(groupPath);
+        String id = nodeId(canonicalPath, coordinateSystem.name);
         index.put(id, new ResolvedCoordinateSystem(id, canonicalPath, coordinateSystem));
+    }
+
+    private static String canonicalGroupPath(@Nullable String groupPath) {
+        String normalized = Scene.normalizeCoordinateTransformPath(groupPath);
+        while (normalized != null && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized == null || normalized.isEmpty() || ".".equals(normalized) ? "." : normalized;
+    }
+
+    /** Graph node id: {@code "<groupPath>#<name>"}, with {@code "."} as the scene root's group path. */
+    private static String nodeId(@Nullable String groupPath, String name) {
+        return canonicalGroupPath(groupPath) + "#" + name;
     }
 
     static final class ResolvedCoordinateSystem {
