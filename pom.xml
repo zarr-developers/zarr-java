@@ -44,7 +44,7 @@
     <properties>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jackson.version>2.20.0</jackson.version>
+        <jackson.version>2.21.7</jackson.version>
         <aws.version>2.34.6</aws.version>
         <netcdfJavaVersion>5.9.1</netcdfJavaVersion>
         <zstdVersion>1.5.5-7</zstdVersion>
