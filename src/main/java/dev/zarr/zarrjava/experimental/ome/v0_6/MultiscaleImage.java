@@ -298,8 +298,8 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             mappedDatasets.add(new dev.zarr.zarrjava.experimental.ome.metadata.Dataset(ds.path, mapped));
         }
         List<Axis> axes = entry.axes;
-        if ((axes == null || axes.isEmpty()) && entry.coordinateSystems != null && !entry.coordinateSystems.isEmpty()) {
-            axes = entry.coordinateSystems.get(0).axes;
+        if ((axes == null || axes.isEmpty()) && entry.intrinsicCoordinateSystem() != null) {
+            axes = entry.intrinsicCoordinateSystem().axes;
         }
         return new dev.zarr.zarrjava.experimental.ome.metadata.MultiscalesEntry(
                 axes != null ? axes : Collections.<Axis>emptyList(),

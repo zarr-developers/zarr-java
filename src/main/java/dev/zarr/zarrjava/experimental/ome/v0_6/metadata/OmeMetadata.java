@@ -1,5 +1,7 @@
 package dev.zarr.zarrjava.experimental.ome.v0_6.metadata;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -9,7 +11,10 @@ import dev.zarr.zarrjava.experimental.ome.metadata.PlateMetadata;
 import dev.zarr.zarrjava.experimental.ome.metadata.WellMetadata;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** OME-Zarr v0.6 metadata stored under {@code attributes["ome"]}. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -32,6 +37,7 @@ public final class OmeMetadata {
     public final ImageLabel imageLabel;
     /** Image paths of a bioformats2raw collection, present in the metadata of the {@code OME} group. */
     @Nullable public final List<String> series;
+    private final Map<String, Object> extraFields;
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public OmeMetadata(
@@ -44,7 +50,8 @@ public final class OmeMetadata {
             @Nullable @JsonProperty("well") WellMetadata well,
             @Nullable @JsonProperty("labels") List<String> labels,
             @Nullable @JsonProperty("image-label") ImageLabel imageLabel,
-            @Nullable @JsonProperty("series") List<String> series
+            @Nullable @JsonProperty("series") List<String> series,
+            @Nullable @JsonAnySetter Map<String, Object> extraFields
     ) {
         this.version = version;
         this.multiscales = multiscales;
@@ -56,6 +63,24 @@ public final class OmeMetadata {
         this.labels = labels;
         this.imageLabel = imageLabel;
         this.series = series;
+        this.extraFields = extraFields == null
+                ? Collections.<String, Object>emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(extraFields));
+    }
+
+    public OmeMetadata(
+            String version,
+            @Nullable List<MultiscalesEntry> multiscales,
+            @Nullable OmeroMetadata omero,
+            @Nullable Integer bioformats2rawLayout,
+            @Nullable SceneMetadata scene,
+            @Nullable PlateMetadata plate,
+            @Nullable WellMetadata well,
+            @Nullable List<String> labels,
+            @Nullable ImageLabel imageLabel,
+            @Nullable List<String> series
+    ) {
+        this(version, multiscales, omero, bioformats2rawLayout, scene, plate, well, labels, imageLabel, series, null);
     }
 
     public OmeMetadata(
@@ -94,6 +119,17 @@ public final class OmeMetadata {
     /** Returns a copy with {@code multiscales} replaced and all other fields preserved. */
     public OmeMetadata withMultiscales(@Nullable List<MultiscalesEntry> multiscales) {
         return new OmeMetadata(version, multiscales, omero, bioformats2rawLayout, scene, plate, well,
-                labels, imageLabel, series);
+                labels, imageLabel, series, extraFields);
+    }
+
+    /**
+     * Members zarr-java does not model, such as the JSON-LD keys {@code @id} and {@code @type}.
+     * They are written back unchanged, so that a metadata rewrite does not drop them.
+     *
+     * @return the extra fields, never {@code null}
+     */
+    @JsonAnyGetter
+    public Map<String, Object> extraFields() {
+        return extraFields;
     }
 }

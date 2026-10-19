@@ -1,7 +1,9 @@
 package dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.Nullable;
@@ -15,6 +17,7 @@ import java.util.Map;
  * rather than rejecting the entire OME payload.
  */
 public final class GenericCoordinateTransformation extends BaseCoordinateTransformation {
+    @JsonIgnore
     public final Map<String, Object> raw = new LinkedHashMap<>();
 
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
@@ -30,5 +33,10 @@ public final class GenericCoordinateTransformation extends BaseCoordinateTransfo
     @JsonAnySetter
     public void capture(String key, Object value) {
         raw.put(key, value);
+    }
+
+    @JsonAnyGetter
+    Map<String, Object> rawProperties() {
+        return raw;
     }
 }

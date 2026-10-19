@@ -528,4 +528,20 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         handle.resolve("zarr.json").set(
                 java.nio.ByteBuffer.wrap(zarrJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
+
+    @Test
+    void axesComeFromIntrinsicCoordinateSystem() throws Exception {
+        // From the ngff-spec conformance suite: the intrinsic system "physical" is listed second.
+        com.fasterxml.jackson.databind.JsonNode ome = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                TESTDATA.resolve("ome/v0.6/ngff-spec/tests/attributes/spec/valid/transforms/projectAxis.json").toFile()).get("ome");
+        dev.zarr.zarrjava.experimental.ome.v0_6.metadata.OmeMetadata parsed = OmeObjectMappers.makeV3Mapper()
+                .treeToValue(ome, dev.zarr.zarrjava.experimental.ome.v0_6.metadata.OmeMetadata.class);
+        dev.zarr.zarrjava.experimental.ome.v0_6.metadata.MultiscalesEntry entry = parsed.multiscales.get(0);
+        assertEquals("world", entry.coordinateSystems.get(0).name);
+        assertEquals("physical", entry.intrinsicCoordinateSystem().name);
+
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v06_intrinsic_axes"));
+        dev.zarr.zarrjava.experimental.ome.v0_6.MultiscaleImage.create(handle, entry);
+        assertEquals(Arrays.asList("y", "x"), MultiscaleImage.open(handle).getAxisNames());
+    }
 }
