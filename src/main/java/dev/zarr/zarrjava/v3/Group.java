@@ -302,7 +302,8 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
      * @throws IOException   if the metadata cannot be serialized
      */
     public Group setAttributes(Attributes newAttributes) throws ZarrException, IOException {
-        GroupMetadata newGroupMetadata = new GroupMetadata(newAttributes);
+        GroupMetadata newGroupMetadata =
+                new GroupMetadata(newAttributes, metadata.extraFields());
         return writeMetadata(newGroupMetadata);
     }
 
