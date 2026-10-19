@@ -17,14 +17,22 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Objects;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static dev.zarr.zarrjava.v2.Node.makeObjectMapper;
 import static dev.zarr.zarrjava.v2.Node.makeObjectWriter;
 
 public class Group extends dev.zarr.zarrjava.core.Group implements Node {
+
+    /**
+     * Keys that hold metadata of a v2 group itself and never point at a child node.
+     */
+    private static final Set<String> METADATA_KEYS = Collections.unmodifiableSet(
+            new HashSet<>(Arrays.asList(ZGROUP, ZATTRS, ZARRAY)));
+
     public GroupMetadata metadata;
 
     protected Group(@Nonnull StoreHandle storeHandle, @Nonnull GroupMetadata groupMetadata) {
@@ -182,26 +190,6 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
         }
     }
 
-    @Override
-    public Stream<dev.zarr.zarrjava.core.Node> list() {
-        return storeHandle.list().map(key -> {
-            if (key.length <= 1) return null; // exclude root from list
-            String fileName = key[key.length - 1];
-            StoreHandle parent = storeHandle.resolve(Arrays.copyOf(key, key.length - 1));
-            try {
-                if (fileName.equals(ZARRAY)) {
-                    return Array.open(parent);
-                }
-                if (fileName.equals(ZGROUP)) {
-                    return (dev.zarr.zarrjava.core.Node) Group.open(parent);
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            return null;
-        }).filter(Objects::nonNull);
-    }
-
     /**
      * Creates a new subgroup with default metadata at the specified key.
      *
@@ -291,6 +279,11 @@ public class Group extends dev.zarr.zarrjava.core.Group implements Node {
     @Override
     public String toString() {
         return String.format("<v2.Group {%s}>", storeHandle);
+    }
+
+    @Override
+    protected Set<String> metadataKeys() {
+        return METADATA_KEYS;
     }
 
     @Override
