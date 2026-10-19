@@ -1,0 +1,44 @@
+package dev.zarr.conventions.ome.v0_6.metadata.transform;
+
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.annotation.Nullable;
+import java.util.List;
+
+public final class ByDimensionCoordinateTransformation extends BaseCoordinateTransformation {
+    @Nullable public final List<ByDimensionTransformation> transformations;
+
+    @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+    public ByDimensionCoordinateTransformation(
+            @Nullable @JsonProperty("input") CoordinateSystemRef input,
+            @Nullable @JsonProperty("output") CoordinateSystemRef output,
+            @Nullable @JsonProperty("name") String name,
+            @Nullable @JsonProperty("transformations") List<ByDimensionTransformation> transformations
+    ) {
+        super("byDimension", input, output, name);
+        this.transformations = transformations;
+    }
+
+    public static final class ByDimensionTransformation {
+        @Nullable
+        @JsonProperty("inputAxes")
+        public final List<Integer> inputAxes;
+        @Nullable
+        @JsonProperty("outputAxes")
+        public final List<Integer> outputAxes;
+        @Nullable public final CoordinateTransformation transformation;
+
+        @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
+        public ByDimensionTransformation(
+                @Nullable @JsonProperty("inputAxes") @JsonAlias("input_axes") List<Integer> inputAxes,
+                @Nullable @JsonProperty("outputAxes") @JsonAlias("output_axes") List<Integer> outputAxes,
+                @Nullable @JsonProperty("transformation") CoordinateTransformation transformation
+        ) {
+            this.inputAxes = inputAxes;
+            this.outputAxes = outputAxes;
+            this.transformation = transformation;
+        }
+    }
+}
