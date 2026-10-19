@@ -129,6 +129,39 @@ public abstract class StoreTest extends ZarrTest {
     }
 
     @Test
+    public void testGetRanges() {
+        StoreHandle storeHandle = storeHandleWithData();
+        long size = storeHandle.getSize();
+        if (size < 20) {
+            Assertions.fail("Store size is too small to test getRanges");
+        }
+        // unsorted, adjacent, overlapping and far-apart ranges
+        long[] starts = {size - 5, 4, 8, 6, 0, size / 2};
+        long[] ends = {size, 8, 12, 10, 2, size / 2 + 3};
+        ByteBuffer[] ranges = storeHandle.store.getRanges(storeHandle.keys, starts, ends);
+        Assertions.assertNotNull(ranges);
+        Assertions.assertEquals(starts.length, ranges.length);
+        for (int i = 0; i < starts.length; i++) {
+            Assertions.assertEquals(storeHandle.read(starts[i], ends[i]), ranges[i],
+                    "Range " + i + " differs from get(start, end)");
+        }
+
+        // a gap of 0 bytes still allows merging adjacent ranges, a size limit of 1 byte forbids any merge
+        for (long[] limits : new long[][]{{0, Store.DEFAULT_MAX_COALESCED_BYTES}, {Store.DEFAULT_MAX_GAP_BYTES, 1}}) {
+            ranges = storeHandle.store.getRanges(storeHandle.keys, starts, ends, limits[0], limits[1]);
+            for (int i = 0; i < starts.length; i++) {
+                Assertions.assertEquals(storeHandle.read(starts[i], ends[i]), ranges[i]);
+            }
+        }
+    }
+
+    @Test
+    public void testGetRangesMissingKey() {
+        StoreHandle storeHandle = storeHandleWithoutData();
+        Assertions.assertNull(storeHandle.store.getRanges(storeHandle.keys, new long[]{0}, new long[]{10}));
+    }
+
+    @Test
     public abstract void testList() throws ZarrException, IOException;
 
     byte[] testData() {
