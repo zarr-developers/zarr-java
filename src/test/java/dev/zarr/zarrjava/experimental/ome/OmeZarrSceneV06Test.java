@@ -1,6 +1,7 @@
 package dev.zarr.zarrjava.experimental.ome;
 
 import dev.zarr.zarrjava.store.FilesystemStore;
+import dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateSystemRef;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
 
@@ -57,8 +58,8 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation top =
                 scene.getSceneMetadata().coordinateTransformations.get(0);
         assertEquals("bijection", top.getType());
-        assertEquals("JRC2018F#physical", top.getInput());
-        assertEquals("FCWB#physical", top.getOutput());
+        assertEquals(CoordinateSystemRef.of("physical", "JRC2018F"), top.getInput());
+        assertEquals(CoordinateSystemRef.of("physical", "FCWB"), top.getOutput());
 
         assertTrue(scene.listImageNodes().contains("FCWB"));
         assertTrue(scene.listImageNodes().contains("JRC2018F"));
@@ -91,7 +92,7 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.SceneMetadata sceneMetadata =
                 new dev.zarr.zarrjava.experimental.ome.v0_6.metadata.SceneMetadata(
                         Collections.singletonList(new dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.TranslationCoordinateTransformation(
-                                "imageA#physical", ".#world", "imageA to world", Arrays.asList(1.0, 2.0), null)),
+                                CoordinateSystemRef.of("physical", "imageA"), CoordinateSystemRef.ofName("world"), "imageA to world", Arrays.asList(1.0, 2.0), null)),
                         Collections.singletonList(new dev.zarr.zarrjava.experimental.ome.v0_6.metadata.CoordinateSystem(
                                 "world", Arrays.asList(y, x)))
                 );
@@ -105,7 +106,7 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
                                 "s0",
                                 Collections.singletonList(
                                         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
-                                                Arrays.asList(1.0, 1.0), "s0", "physical")))),
+                                                Arrays.asList(1.0, 1.0), CoordinateSystemRef.ofPath("s0"), CoordinateSystemRef.ofName("physical"))))),
                         null,
                         Collections.singletonList(new dev.zarr.zarrjava.experimental.ome.v0_6.metadata.CoordinateSystem(
                                 "physical", Arrays.asList(y, x))),
@@ -125,7 +126,7 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
         dev.zarr.zarrjava.experimental.ome.v0_6.Scene reopened = dev.zarr.zarrjava.experimental.ome.v0_6.Scene.openScene(root);
         assertEquals(Collections.singletonList("imageA"), reopened.listImageNodes());
         assertEquals("world", reopened.getSceneMetadata().coordinateSystems.get(0).name);
-        assertEquals("imageA#physical", reopened.getSceneMetadata().coordinateTransformations.get(0).getInput());
+        assertEquals(CoordinateSystemRef.of("physical", "imageA"), reopened.getSceneMetadata().coordinateTransformations.get(0).getInput());
 
         dev.zarr.zarrjava.experimental.ome.v0_6.MultiscaleImage imageA = reopened.openImageNode("imageA");
         assertEquals(1, imageA.getScaleLevelCount());
@@ -149,8 +150,8 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
         dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 scene.getSceneMetadata().coordinateTransformations.get(0);
         assertEquals("affine", ct.getType());
-        assertEquals("sampleA_instrument2#physical_instrument2", ct.getInput());
-        assertEquals("sampleA_instrument1#physical_instrument1", ct.getOutput());
+        assertEquals(CoordinateSystemRef.of("physical_instrument2", "sampleA_instrument2"), ct.getInput());
+        assertEquals(CoordinateSystemRef.of("physical_instrument1", "sampleA_instrument1"), ct.getOutput());
         assertTrue(ct instanceof dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation);
         assertEquals("coordinateTransformations/sampleA_instrument2-to-instrument1",
                 ((dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation) ct).path);
@@ -179,10 +180,10 @@ public class OmeZarrSceneV06Test extends OmeZarrBaseTest {
                 scene.getSceneMetadata().coordinateTransformations.get(1);
         assertEquals("affine", t0.getType());
         assertEquals("affine", t1.getType());
-        assertEquals("instrument1#physical", t0.getInput());
-        assertEquals("instrument2#physical", t0.getOutput());
-        assertEquals("instrument3#physical", t1.getInput());
-        assertEquals("instrument2#physical", t1.getOutput());
+        assertEquals(CoordinateSystemRef.of("physical", "instrument1"), t0.getInput());
+        assertEquals(CoordinateSystemRef.of("physical", "instrument2"), t0.getOutput());
+        assertEquals(CoordinateSystemRef.of("physical", "instrument3"), t1.getInput());
+        assertEquals(CoordinateSystemRef.of("physical", "instrument2"), t1.getOutput());
         assertTrue(t0 instanceof dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation);
         assertTrue(((dev.zarr.zarrjava.experimental.ome.v0_6.metadata.transform.AffineCoordinateTransformation) t0).affine.size() > 0);
 
