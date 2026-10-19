@@ -68,7 +68,8 @@ Scene roots (groups with `ome.scene`) are supported via `dev.zarr.zarrjava.exper
 
 - `Scene.openScene(StoreHandle)` / `Scene.open(StoreHandle)`
 - `Scene.createScene(StoreHandle, SceneMetadata)` / `Scene.create(...)`
-- `listImageNodes()` and `openImageNode(String)` for sibling multiscale images
+- `listImageNodes()` and `openImageNode(String)` for the multiscale images of the scene. They are found through
+  the `path`s the scene transformations reference, so this also works on stores that cannot list, such as `HttpStore`.
 - `getCoordinateTransformationGraph()` for lightweight metadata graph inspection
 
 Notes:
