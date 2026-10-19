@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import ucar.ma2.InvalidRangeException;
 import ucar.ma2.MAMath;
 
 import java.io.IOException;
@@ -33,6 +34,20 @@ public class ReshapeCodecTest extends ZarrTest {
                 DataType.UINT32,
                 null));
         return codec;
+    }
+
+    /**
+     * The elements of {@code array} in lexicographical (C) order. Walks the array with an
+     * {@link ucar.ma2.IndexIterator} rather than {@code get1DJavaArray}, so that it stays an
+     * independent oracle for the codec, which uses the latter itself.
+     */
+    private static int[] ravel(ucar.ma2.Array array) {
+        int[] elements = new int[(int) array.getSize()];
+        ucar.ma2.IndexIterator iter = array.getIndexIterator();
+        for (int i = 0; i < elements.length; i++) {
+            elements[i] = iter.getIntNext();
+        }
+        return elements;
     }
 
     private static ucar.ma2.Array sequential(int[] shape) {
@@ -81,9 +96,7 @@ public class ReshapeCodecTest extends ZarrTest {
         // Output shape matches the specification.
         Assertions.assertArrayEquals(expectedOutputShape, encoded.getShape());
         // The lexicographical (C-order) ravel is preserved: ravel(B) == ravel(A).
-        Assertions.assertArrayEquals(
-                (int[]) input.get1DJavaArray(ucar.ma2.DataType.UINT),
-                (int[]) encoded.get1DJavaArray(ucar.ma2.DataType.UINT));
+        Assertions.assertArrayEquals(ravel(input), ravel(encoded));
 
         // decode is the inverse of encode.
         ucar.ma2.Array decoded = codec.decode(encoded);
@@ -154,6 +167,52 @@ public class ReshapeCodecTest extends ZarrTest {
         // Invalid configurations are rejected eagerly when the array metadata is set (i.e. at pipeline
         // construction time), not lazily on the first encode/decode.
         assertThrows(ZarrException.class, () -> reshapeCodec(shape, inputShape));
+    }
+
+    @Test
+    public void testReshapeConstructsViewForLexicographicalInput() throws ZarrException {
+        // A freshly allocated array already walks its backing store in lexicographical order, so the
+        // reshape must be a virtual view: the result has to share storage with the input rather than
+        // copy it. This is the requirement the specification states as "implementations should, when
+        // possible, construct a virtual view rather than copy the array".
+        ReshapeCodec codec = reshapeCodec(new Object[]{new int[]{0, 1}, new int[]{2}}, new int[]{2, 3, 4});
+
+        ucar.ma2.Array input = sequential(new int[]{2, 3, 4});
+        ucar.ma2.Array encoded = codec.encode(input);
+
+        Assertions.assertArrayEquals(new int[]{6, 4}, encoded.getShape());
+        Assertions.assertSame(input.getStorage(), encoded.getStorage());
+        // The view is itself in lexicographical order, so decoding it stays a view as well.
+        Assertions.assertSame(input.getStorage(), codec.decode(encoded).getStorage());
+    }
+
+    @Test
+    public void testReshapeCopiesPermutedInputInRavelOrder() throws ZarrException {
+        // The transpose codec hands on a permuted view, whose elements are not laid out in ravel
+        // order. No shape/stride/offset descriptor over the original store can express that ravel, so
+        // a copy is mandatory here -- reshapeNoCopy would silently return the elements in store order.
+        ReshapeCodec codec = reshapeCodec(new Object[]{-1}, new int[]{4, 3, 2});
+
+        ucar.ma2.Array permuted = sequential(new int[]{2, 3, 4}).permute(new int[]{2, 1, 0});
+        ucar.ma2.Array encoded = codec.encode(permuted);
+
+        Assertions.assertArrayEquals(new int[]{24}, encoded.getShape());
+        Assertions.assertNotSame(permuted.getStorage(), encoded.getStorage());
+        Assertions.assertArrayEquals(ravel(permuted), ravel(encoded));
+    }
+
+    @Test
+    public void testReshapePreservesRavelOfStridedSection() throws ZarrException, InvalidRangeException {
+        // Array.write passes a section of the caller's array for every chunk of a multi-chunk write.
+        // Whether that can stay a view depends on the strides, so only the ravel is asserted here.
+        ReshapeCodec codec = reshapeCodec(new Object[]{new int[]{0, 1}, new int[]{2}}, new int[]{2, 3, 4});
+
+        ucar.ma2.Array section = sequential(new int[]{4, 3, 4})
+                .sectionNoReduce(new int[]{1, 0, 0}, new int[]{2, 3, 4}, null);
+        ucar.ma2.Array encoded = codec.encode(section);
+
+        Assertions.assertArrayEquals(new int[]{6, 4}, encoded.getShape());
+        Assertions.assertArrayEquals(ravel(section), ravel(encoded));
     }
 
     @Test

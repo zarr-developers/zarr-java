@@ -103,10 +103,17 @@ public class S3Store implements Store, Store.ListableStore {
     @Nullable
     @Override
     public ByteBuffer get(String[] keys, long start, long end) {
+        if (start < 0) {
+            throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
+        }
+        // S3 ranges are inclusive; a negative end means "until the end of the object".
+        String range = end < 0
+                ? String.format("bytes=%d-", start)
+                : String.format("bytes=%d-%d", start, end - 1);
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
+                .range(range)
                 .build();
         return get(req);
     }
@@ -221,10 +228,17 @@ public class S3Store implements Store, Store.ListableStore {
 
     @Override
     public InputStream getInputStream(String[] keys, long start, long end) {
+        if (start < 0) {
+            throw new IllegalArgumentException("Argument 'start' needs to be non-negative.");
+        }
+        // S3 ranges are inclusive; a negative end means "until the end of the object".
+        String range = end < 0
+                ? String.format("bytes=%d-", start)
+                : String.format("bytes=%d-%d", start, end - 1);
         GetObjectRequest req = GetObjectRequest.builder()
                 .bucket(bucketName)
                 .key(resolveKeys(keys))
-                .range(String.format("bytes=%d-%d", start, end - 1)) // S3 range is inclusive
+                .range(range)
                 .build();
         return s3client.getObject(req);
     }
