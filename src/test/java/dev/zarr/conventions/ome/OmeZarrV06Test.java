@@ -10,6 +10,7 @@ import dev.zarr.conventions.ome.metadata.WellImage;
 import dev.zarr.conventions.ome.metadata.WellMetadata;
 import dev.zarr.conventions.ome.metadata.WellRef;
 import dev.zarr.conventions.ome.v0_6.metadata.CoordinateSystem;
+import dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
 
@@ -87,8 +88,8 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 entry.datasets.get(0).coordinateTransformations.get(0);
         assertEquals("scale", ct.getType());
-        assertEquals("s0", ct.getInput());
-        assertEquals("physical", ct.getOutput());
+        assertEquals(CoordinateSystemRef.ofPath("s0"), ct.getInput());
+        assertEquals(CoordinateSystemRef.ofName("physical"), ct.getOutput());
         assertInstanceOf(dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation.class, ct);
         dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation scaleCt =
                 (dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) ct;
@@ -174,7 +175,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
                         "s0",
                         java.util.Collections.singletonList(
                                 dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
-                                        Arrays.asList(1.0, 1.0), "s0", "physical"))));
+                                        Arrays.asList(1.0, 1.0), CoordinateSystemRef.ofPath("s0"), CoordinateSystemRef.ofName("physical")))));
         dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry ms =
                 new dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry(
                         null,
@@ -245,7 +246,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
                         "s0",
                         java.util.Collections.singletonList(
                                 dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
-                                        Arrays.asList(1.0, 1.0), "s0", "physical"))));
+                                        Arrays.asList(1.0, 1.0), CoordinateSystemRef.ofPath("s0"), CoordinateSystemRef.ofName("physical")))));
         dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry ms =
                 new dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry(
                         null,
@@ -325,5 +326,222 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         assertEquals(Collections.singletonList("s0"),
                 Collections.singletonList(image.getMultiscaleNode(0).datasets.get(0).path));
         assertEquals(Arrays.asList("y", "x"), image.getAxisNames());
+    }
+
+    // ── metadata preservation (read -> write keeps everything) ───────────────
+
+    private static final String V06_AXES_YX =
+            "[{\"name\":\"y\",\"type\":\"space\",\"unit\":\"micrometer\"},{\"name\":\"x\",\"type\":\"space\",\"unit\":\"micrometer\"}]";
+
+    private static String v06ImageJson(String extraMultiscaleKeys, String extraOmeKeys) {
+        return "{\"version\":\"0.6\",\"multiscales\":[{"
+                + "\"coordinateSystems\":[{\"name\":\"physical\",\"axes\":" + V06_AXES_YX + "}],"
+                + "\"datasets\":[{\"path\":\"s0\",\"coordinateTransformations\":[{\"type\":\"scale\",\"scale\":[0.5,0.5]}]}]"
+                + extraMultiscaleKeys + "}]" + extraOmeKeys + "}";
+    }
+
+    @Test
+    void imageLabelRoundTrip() throws Exception {
+        String json = v06ImageJson("", ",\"image-label\":{"
+                + "\"colors\":[{\"label-value\":0,\"rgba\":[0,0,128,128]},{\"label-value\":1,\"rgba\":[0,128,0,128]}],"
+                + "\"properties\":[{\"label-value\":0,\"area (pixels)\":1200,\"class\":\"intercellular space\"},"
+                + "{\"label-value\":1,\"area (pixels)\":1650,\"class\":\"cell\",\"cell type\":\"neuron\"}],"
+                + "\"source\":{\"image\":\"../../\"}}");
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata parsed =
+                assertOmeRoundTrip(json, dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        dev.zarr.conventions.ome.metadata.ImageLabel imageLabel = parsed.imageLabel;
+        assertNotNull(imageLabel);
+        assertEquals(Arrays.asList(0, 128, 0, 128), imageLabel.colors.get(1).rgba);
+        assertEquals(1650, imageLabel.properties.get(1).getAdditionalProperties().get("area (pixels)"));
+        assertEquals("neuron", imageLabel.properties.get(1).getAdditionalProperties().get("cell type"));
+        assertEquals("../../", imageLabel.source.image);
+    }
+
+    @Test
+    void labelsGroupAndSeriesRoundTrip() throws Exception {
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata labels = assertOmeRoundTrip(
+                "{\"version\":\"0.6\",\"labels\":[\"cell_segmentation\"]}",
+                dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        assertEquals(Collections.singletonList("cell_segmentation"), labels.labels);
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata series = assertOmeRoundTrip(
+                "{\"version\":\"0.6\",\"series\":[\"0\",\"1\"]}",
+                dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        assertEquals(Arrays.asList("0", "1"), series.series);
+    }
+
+    @Test
+    void axisLongNameRoundTrip() throws Exception {
+        String axes = "[{\"name\":\"t\",\"type\":\"time\",\"unit\":\"second\",\"discrete\":false,\"longName\":\"Time\"},"
+                + "{\"name\":\"x\",\"type\":\"space\"}]";
+        String json = "{\"version\":\"0.6\",\"multiscales\":[{"
+                + "\"coordinateSystems\":[{\"name\":\"physical\",\"axes\":" + axes + "}],"
+                + "\"datasets\":[{\"path\":\"s0\",\"coordinateTransformations\":[{\"type\":\"identity\"}]}]}]}";
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata parsed =
+                assertOmeRoundTrip(json, dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        assertEquals("Time", parsed.multiscales.get(0).coordinateSystems.get(0).axes.get(0).longName);
+    }
+
+    @Test
+    void axisLegacyLongNameIsReadAndWrittenAsLongName() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper reader = OmeObjectMappers.makeV3Mapper();
+        dev.zarr.conventions.ome.metadata.Axis axis = reader.readValue(
+                "{\"name\":\"t\",\"long_name\":\"Time\"}", dev.zarr.conventions.ome.metadata.Axis.class);
+        assertEquals("Time", axis.longName);
+        com.fasterxml.jackson.databind.JsonNode written =
+                dev.zarr.zarrjava.v3.Node.makeObjectMapper().valueToTree(axis);
+        assertEquals(reader.readTree("{\"name\":\"t\",\"longName\":\"Time\"}"), written);
+    }
+
+    @Test
+    void displacementsAndCoordinatesInterpolationRoundTrip() throws Exception {
+        String json = v06ImageJson(",\"coordinateTransformations\":["
+                + "{\"type\":\"displacements\",\"path\":\"dfield\",\"interpolation\":\"linear\",\"name\":\"d\"},"
+                + "{\"type\":\"coordinates\",\"path\":\"cfield\",\"interpolation\":\"nearest\"}]", "");
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata parsed =
+                assertOmeRoundTrip(json, dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        List<dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation> cts =
+                parsed.multiscales.get(0).coordinateTransformations;
+        assertEquals("linear",
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation) cts.get(0)).interpolation);
+        assertEquals("nearest",
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinatesCoordinateTransformation) cts.get(1)).interpolation);
+    }
+
+    @Test
+    void displacementsInterpolationFromFixture() throws Exception {
+        dev.zarr.conventions.ome.v0_6.MultiscaleImage image =
+                dev.zarr.conventions.ome.v0_6.MultiscaleImage.openMultiscaleImage(
+                        storeHandle(TESTDATA.resolve("ome/v0.6/examples/2d/nonlinear/displacements.zarr")));
+        dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation ct =
+                image.getMultiscalesEntry(0).coordinateTransformations.get(0);
+        assertInstanceOf(dev.zarr.conventions.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation.class, ct);
+        assertEquals("linear",
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation) ct).interpolation);
+    }
+
+    @Test
+    void projectAxisRoundTrip() throws Exception {
+        String json = v06ImageJson(",\"coordinateTransformations\":["
+                + "{\"type\":\"projectAxis\",\"droppedInputs\":[0],\"createdOutputs\":[0,1],\"name\":\"p\"}]", "");
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata parsed =
+                assertOmeRoundTrip(json, dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation ct =
+                parsed.multiscales.get(0).coordinateTransformations.get(0);
+        assertInstanceOf(dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation.class, ct);
+        dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation p =
+                (dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation) ct;
+        assertEquals(Collections.singletonList(0), p.droppedInputs);
+        assertEquals(Arrays.asList(0, 1), p.createdOutputs);
+    }
+
+    @Test
+    void byDimensionWritesCamelCaseAndAcceptsSnakeCase() throws Exception {
+        String camel = v06ImageJson(",\"coordinateTransformations\":[{\"type\":\"byDimension\",\"transformations\":["
+                + "{\"inputAxes\":[1],\"outputAxes\":[1],\"transformation\":{\"type\":\"scale\",\"scale\":[2.0]}}]}]", "");
+        assertOmeRoundTrip(camel, dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+
+        // The dev-draft fixture still uses input_axes/output_axes.
+        dev.zarr.conventions.ome.v0_6.MultiscaleImage image =
+                dev.zarr.conventions.ome.v0_6.MultiscaleImage.openMultiscaleImage(
+                        storeHandle(TESTDATA.resolve("ome/v0.6/examples/2d/axis_dependent/byDimension.zarr")));
+        dev.zarr.conventions.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation byDim =
+                (dev.zarr.conventions.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation)
+                        image.getMultiscalesEntry(0).coordinateTransformations.get(0);
+        assertEquals(Collections.singletonList(1), byDim.transformations.get(0).inputAxes);
+        assertEquals(Collections.singletonList(1), byDim.transformations.get(0).outputAxes);
+        com.fasterxml.jackson.databind.JsonNode written =
+                dev.zarr.zarrjava.v3.Node.makeObjectMapper().valueToTree(byDim.transformations.get(0));
+        assertTrue(written.has("inputAxes"));
+        assertTrue(written.has("outputAxes"));
+        assertFalse(written.has("input_axes"));
+        assertFalse(written.has("output_axes"));
+    }
+
+    @Test
+    void unifiedTransformsKeepInterpolationAndProjectAxis() throws Exception {
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v06_unified_transform_fields"));
+        List<dev.zarr.conventions.ome.metadata.Axis> axes = Arrays.asList(
+                new dev.zarr.conventions.ome.metadata.Axis("y", "space", "micrometer"),
+                new dev.zarr.conventions.ome.metadata.Axis("x", "space", "micrometer"));
+        dev.zarr.conventions.ome.v0_6.MultiscaleImage image =
+                dev.zarr.conventions.ome.v0_6.MultiscaleImage.create(handle,
+                        new dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry(
+                                null, Collections.<dev.zarr.conventions.ome.v0_6.metadata.Dataset>emptyList(), null,
+                                Collections.singletonList(new CoordinateSystem("physical", axes)), "ms", null, null));
+
+        dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation displacements =
+                new dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation("displacements");
+        displacements.raw.put("path", "dfield");
+        displacements.raw.put("interpolation", "nearest");
+        dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation project =
+                new dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation("projectAxis");
+        project.raw.put("droppedInputs", Collections.singletonList(0));
+        project.raw.put("createdOutputs", Arrays.asList(0, 1));
+        image.createScaleLevel("s0",
+                dev.zarr.zarrjava.v3.Array.metadataBuilder()
+                        .withShape(4, 4).withChunkShape(4, 4)
+                        .withDataType(dev.zarr.zarrjava.v3.DataType.UINT8).build(),
+                Arrays.<dev.zarr.conventions.ome.metadata.transform.CoordinateTransformation>asList(displacements, project));
+
+        dev.zarr.conventions.ome.v0_6.MultiscaleImage reopened =
+                dev.zarr.conventions.ome.v0_6.MultiscaleImage.openMultiscaleImage(handle);
+        // several transformations are written as one sequence, as v0.6 allows one per dataset
+        List<dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation> cts =
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation)
+                        reopened.getMultiscalesEntry(0).datasets.get(0).coordinateTransformations.get(0)).transformations;
+        assertEquals("nearest",
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation) cts.get(0)).interpolation);
+        assertEquals(Arrays.asList(0, 1),
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation) cts.get(1)).createdOutputs);
+
+        // The unified view exposes the same fields.
+        List<dev.zarr.conventions.ome.metadata.transform.CoordinateTransformation> unified =
+                reopened.getMultiscaleNode(0).datasets.get(0).coordinateTransformations;
+        assertEquals("nearest",
+                ((dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation) unified.get(0)).raw.get("interpolation"));
+        assertEquals("projectAxis", unified.get(1).type);
+        assertEquals(Collections.singletonList(0),
+                ((dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation) unified.get(1)).raw.get("droppedInputs"));
+    }
+
+    @Test
+    void labelsListAndImageLabelSpecLayout() throws Exception {
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v06_labels_spec"));
+        writeGroupZarrJson(handle, v06ImageJson("", ""));
+        writeGroupZarrJson(handle.resolve("labels"), "{\"version\":\"0.6\",\"labels\":[\"cell_segmentation\"]}");
+        writeGroupZarrJson(handle.resolve("labels", "cell_segmentation"), v06ImageJson("",
+                ",\"image-label\":{\"colors\":[{\"label-value\":1,\"rgba\":[0,128,0,128]}]}"));
+
+        MultiscaleImage image = MultiscaleImage.open(handle);
+        assertEquals(Collections.singletonList("cell_segmentation"), image.getLabels());
+        MultiscaleImage label = image.openLabel("cell_segmentation");
+        assertInstanceOf(dev.zarr.conventions.ome.v0_6.MultiscaleImage.class, label);
+        dev.zarr.conventions.ome.metadata.ImageLabel imageLabel =
+                ((dev.zarr.conventions.ome.v0_6.MultiscaleImage) label).getImageLabel();
+        assertNotNull(imageLabel);
+        assertEquals(1, imageLabel.colors.get(0).labelValue);
+        assertNull(imageLabel.source);
+    }
+
+    private static void writeGroupZarrJson(StoreHandle handle, String omeJson) {
+        String zarrJson = "{\"zarr_format\":3,\"node_type\":\"group\",\"attributes\":{\"ome\":" + omeJson + "}}";
+        handle.resolve("zarr.json").set(
+                java.nio.ByteBuffer.wrap(zarrJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    @Test
+    void axesComeFromIntrinsicCoordinateSystem() throws Exception {
+        // From the ngff-spec conformance suite: the intrinsic system "physical" is listed second.
+        com.fasterxml.jackson.databind.JsonNode ome = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                TESTDATA.resolve("ome/v0.6/ngff-spec/tests/attributes/spec/valid/transforms/projectAxis.json").toFile()).get("ome");
+        dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata parsed = OmeObjectMappers.makeV3Mapper()
+                .treeToValue(ome, dev.zarr.conventions.ome.v0_6.metadata.OmeMetadata.class);
+        dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry entry = parsed.multiscales.get(0);
+        assertEquals("world", entry.coordinateSystems.get(0).name);
+        assertEquals("physical", entry.intrinsicCoordinateSystem().name);
+
+        StoreHandle handle = storeHandle(TESTOUTPUT.resolve("ome_v06_intrinsic_axes"));
+        dev.zarr.conventions.ome.v0_6.MultiscaleImage.create(handle, entry);
+        assertEquals(Arrays.asList("y", "x"), MultiscaleImage.open(handle).getAxisNames());
     }
 }
