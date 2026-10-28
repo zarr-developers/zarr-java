@@ -15,6 +15,15 @@ For comprehensive documentation, see the [**User Guide**](USERGUIDE.md), which i
 - Best practices
 - Troubleshooting
 
+## Conventions
+
+zarr-java also ships support for Zarr conventions built on top of the core format, under the `dev.zarr.conventions`
+namespace. Currently this includes [OME-Zarr](https://ngff.openmicroscopy.org/) (v0.4, v0.5 and v0.6) in
+`dev.zarr.conventions.ome`; see the [**OME-Zarr Guide**](USERGUIDE-OME-ZARR.md).
+
+We are open to hosting other conventions as well. If you would like to add one, please open an issue or a pull request
+that places it in its own `dev.zarr.conventions.<name>` package.
+
 ## Quick Usage Example
 
 ```java
@@ -76,3 +85,8 @@ This project uses IntelliJ IDEA default Java formatting
 Before submitting changes, please run:
 
 - IntelliJ: `Reformat Code` and `Optimize Imports`
+
+## Governance
+
+The project is a Zarr Affiliated Software Project. Its roles, decision process, and
+release policy are described in [GOVERNANCE.md](GOVERNANCE.md).

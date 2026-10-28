@@ -50,8 +50,10 @@ public class ReadOnlyZipStore extends ZipStore {
 
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) {
-            isCached = true;
-            return;
+            throw StoreException.readFailed(
+                    underlyingStore.toString(),
+                    new String[]{},
+                    new IOException("Could not open the ZIP archive from the underlying store"));
         }
 
         try (ZipArchiveInputStream zis = new ZipArchiveInputStream(inputStream)) {
@@ -106,6 +108,10 @@ public class ReadOnlyZipStore extends ZipStore {
         String key = resolveKeys(keys);
         if (!fileIndex.containsKey(key)) {
             return null;
+        }
+        if (start < 0) {
+            // suffix read: the last -start bytes
+            start = Math.max(0, getSize(keys) + start);
         }
 
         InputStream inputStream = underlyingStore.getInputStream();
@@ -223,6 +229,10 @@ public class ReadOnlyZipStore extends ZipStore {
         String key = resolveKeys(keys);
         if (!fileIndex.containsKey(key)) {
             return null;
+        }
+        if (start < 0) {
+            // suffix read: the last -start bytes
+            start = Math.max(0, getSize(keys) + start);
         }
 
         InputStream baseStream = underlyingStore.getInputStream();

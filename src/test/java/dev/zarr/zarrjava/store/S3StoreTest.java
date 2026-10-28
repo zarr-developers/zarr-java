@@ -18,6 +18,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Tests for S3Store
@@ -108,5 +111,21 @@ public class S3StoreTest extends WritableStoreTest {
     @Override
     Store storeWithArrays() {
         return new S3Store(s3Client, bucketName, "storeWithArrays");
+    }
+
+    /**
+     * A single ListObjectsV2 response holds at most 1000 entries, so listing the children of a
+     * group with more than 1000 of them has to follow the continuation token.
+     */
+    @Test
+    void testListChildrenIsPaginated() {
+        int childCount = 1001;
+        S3Store store = new S3Store(s3Client, bucketName, "manyChildren");
+        IntStream.range(0, childCount).parallel().forEach(i ->
+                store.resolve("child" + i, "data").set(ByteBuffer.allocate(1)));
+
+        List<String> children = store.listChildren(new String[0]).collect(Collectors.toList());
+        Assertions.assertEquals(childCount, children.size());
+        Assertions.assertTrue(children.contains("child" + (childCount - 1)));
     }
 }
