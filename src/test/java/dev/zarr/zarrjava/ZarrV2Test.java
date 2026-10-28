@@ -18,6 +18,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -103,6 +105,41 @@ public class ZarrV2Test extends ZarrTest {
                 Blosc.Shuffle.valueOf(expectedShuffle),
                 ((BloscCodec) reopenedArray.metadata().compressor).shuffle
         );
+        ucar.ma2.Array readData = reopenedArray.read();
+        Assertions.assertEquals(16 * 16, readData.getSize());
+        Assertions.assertEquals(127, readData.getInt(127));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"gzip", "zlib"})
+    public void testReadDefaultCompressionLevel(String compressorId)
+            throws IOException, ZarrException {
+        String arrayName = "v2_default_level_" + compressorId;
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve(arrayName);
+        ucar.ma2.Array testData =
+                ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{16, 16});
+        for (int i = 0; i < testData.getSize(); i++) {
+            testData.setInt(i, i % 128);
+        }
+        ArrayMetadataBuilder metadataBuilder = Array.metadataBuilder()
+                .withShape(16, 16)
+                .withDataType(DataType.UINT8)
+                .withChunks(8, 8);
+        Array array = Array.create(
+                storeHandle,
+                (compressorId.equals("gzip")
+                        ? metadataBuilder.withGzipCompressor(1)
+                        : metadataBuilder.withZlibCompressor(1)).build()
+        );
+        array.write(testData);
+
+        Path zarrayPath = TESTOUTPUT.resolve(arrayName).resolve(ZARRAY);
+        String zarray = new String(Files.readAllBytes(zarrayPath));
+        String defaultLevelZarray = zarray.replaceFirst("\"level\"\\s*:\\s*1", "\"level\": -1");
+        Assertions.assertTrue(defaultLevelZarray.contains("\"level\": -1"), zarray);
+        Files.write(zarrayPath, defaultLevelZarray.getBytes());
+
+        Array reopenedArray = Array.open(storeHandle);
         ucar.ma2.Array readData = reopenedArray.read();
         Assertions.assertEquals(16 * 16, readData.getSize());
         Assertions.assertEquals(127, readData.getInt(127));
@@ -572,6 +609,16 @@ public class ZarrV2Test extends ZarrTest {
             JsonNode JSON = new ObjectMapper().readTree(jsonInString);
             Assertions.assertEquals(JSON.toPrettyString(), jsonInString);
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"|u1,UINT8", "<u1,UINT8", ">u1,UINT8", ">i1,INT8", "<b1,BOOL", ">u2,UINT16_BE"})
+    public void testReadDataTypeWithAnyByteOrder(String dtype, DataType expected) throws ZarrException, IOException {
+        StoreHandle storeHandle = new MemoryStore().resolve("array");
+        storeHandle.resolve(ZARRAY).set(ByteBuffer.wrap(("{\"zarr_format\": 2, \"shape\": [2], \"chunks\": [2], " +
+                "\"dtype\": \"" + dtype + "\", \"compressor\": null, \"fill_value\": 0, \"filters\": null, " +
+                "\"order\": \"C\"}").getBytes(StandardCharsets.UTF_8)));
+        Assertions.assertEquals(expected, Array.open(storeHandle).metadata().dataType);
     }
 
     @Test

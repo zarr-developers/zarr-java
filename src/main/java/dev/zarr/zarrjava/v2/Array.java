@@ -13,6 +13,7 @@ import dev.zarr.zarrjava.store.StoreHandle;
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v2.codec.Codec;
 import dev.zarr.zarrjava.v2.codec.core.BytesCodec;
+import dev.zarr.zarrjava.v2.codec.core.FortranOrderCodec;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +37,12 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
         this.metadata = arrayMetadata;
         this.codecPipeline = new CodecPipeline(Utils.concatArrays(
                 new Codec[]{},
+                // "order": "F" means the chunk is serialized column-major. Reversing all axes before
+                // the BytesCodec turns its row-major serialization into a column-major one. For rank
+                // 0 and 1 both orders are identical, so no codec is needed there.
+                metadata.order == Order.F && metadata.ndim() > 1
+                        ? new Codec[]{new FortranOrderCodec()}
+                        : new Codec[]{},
                 metadata.filters == null ? new Codec[]{} : metadata.filters,
                 new Codec[]{new BytesCodec(arrayMetadata.endianness.toEndian())},
                 metadata.compressor == null ? new Codec[]{} : new Codec[]{metadata.compressor}
