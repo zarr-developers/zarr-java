@@ -230,7 +230,7 @@ public abstract class Array extends AbstractNode {
      * <p>
      * For a sharded array this operates at the shard level: {@code chunkCoords} addresses a whole
      * shard and the returned bytes are the fully-assembled shard (index and all inner chunks). To
-     * get at a single inner chunk of a shard instead, use {@link #readInnerChunkDirect(long[])}.
+     * get at a single inner chunk of a shard instead, use {@link #readInnerChunkDirect(long[]...)}.
      *
      * @param chunkCoords The coordinates of the chunk as computed by the offset of the chunk divided
      *                    by the chunk shape.
@@ -252,7 +252,7 @@ public abstract class Array extends AbstractNode {
 
     /**
      * The shape of the smallest unit this array encodes independently, i.e. the unit that the codec
-     * pipeline compresses and that {@link #readInnerChunkDirect(long[])} addresses.
+     * pipeline compresses and that {@link #readInnerChunkDirect(long[]...)} addresses.
      * <p>
      * For a sharded array this is the inner chunk shape of the sharding codec (the innermost one, if
      * shards are nested); for any other array it is simply {@link ArrayMetadata#chunkShape()}.
@@ -269,97 +269,101 @@ public abstract class Array extends AbstractNode {
      * unit that the codec pipeline actually encodes. For a sharded array that is a single inner chunk
      * of a shard: only the shard index and the bytes of that one inner chunk are read from the store,
      * not the whole shard. So for an array using the {@code jpeg} codec this returns exactly one JPEG.
-     * For an unsharded array the two grids coincide and this is equivalent to
+     * <p>
+     * The inner chunk is addressed level by level: first the coordinates of the shard on the array's
+     * chunk grid, then the coordinates of the inner chunk within that shard, and, if shards are
+     * nested, one more entry per nesting level. For example, in an 8x8 array with 4x4 shards of 2x2
+     * inner chunks, the inner chunk covering rows 6-7 and columns 2-3 is
+     * {@code readInnerChunkDirect(new long[]{1, 0}, new long[]{1, 1})}: shard (1,0), inner chunk (1,1)
+     * within it. For an unsharded array only the chunk coordinates are given, and this is equivalent to
      * {@link #readChunkDirect(long[])}.
      *
-     * @param innerChunkCoords The coordinates of the inner chunk on the grid given by
-     *                         {@link #innerChunkShape()}, spanning the whole array.
+     * @param innerChunkCoords The chunk coordinates, followed by one entry per sharding level.
      * @return the raw encoded inner chunk bytes, or {@code null} if the inner chunk is not present in
      *         the store (i.e. it holds the fill value).
-     * @throws ZarrException throws ZarrException if the requested inner chunk is outside the array's
-     *                       domain, or if the codec pipeline does not allow addressing inner chunks
+     * @throws IllegalArgumentException if the number of entries does not match the sharding depth, or
+     *                                  an entry has the wrong rank
+     * @throws ZarrException            if the requested inner chunk is outside the shard or the
+     *                                  array's domain
      */
     @Nullable
-    public ByteBuffer readInnerChunkDirect(long[] innerChunkCoords) throws ZarrException {
-        final long[][] splitCoords = splitInnerChunkCoords(innerChunkCoords);
-        final String[] chunkKeys = metadata().chunkKeyEncoding().encodeChunkKey(splitCoords[0]);
+    public ByteBuffer readInnerChunkDirect(long[]... innerChunkCoords) throws ZarrException {
+        checkInnerChunkCoords(innerChunkCoords);
+        final String[] chunkKeys = metadata().chunkKeyEncoding().encodeChunkKey(innerChunkCoords[0]);
         final StoreHandle chunkHandle = storeHandle.resolve(chunkKeys);
 
-        if (!codecPipeline.supportsPartialDecode()) {
+        if (innerChunkCoords.length == 1) {
             return chunkHandle.read();
         }
-        return codecPipeline.readInnerChunkEncoded(chunkHandle, splitCoords[1]);
+        return codecPipeline.readInnerChunkDirect(chunkHandle,
+                Arrays.copyOfRange(innerChunkCoords, 1, innerChunkCoords.length));
     }
 
     /**
-     * Splits coordinates on the {@link #innerChunkShape()} grid into the coordinates of the stored
-     * chunk holding that inner chunk and the coordinates of the inner chunk within that stored chunk.
+     * Checks that {@code innerChunkCoords} holds chunk coordinates followed by one entry per sharding
+     * level, that every entry is within its shard, and that the addressed inner chunk starts inside
+     * the array's domain.
      *
-     * @return an array of {@code {chunkCoords, coordsInChunk}}
-     * @throws IllegalArgumentException if {@code innerChunkCoords} has the wrong rank
-     * @throws ZarrException            if the inner chunk is outside the array's domain
+     * @throws IllegalArgumentException if the number of entries does not match the sharding depth, or
+     *                                  an entry has the wrong rank
+     * @throws ZarrException            if the inner chunk is outside the shard or the array's domain
      */
-    long[][] splitInnerChunkCoords(long[] innerChunkCoords) throws ZarrException {
+    void checkInnerChunkCoords(long[][] innerChunkCoords) throws ZarrException {
         final ArrayMetadata metadata = metadata();
         final int ndim = metadata.ndim();
-        if (innerChunkCoords.length != ndim) {
+        final int[][] innerChunkShapes = codecPipeline.innerChunkShapes();
+        if (innerChunkCoords.length != innerChunkShapes.length + 1) {
             throw new IllegalArgumentException(
-                    "'innerChunkCoords' needs to have rank '" + ndim + "'.");
+                    "'innerChunkCoords' needs " + (innerChunkShapes.length + 1) + " entries, the chunk "
+                            + "coordinates followed by one per sharding level, but has "
+                            + innerChunkCoords.length + ".");
         }
-        final int[] chunkShape = metadata.chunkShape();
-        final int[] innerChunkShape = innerChunkShape();
 
-        final long[] chunkCoords = new long[ndim];
-        final long[] coordsInChunk = new long[ndim];
+        // Walk the levels from the stored chunk inwards, accumulating where the inner chunk starts.
+        final long[] start = new long[ndim];
+        int[] parentShape = null;
+        for (int level = 0; level < innerChunkCoords.length; level++) {
+            final long[] coords = innerChunkCoords[level];
+            if (coords == null || coords.length != ndim) {
+                throw new IllegalArgumentException(
+                        "'innerChunkCoords' entries need to have rank '" + ndim + "'.");
+            }
+            final int[] shape = level == 0 ? metadata.chunkShape() : innerChunkShapes[level - 1];
+            for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+                if (coords[dimIdx] < 0
+                        || (parentShape != null && coords[dimIdx] >= parentShape[dimIdx] / shape[dimIdx])) {
+                    throw new ZarrException("Attempting to access an inner chunk outside of its shard.");
+                }
+                start[dimIdx] += coords[dimIdx] * shape[dimIdx];
+            }
+            parentShape = shape;
+        }
         for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-            if (innerChunkCoords[dimIdx] < 0
-                    || innerChunkCoords[dimIdx] * innerChunkShape[dimIdx] >= metadata.shape[dimIdx]) {
+            if (start[dimIdx] >= metadata.shape[dimIdx]) {
                 throw new ZarrException("Attempting to access data outside of the array's domain.");
             }
-            final int innerChunksPerChunk = chunkShape[dimIdx] / innerChunkShape[dimIdx];
-            chunkCoords[dimIdx] = innerChunkCoords[dimIdx] / innerChunksPerChunk;
-            coordsInChunk[dimIdx] = innerChunkCoords[dimIdx] % innerChunksPerChunk;
         }
-        return new long[][]{chunkCoords, coordsInChunk};
     }
 
     /**
-     * A writer for storing already-encoded inner chunks into this array without decoding or
-     * re-encoding anything, batching the changes so that each affected shard is rebuilt exactly once.
-     * <p>
-     * This is the encoded-bytes counterpart of {@link #readInnerChunkDirect(long[])}. See
+     * Opens a writer for storing already-encoded inner chunks into one shard of this array without
+     * decoding or re-encoding anything. All staged inner chunks are applied together, so the shard is
+     * rebuilt once no matter how many inner chunks change. Use it with try-with-resources so that the
+     * staged inner chunks are flushed when the block ends:
+     * <pre>{@code
+     * try (InnerChunkWriter writer = array.writeInnerChunkDirect(new long[]{1, 0})) {
+     *     writer.put(new long[]{1, 1}, innerChunkBytes);
+     * }
+     * }</pre>
+     * This is the encoded-bytes counterpart of {@link #readInnerChunkDirect(long[]...)}. See
      * {@link InnerChunkWriter} for the safety contract.
-     */
-    public InnerChunkWriter innerChunkWriter() {
-        return new InnerChunkWriter(this);
-    }
-
-    /**
-     * Stores the already-encoded bytes of one inner chunk, bypassing the codec pipeline entirely. No
-     * encoding is performed; the supplied bytes are stored verbatim.
-     * <p>
-     * This is the encoded-bytes counterpart of {@link #readInnerChunkDirect(long[])}. For a sharded
-     * array the containing shard is read, rebuilt with this inner chunk's bytes spliced in, and stored
-     * again; every other inner chunk of that shard is copied through still encoded, so nothing is
-     * recompressed. For an unsharded array the inner chunk grid is the chunk grid and this is
-     * equivalent to {@link #writeChunkDirect(long[], ByteBuffer)}.
-     * <p>
-     * To change several inner chunks, use {@link #innerChunkWriter()} instead: it rebuilds each
-     * affected shard once rather than once per inner chunk.
-     * <p>
-     * <b>Unsafe:</b> because the bytes are stored without decoding, they cannot be verified. See
-     * {@link InnerChunkWriter} for the full contract.
      *
-     * @param innerChunkCoords The coordinates of the inner chunk on the grid given by
-     *                         {@link #innerChunkShape()}, spanning the whole array.
-     * @param innerChunkBytes  The already-encoded bytes to store, or {@code null} to remove the inner
-     *                         chunk (a subsequent read then returns the fill value).
-     * @throws ZarrException throws ZarrException if the requested inner chunk is outside the array's
-     *                       domain
+     * @param shardCoords The coordinates of the shard on the array's chunk grid.
+     * @throws IllegalArgumentException if {@code shardCoords} has the wrong rank
+     * @throws ZarrException            if the shard is outside the array's domain
      */
-    public void writeInnerChunkDirect(long[] innerChunkCoords, @Nullable ByteBuffer innerChunkBytes)
-            throws ZarrException {
-        new InnerChunkWriter(this).put(innerChunkCoords, innerChunkBytes).flush();
+    public InnerChunkWriter writeInnerChunkDirect(long[] shardCoords) throws ZarrException {
+        return new InnerChunkWriter(this, shardCoords);
     }
 
     /**

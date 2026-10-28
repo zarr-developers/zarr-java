@@ -260,38 +260,59 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
     }
 
     @Override
-    public int[] innerChunkShape() {
+    public int[][] innerChunkShapes() {
         final ShardingIndexedCodec nested = nestedShardingCodec();
-        return nested == null ? configuration.chunkShape : nested.innerChunkShape();
+        if (nested == null) {
+            return new int[][]{configuration.chunkShape};
+        }
+        final int[][] nestedShapes = nested.innerChunkShapes();
+        final int[][] shapes = new int[nestedShapes.length + 1][];
+        shapes[0] = configuration.chunkShape;
+        System.arraycopy(nestedShapes, 0, shapes, 1, nestedShapes.length);
+        return shapes;
+    }
+
+    /**
+     * Checks that {@code innerChunkCoords} has one entry per level of {@link #innerChunkShapes()} and
+     * that the first entry, which this level consumes, addresses a chunk inside this shard.
+     */
+    private void checkInnerChunkCoords(long[][] innerChunkCoords) throws ZarrException {
+        final int depth = innerChunkShapes().length;
+        if (innerChunkCoords.length != depth) {
+            throw new IllegalArgumentException(
+                    "'innerChunkCoords' needs one entry per sharding level, i.e. " + depth + ", but has "
+                            + innerChunkCoords.length + ".");
+        }
+        final long[] chunkCoords = innerChunkCoords[0];
+        final int ndim = arrayMetadata.ndim();
+        if (chunkCoords.length != ndim) {
+            throw new IllegalArgumentException(
+                    "'innerChunkCoords' entries need to have rank '" + ndim + "'.");
+        }
+        final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
+        for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+            if (chunkCoords[dimIdx] < 0 || chunkCoords[dimIdx] >= chunksPerShard[dimIdx]) {
+                throw new ZarrException("Attempting to access an inner chunk outside of the shard.");
+            }
+        }
     }
 
     @Override
     @Nullable
-    protected ByteBuffer readInnerChunkEncoded(StoreHandle handle, long[] innerChunkCoords)
+    protected ByteBuffer readInnerChunkDirect(StoreHandle handle, long[][] innerChunkCoords)
             throws ZarrException {
-        return readInnerChunkEncoded(new StoreHandleDataProvider(handle), innerChunkCoords);
+        return readInnerChunkDirect(new StoreHandleDataProvider(handle), innerChunkCoords);
     }
 
     @Nullable
-    private ByteBuffer readInnerChunkEncoded(DataProvider dataProvider, long[] innerChunkCoords)
+    private ByteBuffer readInnerChunkDirect(DataProvider dataProvider, long[][] innerChunkCoords)
             throws ZarrException {
-        final int ndim = arrayMetadata.ndim();
+        checkInnerChunkCoords(innerChunkCoords);
         final ShardingIndexedCodec nested = nestedShardingCodec();
-        final int[] innerChunkShape = innerChunkShape();
-        final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
-
-        // Split the innermost-grid coordinates into this level's chunk coordinates and the remainder
-        // that addresses the inner chunk within a nested shard.
-        final long[] chunkCoords = new long[ndim];
-        final long[] nestedChunkCoords = new long[ndim];
-        for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-            final int chunksPerInnerChunk = configuration.chunkShape[dimIdx] / innerChunkShape[dimIdx];
-            chunkCoords[dimIdx] = innerChunkCoords[dimIdx] / chunksPerInnerChunk;
-            nestedChunkCoords[dimIdx] = innerChunkCoords[dimIdx] % chunksPerInnerChunk;
-            if (chunkCoords[dimIdx] < 0 || chunkCoords[dimIdx] >= chunksPerShard[dimIdx]) {
-                throw new ZarrException("Attempting to read an inner chunk outside of the shard.");
-            }
-        }
+        // This level consumes the first entry; the rest addresses the inner chunk within a nested shard.
+        final long[] chunkCoords = innerChunkCoords[0];
+        final long[][] nestedChunkCoords =
+                Arrays.copyOfRange(innerChunkCoords, 1, innerChunkCoords.length);
 
         final int shardIndexByteLength = (int) getShardIndexSize(arrayMetadata);
         final ByteBuffer shardIndexBytes = this.configuration.indexLocation.equals("start")
@@ -312,40 +333,27 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
         if (chunkBytes == null || nested == null) {
             return chunkBytes;
         }
-        return nested.readInnerChunkEncoded(new ByteBufferDataProvider(chunkBytes), nestedChunkCoords);
+        return nested.readInnerChunkDirect(new ByteBufferDataProvider(chunkBytes), nestedChunkCoords);
     }
 
     @Override
     @Nullable
-    protected ByteBuffer mergeInnerChunksEncoded(
+    protected ByteBuffer mergeInnerChunksDirect(
             @Nullable ByteBuffer shardBytes, List<InnerChunkUpdate> updates) throws ZarrException {
-        final int ndim = arrayMetadata.ndim();
         final ShardingIndexedCodec nested = nestedShardingCodec();
-        final int[] innerChunkShape = innerChunkShape();
         final int[] chunksPerShard = getChunksPerShard(arrayMetadata);
         final int shardIndexByteLength = (int) getShardIndexSize(arrayMetadata);
         final boolean indexAtStart = this.configuration.indexLocation.equals("start");
 
-        // Split the innermost-grid coordinates of every update into this level's chunk coordinates and
-        // the remainder addressing the inner chunk within a nested shard, then group by the former so
-        // that each of this level's chunks is rebuilt at most once.
+        // Group the updates by this level's chunk coordinates, the first entry of each, so that each of
+        // this level's chunks is rebuilt at most once. The rest addresses the inner chunk within a
+        // nested shard.
         final Map<String, List<InnerChunkUpdate>> updatesPerChunk = new HashMap<>();
         for (final InnerChunkUpdate update : updates) {
-            if (update.innerChunkCoords.length != ndim) {
-                throw new IllegalArgumentException(
-                        "'innerChunkCoords' needs to have rank '" + ndim + "'.");
-            }
-            final long[] chunkCoords = new long[ndim];
-            final long[] nestedChunkCoords = new long[ndim];
-            for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-                final int chunksPerInnerChunk = configuration.chunkShape[dimIdx] / innerChunkShape[dimIdx];
-                chunkCoords[dimIdx] = update.innerChunkCoords[dimIdx] / chunksPerInnerChunk;
-                nestedChunkCoords[dimIdx] = update.innerChunkCoords[dimIdx] % chunksPerInnerChunk;
-                if (chunkCoords[dimIdx] < 0 || chunkCoords[dimIdx] >= chunksPerShard[dimIdx]) {
-                    throw new ZarrException("Attempting to write an inner chunk outside of the shard.");
-                }
-            }
-            updatesPerChunk.computeIfAbsent(Arrays.toString(chunkCoords), k -> new ArrayList<>())
+            checkInnerChunkCoords(update.innerChunkCoords);
+            final long[][] nestedChunkCoords =
+                    Arrays.copyOfRange(update.innerChunkCoords, 1, update.innerChunkCoords.length);
+            updatesPerChunk.computeIfAbsent(Arrays.toString(update.innerChunkCoords[0]), k -> new ArrayList<>())
                     .add(new InnerChunkUpdate(nestedChunkCoords, update.innerChunkBytes));
         }
 
@@ -417,7 +425,7 @@ public class ShardingIndexedCodec extends ArrayBytesCodec.WithPartialDecode impl
             } else {
                 // A nested shard is just one inner chunk of this shard: rebuild it from its own bytes and
                 // splice the result in as an opaque blob.
-                newChunkBytes = nested.mergeInnerChunksEncoded(oldChunkBytes, chunkUpdates);
+                newChunkBytes = nested.mergeInnerChunksDirect(oldChunkBytes, chunkUpdates);
             }
 
             if (newChunkBytes == null) {
