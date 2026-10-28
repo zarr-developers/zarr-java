@@ -448,6 +448,16 @@ Array array = Array.create(
 ```java
 .withCodecs(c -> c.withZstd(3))  // Level 1-22
 ```
+#### Zfp Compression
+The [zfp](https://github.com/zarr-developers/zarr-extensions/tree/main/codecs/zfp) codec is not part
+of zarr-java, because it needs the native zfp library. It is provided by
+[zfp-java](https://github.com/scalableminds/zfp-java); add that dependency and register the codec
+once at startup:
+```java
+ZfpCodec.register();
+// ...
+.withCodecs(new ZfpCodec(ZfpCodec.Configuration.reversible()))
+```
 #### Transpose Codec
 ```java
 .withCodecs(c -> c
