@@ -98,6 +98,14 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         return omeMetadata.bioformats2rawLayout;
     }
 
+    /**
+     * Returns the {@code image-label} metadata if this multiscale image is a label image, or null if not.
+     */
+    @Nullable
+    public dev.zarr.conventions.ome.metadata.ImageLabel getImageLabel() {
+        return omeMetadata.imageLabel;
+    }
+
     OmeMetadata getRawOmeMetadata() {
         return omeMetadata;
     }
@@ -122,9 +130,21 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         if (!(arrayMetadata instanceof dev.zarr.zarrjava.v3.ArrayMetadata)) {
             throw new ZarrException("Expected v3.ArrayMetadata for OME-Zarr v0.6, got " + arrayMetadata.getClass());
         }
+        String intrinsicName = intrinsicCoordinateSystemName(omeMetadata.multiscales.get(0));
         Array.create(storeHandle.resolve(path), (dev.zarr.zarrjava.v3.ArrayMetadata) arrayMetadata);
 
         // Convert ome.metadata.CoordinateTransformation to v0.6 CoordinateTransformation
+        // Per the 0.6 spec, a dataset carries a single transformation (scale, identity, or a sequence of
+        // scale + translation) whose input is {"path": <dataset path>} and whose output is
+        // {"name": <intrinsic coordinate system>}. Multiple transformations are wrapped in a sequence;
+        // nested transformations carry no input/output.
+        boolean wrapInSequence = coordinateTransformations.size() > 1;
+        dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef datasetInput =
+                dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef.ofPath(path);
+        dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef datasetOutput =
+                dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef.ofName(intrinsicName);
+        dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef input = wrapInSequence ? null : datasetInput;
+        dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef output = wrapInSequence ? null : datasetOutput;
         List<dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation> v06Transforms = new ArrayList<>();
         for (CoordinateTransformation ct : coordinateTransformations) {
             String type = ct.type;
@@ -156,77 +176,106 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
 
                 if ("sequence".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation(
-                            null, null, null, castV06TransformList(raw.get("transformations"))));
+                            input, output, null, castV06TransformList(raw.get("transformations"))));
                     continue;
                 }
                 if ("mapAxis".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.MapAxisCoordinateTransformation(
-                            null, null, null, castIntList(raw.get("mapAxis")), castV06Transform(raw.get("transformation"))));
+                            input, output, null, castIntList(raw.get("mapAxis")), castV06Transform(raw.get("transformation"))));
+                    continue;
+                }
+                if ("projectAxis".equals(type)) {
+                    v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation(
+                            null, null, null, castIntList(raw.get("droppedInputs")), castIntList(raw.get("createdOutputs"))));
                     continue;
                 }
                 if ("affine".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.AffineCoordinateTransformation(
-                            null, null, null, castMatrix(raw.get("affine")), rawPath));
+                            input, output, null, castMatrix(raw.get("affine")), rawPath));
                     continue;
                 }
                 if ("rotation".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.RotationCoordinateTransformation(
-                            null, null, null, castMatrix(raw.get("rotation")), rawPath));
+                            input, output, null, castMatrix(raw.get("rotation")), rawPath));
                     continue;
                 }
                 if ("displacements".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation(
-                            null, null, null, rawPath));
+                            input, output, null, rawPath, castString(raw.get("interpolation"))));
                     continue;
                 }
                 if ("coordinates".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinatesCoordinateTransformation(
-                            null, null, null, rawPath));
+                            input, output, null, rawPath, castString(raw.get("interpolation"))));
                     continue;
                 }
                 if ("bijection".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.BijectionCoordinateTransformation(
-                            null, null, null, castV06Transform(raw.get("forward")), castV06Transform(raw.get("inverse"))));
+                            input, output, null, castV06Transform(raw.get("forward")), castV06Transform(raw.get("inverse"))));
                     continue;
                 }
                 if ("byDimension".equals(type)) {
                     v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation(
-                            null, null, null, castByDimensionTransformList(raw.get("transformations"))));
+                            input, output, null, castByDimensionTransformList(raw.get("transformations"))));
                     continue;
                 }
             }
             if ("scale".equals(type)) {
                 v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation(
-                        null, null, null, scale, rawPath));
+                        input, output, null, scale, rawPath));
             } else if ("translation".equals(type)) {
                 v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.TranslationCoordinateTransformation(
-                        null, null, null, translation, rawPath));
+                        input, output, null, translation, rawPath));
             } else if ("identity".equals(type)) {
                 v06Transforms.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.IdentityCoordinateTransformation(
-                        null, null, null, rawPath));
+                        input, output, null, rawPath));
             } else {
                 dev.zarr.conventions.ome.v0_6.metadata.transform.GenericCoordinateTransformation generic =
-                        new dev.zarr.conventions.ome.v0_6.metadata.transform.GenericCoordinateTransformation(type, null, null, null);
+                        new dev.zarr.conventions.ome.v0_6.metadata.transform.GenericCoordinateTransformation(type, input, output, null);
                 if (scale != null) generic.raw.put("scale", scale);
                 if (translation != null) generic.raw.put("translation", translation);
                 if (rawPath != null) generic.raw.put("path", rawPath);
                 v06Transforms.add(generic);
             }
         }
+        if (wrapInSequence) {
+            v06Transforms = Collections.<dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation>singletonList(
+                    new dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation(
+                            datasetInput, datasetOutput, null, v06Transforms));
+        }
 
         MultiscalesEntry current = omeMetadata.multiscales.get(0);
         MultiscalesEntry updated = current.withDataset(new dev.zarr.conventions.ome.v0_6.metadata.Dataset(path, v06Transforms));
         List<MultiscalesEntry> updatedList = new ArrayList<>(omeMetadata.multiscales);
         updatedList.set(0, updated);
-        omeMetadata = new OmeMetadata(
-                omeMetadata.version,
-                updatedList,
-                omeMetadata.omero,
-                omeMetadata.bioformats2rawLayout,
-                omeMetadata.scene,
-                omeMetadata.plate,
-                omeMetadata.well);
+        omeMetadata = omeMetadata.withMultiscales(updatedList);
         setAttributes(omeAttributes(omeMetadata));
+    }
+
+    /**
+     * Name of the "intrinsic" coordinate system of a multiscale: the output of the existing dataset
+     * transformations if any, otherwise the first entry of {@code coordinateSystems}.
+     */
+    private static String intrinsicCoordinateSystemName(MultiscalesEntry entry) throws ZarrException {
+        if (entry.datasets != null) {
+            for (dev.zarr.conventions.ome.v0_6.metadata.Dataset ds : entry.datasets) {
+                if (ds.coordinateTransformations == null) {
+                    continue;
+                }
+                for (dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation ct : ds.coordinateTransformations) {
+                    if (ct != null && ct.getOutput() != null && ct.getOutput().name != null) {
+                        return ct.getOutput().name;
+                    }
+                }
+            }
+        }
+        if (entry.coordinateSystems != null && !entry.coordinateSystems.isEmpty()
+                && entry.coordinateSystems.get(0).name != null) {
+            return entry.coordinateSystems.get(0).name;
+        }
+        throw new ZarrException(
+                "Cannot determine the intrinsic coordinate system for a new OME-Zarr v0.6 scale level: "
+                        + "the multiscales entry has neither dataset transformations with an output nor coordinateSystems");
     }
 
     @Override
@@ -236,13 +285,21 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
         for (dev.zarr.conventions.ome.v0_6.metadata.Dataset ds : entry.datasets) {
             List<CoordinateTransformation> mapped = new ArrayList<>();
             for (dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation ct : ds.coordinateTransformations) {
+                if (ct instanceof dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation
+                        && ((dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation) ct).transformations != null) {
+                    // 0.6 datasets wrap scale + translation in a sequence; the version-independent view
+                    // uses the flat [scale, translation] list of earlier versions.
+                    mapped.addAll(mapTransformList(
+                            ((dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation) ct).transformations));
+                    continue;
+                }
                 mapped.add(mapTransform(ct));
             }
             mappedDatasets.add(new dev.zarr.conventions.ome.metadata.Dataset(ds.path, mapped));
         }
         List<Axis> axes = entry.axes;
-        if ((axes == null || axes.isEmpty()) && entry.coordinateSystems != null && !entry.coordinateSystems.isEmpty()) {
-            axes = entry.coordinateSystems.get(0).axes;
+        if ((axes == null || axes.isEmpty()) && entry.intrinsicCoordinateSystem() != null) {
+            axes = entry.intrinsicCoordinateSystem().axes;
         }
         return new dev.zarr.conventions.ome.metadata.MultiscalesEntry(
                 axes != null ? axes : Collections.<Axis>emptyList(),
@@ -294,6 +351,19 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             }
             return generic;
         }
+        if (ct instanceof dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation) {
+            dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation t =
+                    (dev.zarr.conventions.ome.v0_6.metadata.transform.ProjectAxisCoordinateTransformation) ct;
+            dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation generic =
+                    new dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation("projectAxis");
+            if (t.droppedInputs != null) {
+                generic.raw.put("droppedInputs", t.droppedInputs);
+            }
+            if (t.createdOutputs != null) {
+                generic.raw.put("createdOutputs", t.createdOutputs);
+            }
+            return generic;
+        }
         if (ct instanceof dev.zarr.conventions.ome.v0_6.metadata.transform.AffineCoordinateTransformation) {
             dev.zarr.conventions.ome.v0_6.metadata.transform.AffineCoordinateTransformation t =
                     (dev.zarr.conventions.ome.v0_6.metadata.transform.AffineCoordinateTransformation) ct;
@@ -322,6 +392,9 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation generic =
                     new dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation("displacements");
             generic.raw.put("path", t.path);
+            if (t.interpolation != null) {
+                generic.raw.put("interpolation", t.interpolation);
+            }
             return generic;
         }
         if (ct instanceof dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinatesCoordinateTransformation) {
@@ -330,6 +403,9 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation generic =
                     new dev.zarr.conventions.ome.metadata.transform.GenericCoordinateTransformation("coordinates");
             generic.raw.put("path", t.path);
+            if (t.interpolation != null) {
+                generic.raw.put("interpolation", t.interpolation);
+            }
             return generic;
         }
         if (ct instanceof dev.zarr.conventions.ome.v0_6.metadata.transform.BijectionCoordinateTransformation) {
@@ -354,8 +430,8 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
                 List<Map<String, Object>> transformed = new ArrayList<>();
                 for (dev.zarr.conventions.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation.ByDimensionTransformation item : t.transformations) {
                     Map<String, Object> map = new LinkedHashMap<>();
-                    map.put("input_axes", item.inputAxes);
-                    map.put("output_axes", item.outputAxes);
+                    map.put("inputAxes", item.inputAxes);
+                    map.put("outputAxes", item.outputAxes);
                     map.put("transformation", item.transformation != null ? mapTransform(item.transformation) : null);
                     transformed.add(map);
                 }
@@ -409,6 +485,10 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             }
         }
         return out;
+    }
+
+    private static String castString(Object raw) {
+        return raw instanceof String ? (String) raw : null;
     }
 
     private static List<Integer> castIntList(Object raw) {
@@ -489,8 +569,8 @@ public final class MultiscaleImage extends OmeV3Group implements MultiscalesMeta
             }
             Map<?, ?> map = (Map<?, ?>) item;
             out.add(new dev.zarr.conventions.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation.ByDimensionTransformation(
-                    castIntList(map.get("input_axes")),
-                    castIntList(map.get("output_axes")),
+                    castIntList(map.containsKey("inputAxes") ? map.get("inputAxes") : map.get("input_axes")),
+                    castIntList(map.containsKey("outputAxes") ? map.get("outputAxes") : map.get("output_axes")),
                     castV06Transform(map.get("transformation"))));
         }
         return out;
