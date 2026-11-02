@@ -44,6 +44,16 @@ public class FilesystemStore implements Store, Store.ListableStore {
         return Files.isRegularFile(resolveKeys(keys));
     }
 
+    /**
+     * Whether there is no file at the given keys. Reading such a key does not always fail with a
+     * {@link NoSuchFileException}: if one of the path components is a file rather than a
+     * directory, the filesystem reports "Not a directory" instead. Either way the key holds no
+     * data, so {@link #get} has to return null for it.
+     */
+    private boolean isMissing(String[] keys) {
+        return !Files.isRegularFile(resolveKeys(keys));
+    }
+
     @Nullable
     @Override
     public ByteBuffer get(String[] keys) {
@@ -52,6 +62,9 @@ public class FilesystemStore implements Store, Store.ListableStore {
         } catch (NoSuchFileException e) {
             return null;
         } catch (IOException e) {
+            if (isMissing(keys)) {
+                return null;
+            }
             throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
@@ -75,6 +88,9 @@ public class FilesystemStore implements Store, Store.ListableStore {
         } catch (NoSuchFileException e) {
             return null;
         } catch (IOException e) {
+            if (isMissing(keys)) {
+                return null;
+            }
             throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
@@ -97,10 +113,41 @@ public class FilesystemStore implements Store, Store.ListableStore {
         } catch (NoSuchFileException e) {
             return null;
         } catch (IOException e) {
+            if (isMissing(keys)) {
+                return null;
+            }
             throw StoreException.readFailed(this.toString(), keys, e);
         }
     }
 
+
+    /**
+     * Opens the file once and reads each range from it directly. Coalescing buys nothing locally,
+     * so {@code maxGapBytes} and {@code maxCoalescedBytes} are ignored.
+     */
+    @Nullable
+    @Override
+    public ByteBuffer[] getRanges(String[] keys, long[] starts, long[] ends,
+                                  long maxGapBytes, long maxCoalescedBytes) {
+        ByteRangeCoalescer.validate(starts, ends);
+        try (SeekableByteChannel byteChannel = Files.newByteChannel(resolveKeys(keys))) {
+            ByteBuffer[] result = new ByteBuffer[starts.length];
+            for (int i = 0; i < starts.length; i++) {
+                ByteBuffer bytes = Utils.allocateNative((int) (ends[i] - starts[i]));
+                byteChannel.position(starts[i]);
+                while (bytes.hasRemaining() && byteChannel.read(bytes) >= 0) {
+                    // read() may return fewer bytes than requested
+                }
+                bytes.rewind();
+                result[i] = bytes;
+            }
+            return result;
+        } catch (NoSuchFileException e) {
+            return null;
+        } catch (IOException e) {
+            throw StoreException.readFailed(this.toString(), keys, e);
+        }
+    }
 
     @Override
     public void set(String[] keys, ByteBuffer bytes) {
