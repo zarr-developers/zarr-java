@@ -316,13 +316,13 @@ public class ZarrV3Test extends ZarrTest {
                 .withDataType(DataType.UINT8)
                 .withChunkShape(16, 16, 3)
                 .withFillValue(0)
-                .withCodecs(c -> c.withJpeg(quality, "ycbcr"));
+                .withCodecs(c -> c.withJpeg(quality, "ycbcr", new int[][]{{2, 2}, {1, 1}, {1, 1}}));
         Array writeArray = Array.create(storeHandle, builder.build());
         writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, shape, testData));
 
         ucar.ma2.Array result = Array.open(storeHandle).read();
         byte[] roundTripped = (byte[]) result.copyTo1DJavaArray();
-        // RGB goes through the YCbCr transform and (by default) 4:2:0 chroma subsampling, so a
+        // RGB goes through the YCbCr transform and 4:2:0 chroma subsampling, so a
         // looser tolerance than grayscale is expected.
         Assertions.assertTrue(maxAbsDiff(testData, roundTripped) <= 24,
                 "ycbcr round-trip differs too much at quality " + quality);
@@ -417,8 +417,8 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
-    public void testJpegCodecRejectsColorWithoutColorSpace() throws ZarrException, IOException {
-        // 3-component data requires encoded_color_space.
+    public void testJpegCodecRejectsColorChunkForGrayscaleConfig() throws ZarrException, IOException {
+        // encoded_color_space "grayscale" fixes 1 component, so a 3-component chunk is rejected.
         byte[] testData = new byte[16 * 16 * 3];
         Arrays.fill(testData, (byte) 1); // non-fill data so the chunk is actually encoded
 
@@ -436,8 +436,8 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
-    public void testJpegCodecRejectsColorSpaceForGrayscale() throws ZarrException, IOException {
-        // encoded_color_space must not be set for grayscale data.
+    public void testJpegCodecRejectsGrayscaleChunkForColorConfig() throws ZarrException, IOException {
+        // encoded_color_space "ycbcr" fixes 3 components, so a 1-component chunk is rejected.
         byte[] testData = new byte[16 * 16];
         Arrays.fill(testData, (byte) 1); // non-fill data so the chunk is actually encoded
 
@@ -492,23 +492,47 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
-    public void testJpegCodecRejectsSubsamplingLengthMismatch() throws ZarrException, IOException {
+    public void testJpegCodecRejectsSubsamplingLengthMismatch() {
         // A subsampling array whose length does not match the component count is rejected.
-        byte[] testData = new byte[16 * 16 * 3];
-        Arrays.fill(testData, (byte) 1);
+        ZarrException ex = assertThrows(ZarrException.class,
+                () -> new JpegCodec.Configuration(90, "ycbcr", new int[][]{{2, 2}, {1, 1}}));
+        Assertions.assertTrue(ex.getMessage().contains("one entry per component"), ex.getMessage());
+    }
 
-        StoreHandle storeHandle =
-                new FilesystemStore(TESTOUTPUT).resolve("testJpegRejectsSubsamplingLength");
-        ArrayMetadataBuilder builder = Array.metadataBuilder()
+    @ParameterizedTest
+    @CsvSource({"rgb,grayscale", "grayscale,rgb", "rgb,ycbcr", "grayscale,ycbcr", "cmyk,rgb", "ycbcr,xyz"})
+    public void testJpegCodecRejectsInvalidColorSpaceCombination(String encoded, String decoded) {
+        int[][] subsampling = "grayscale".equals(encoded)
+                ? new int[][]{{1, 1}} : new int[][]{{1, 1}, {1, 1}, {1, 1}};
+        assertThrows(ZarrException.class,
+                () -> new JpegCodec.Configuration(90, encoded, decoded, subsampling));
+    }
+
+    @Test
+    public void testJpegCodecYCbCrPassthroughReadWrite() throws ZarrException, IOException {
+        // decoded_color_space "ycbcr" stores YCbCr samples without conversion and returns them as-is.
+        int[] shape = {16, 16, 3};
+        byte[] testData = rgbRampData(shape[0] * shape[1]);
+
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegYCbCrPassthrough");
+        Array writeArray = Array.create(storeHandle, Array.metadataBuilder()
                 .withShape(16, 16, 3)
                 .withDataType(DataType.UINT8)
                 .withChunkShape(16, 16, 3)
                 .withFillValue(0)
-                .withCodecs(c -> c.withJpeg(90, "ycbcr", new int[][]{{2, 2}, {1, 1}}));
-        Array writeArray = Array.create(storeHandle, builder.build());
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{16, 16, 3}, testData)));
-        Assertions.assertTrue(ex.getMessage().contains("one entry per component"), ex.getMessage());
+                .withCodecs(c -> c.withJpeg(100, "ycbcr", "ycbcr", new int[][]{{1, 1}, {1, 1}, {1, 1}}))
+                .build());
+        writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, shape, testData));
+
+        String zarrJson = new String(Files.readAllBytes(
+                Paths.get("testoutput", "testJpegYCbCrPassthrough", ZARR_JSON))).replaceAll("\\s+", "");
+        Assertions.assertTrue(zarrJson.contains("\"decoded_color_space\":\"ycbcr\""), zarrJson);
+
+        ucar.ma2.Array result = Array.open(storeHandle).read();
+        byte[] roundTripped = (byte[]) result.copyTo1DJavaArray();
+        // No color transform in either direction, so only DCT quantization loss remains.
+        Assertions.assertTrue(maxAbsDiff(testData, roundTripped) <= 4,
+                "ycbcr passthrough round-trip differs too much");
     }
 
     @Test
@@ -552,18 +576,22 @@ public class ZarrV3Test extends ZarrTest {
 
         String zarrJson = new String(Files.readAllBytes(
                 Paths.get("testoutput", "testJpegDefaultMetadata", ZARR_JSON))).replaceAll("\\s+", "");
-        Assertions.assertTrue(zarrJson.contains("\"quality\":90"), zarrJson);
+        Assertions.assertTrue(zarrJson.contains("\"quality\":95"), zarrJson);
+        Assertions.assertTrue(zarrJson.contains("\"encoded_color_space\":\"grayscale\""), zarrJson);
         Assertions.assertTrue(zarrJson.contains("\"subsampling\":[[1,1]]"), zarrJson);
+        // decoded_color_space is omitted when it is the default for the encoded color space.
+        Assertions.assertFalse(zarrJson.contains("decoded_color_space"), zarrJson);
     }
 
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
             "\"quality\":90,|''",
-            "\"subsampling\":[[1,1]]|''",
-            "\"configuration\":{\"quality\":90,\"subsampling\":[[1,1]]}|\"configuration\":null"})
+            "\"encoded_color_space\":\"grayscale\",|''",
+            ",\"subsampling\":[[1,1]]|''",
+            "\"configuration\":{\"quality\":90,\"encoded_color_space\":\"grayscale\",\"subsampling\":[[1,1]]}|\"configuration\":null"})
     public void testJpegCodecRejectsMissingRequiredParameter(String present, String replacement)
             throws ZarrException, IOException {
-        // quality, subsampling and the configuration itself are required and must not be defaulted.
+        // quality, encoded_color_space, subsampling and the configuration itself are required.
         String name = "testJpegRejectsMissing" + Math.abs(present.hashCode());
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve(name);
         Array.create(storeHandle, Array.metadataBuilder()
@@ -583,21 +611,11 @@ public class ZarrV3Test extends ZarrTest {
     }
 
     @Test
-    public void testJpegCodecRejectsSubsampledGrayscale() throws ZarrException, IOException {
+    public void testJpegCodecRejectsSubsampledGrayscale() {
         // Grayscale data must use subsampling [[1, 1]].
-        byte[] testData = new byte[16 * 16];
-        Arrays.fill(testData, (byte) 1);
-        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegRejectsGraySubsampling");
-        Array writeArray = Array.create(storeHandle, Array.metadataBuilder()
-                .withShape(16, 16)
-                .withDataType(DataType.UINT8)
-                .withChunkShape(16, 16)
-                .withFillValue(0)
-                .withCodecs(c -> c.withJpeg(90, null, new int[][]{{2, 2}}))
-                .build());
-        RuntimeException ex = assertThrows(RuntimeException.class,
-                () -> writeArray.write(ucar.ma2.Array.factory(ucar.ma2.DataType.UBYTE, new int[]{16, 16}, testData)));
-        Assertions.assertTrue(ex.getMessage().contains("[[1, 1]]"), ex.getMessage());
+        ZarrException ex = assertThrows(ZarrException.class,
+                () -> new JpegCodec.Configuration(90, "grayscale", new int[][]{{2, 2}}));
+        Assertions.assertTrue(ex.getMessage().contains("grayscale"), ex.getMessage());
     }
 
     @Test

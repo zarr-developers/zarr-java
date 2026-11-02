@@ -10,6 +10,7 @@ import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -106,36 +107,37 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
         return withZstd(5, true);
     }
 
+    /** Adds a grayscale jpeg codec with the given quality. */
     public CodecBuilder withJpeg(int quality) {
-        try {
-            codecs.add(new JpegCodec(new JpegCodec.Configuration(quality)));
-        } catch (ZarrException e) {
-            throw new RuntimeException(e);
-        }
-        return this;
+        return withJpeg(quality, JpegCodec.GRAYSCALE);
     }
 
     /**
-     * Adds a 3-component jpeg codec with the conventional subsampling for the color space: 4:2:0
-     * for {@code ycbcr}, none for {@code rgb}.
+     * Adds a jpeg codec for the given encoded color space, without chroma subsampling and with the
+     * default decoded color space.
      */
     public CodecBuilder withJpeg(int quality, String encodedColorSpace) {
-        int[][] subsampling = "rgb".equals(encodedColorSpace)
-                ? new int[][]{{1, 1}, {1, 1}, {1, 1}}
-                : new int[][]{{2, 2}, {1, 1}, {1, 1}};
+        int[][] subsampling = JpegCodec.GRAYSCALE.equals(encodedColorSpace)
+                ? new int[][]{{1, 1}}
+                : new int[][]{{1, 1}, {1, 1}, {1, 1}};
         return withJpeg(quality, encodedColorSpace, subsampling);
     }
 
     public CodecBuilder withJpeg(int quality, String encodedColorSpace, int[][] subsampling) {
+        return withJpeg(quality, encodedColorSpace, null, subsampling);
+    }
+
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace,
+                                 @Nullable String decodedColorSpace, int[][] subsampling) {
         try {
-            codecs.add(new JpegCodec(
-                    new JpegCodec.Configuration(quality, encodedColorSpace, subsampling)));
+            codecs.add(new JpegCodec(quality, encodedColorSpace, decodedColorSpace, subsampling));
         } catch (ZarrException e) {
             throw new RuntimeException(e);
         }
         return this;
     }
 
+    /** Adds a grayscale jpeg codec with the default quality (95). */
     public CodecBuilder withJpeg() {
         try {
             codecs.add(new JpegCodec());
