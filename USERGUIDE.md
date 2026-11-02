@@ -219,6 +219,20 @@ Array resizedArray = array.resize(
     true    // parallel processing
 );
 ```
+### Prepending Data (Experimental)
+Zarr v3 arrays can grow before their first element without moving existing chunks, as proposed in
+[ZEP 12](https://github.com/zarr-developers/zeps/pull/72). The array then stores explicit `bounds`
+instead of `shape`, which readers without support for ZEP 12 refuse.
+```java
+// shape 6, chunks 4: c/0 = [10, 11, 12, 13], c/1 = [14, 15, _, _]
+Array grown = array.prepend(ucar.ma2.Array.makeFromJavaArray(new int[]{7, 8, 9}));
+// new chunk c/-1 = [_, 7, 8, 9]; c/0 and c/1 are unchanged
+grown.metadata().shape;        // [9]
+grown.metadata().lowerBound(); // [-3]
+grown.read();                  // [7, 8, 9, 10, 11, 12, 13, 14, 15], indexing stays zero-based
+// Create an array with explicit bounds
+Array.metadataBuilder().withBounds(new long[]{-3}, new long[]{6});
+```
 ### Managing Attributes
 ```java
 import dev.zarr.zarrjava.core.Attributes;

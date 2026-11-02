@@ -15,13 +15,26 @@ public class IndexingUtils {
 
     public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape, long[] selOffset,
                                               long[] selShape) {
+        return computeChunkCoords(arrayShape, chunkShape, selOffset, selShape,
+                new long[arrayShape.length]);
+    }
+
+    /**
+     * Computes the coordinates of all chunks that intersect a selection.
+     *
+     * @param lowerBound the coordinate of the array's first element along each dimension; selections
+     *                   are relative to it, chunk coordinates are not
+     */
+    public static long[][] computeChunkCoords(long[] arrayShape, int[] chunkShape, long[] selOffset,
+                                              long[] selShape, long[] lowerBound) {
         final int ndim = arrayShape.length;
         long[] start = new long[ndim];
         long[] end = new long[ndim];
         long numChunks = 1;
         for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-            final int staIdx = (int) (selOffset[dimIdx] / chunkShape[dimIdx]);
-            final int endIdx = (int) ((selOffset[dimIdx] + selShape[dimIdx] - 1) / chunkShape[dimIdx]);
+            final long selStart = lowerBound[dimIdx] + selOffset[dimIdx];
+            final long staIdx = Math.floorDiv(selStart, chunkShape[dimIdx]);
+            final long endIdx = Math.floorDiv(selStart + selShape[dimIdx] - 1, chunkShape[dimIdx]);
             numChunks *= (endIdx - staIdx + 1);
             start[dimIdx] = staIdx;
             end[dimIdx] = endIdx;
@@ -67,6 +80,21 @@ public class IndexingUtils {
             final int[] chunkShape, final long[] selOffset,
             final long[] selShape
     ) {
+        return computeProjection(chunkCoords, arrayShape, chunkShape, selOffset, selShape,
+                new long[chunkCoords.length]);
+    }
+
+    /**
+     * Computes how a chunk maps onto a selection.
+     *
+     * @param lowerBound the coordinate of the array's first element along each dimension; selections
+     *                   are relative to it, chunk coordinates are not
+     */
+    public static ChunkProjection computeProjection(
+            final long[] chunkCoords, final long[] arrayShape,
+            final int[] chunkShape, final long[] selOffset,
+            final long[] selShape, final long[] lowerBound
+    ) {
         final int ndim = chunkCoords.length;
         final int[] chunkOffset = new int[ndim];
         final int[] outOffset = new int[ndim];
@@ -74,9 +102,9 @@ public class IndexingUtils {
 
         for (int dimIdx = 0; dimIdx < chunkCoords.length; dimIdx++) {
             // compute offsets for chunk within overall array
-            final long dimOffset = (long) chunkShape[dimIdx] * chunkCoords[dimIdx];
+            final long dimOffset = (long) chunkShape[dimIdx] * chunkCoords[dimIdx] - lowerBound[dimIdx];
             final long dimLimit = Math.min(arrayShape[dimIdx],
-                    (chunkCoords[dimIdx] + 1) * (long) chunkShape[dimIdx]);
+                    (chunkCoords[dimIdx] + 1) * (long) chunkShape[dimIdx] - lowerBound[dimIdx]);
 
             if (selOffset[dimIdx] < dimOffset) {
                 // selection starts before current chunk
@@ -136,6 +164,11 @@ public class IndexingUtils {
 
     public static boolean isSingleFullChunk(final long[] selOffset, final long[] selShape,
                                             final int[] chunkShape) {
+        return isSingleFullChunk(selOffset, selShape, chunkShape, new long[selOffset.length]);
+    }
+
+    public static boolean isSingleFullChunk(final long[] selOffset, final long[] selShape,
+                                            final int[] chunkShape, final long[] lowerBound) {
         if (selOffset.length != selShape.length) {
             throw new IllegalArgumentException("'selOffset' and 'selShape' need to have the same rank.");
         }
@@ -144,7 +177,8 @@ public class IndexingUtils {
                     "'selOffset' and 'chunkShape' need to have the same rank.");
         }
         for (int dimIdx = 0; dimIdx < selOffset.length; dimIdx++) {
-            if (selOffset[dimIdx] % chunkShape[dimIdx] != 0 || selShape[dimIdx] != chunkShape[dimIdx]) {
+            if (Math.floorMod(lowerBound[dimIdx] + selOffset[dimIdx], chunkShape[dimIdx]) != 0
+                    || selShape[dimIdx] != chunkShape[dimIdx]) {
                 return false;
             }
         }
@@ -152,13 +186,18 @@ public class IndexingUtils {
     }
 
     public static long[] computeSingleChunkCoords(final long[] selOffset, final int[] chunkShape) {
+        return computeSingleChunkCoords(selOffset, chunkShape, new long[selOffset.length]);
+    }
+
+    public static long[] computeSingleChunkCoords(final long[] selOffset, final int[] chunkShape,
+                                                  final long[] lowerBound) {
         if (selOffset.length != chunkShape.length) {
             throw new IllegalArgumentException(
                     "'selOffset' and 'chunkShape' need to have the same rank.");
         }
         final long[] chunkCoords = new long[selOffset.length];
         for (int dimIdx = 0; dimIdx < selOffset.length; dimIdx++) {
-            chunkCoords[dimIdx] = (selOffset[dimIdx] / chunkShape[dimIdx]);
+            chunkCoords[dimIdx] = Math.floorDiv(lowerBound[dimIdx] + selOffset[dimIdx], chunkShape[dimIdx]);
         }
         return chunkCoords;
     }
