@@ -138,6 +138,14 @@ public abstract class ArrayMetadata {
         return shape.length;
     }
 
+    /**
+     * The coordinate of the array's first element along each dimension. Indices passed to reads and
+     * writes stay zero-based; index {@code i} is coordinate {@code lowerBound()[dim] + i}.
+     */
+    public long[] lowerBound() {
+        return new long[ndim()];
+    }
+
     public abstract int[] chunkShape();
 
     public abstract DataType dataType();

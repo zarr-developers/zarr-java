@@ -14,6 +14,7 @@ import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -21,6 +22,7 @@ import java.util.function.Function;
 public class ArrayMetadataBuilder {
 
     long[] shape = null;
+    long[] lowerBound = null;
     DataType dataType = null;
     ChunkGrid chunkGrid = null;
     ChunkKeyEncoding chunkKeyEncoding =
@@ -43,6 +45,7 @@ public class ArrayMetadataBuilder {
     protected static ArrayMetadataBuilder fromArrayMetadata(ArrayMetadata arrayMetadata, boolean withAttributes) {
         ArrayMetadataBuilder builder = new ArrayMetadataBuilder();
         builder.shape = arrayMetadata.shape;
+        builder.lowerBound = arrayMetadata.lowerBound();
         builder.dataType = arrayMetadata.dataType;
         builder.chunkGrid = arrayMetadata.chunkGrid;
         builder.chunkKeyEncoding = arrayMetadata.chunkKeyEncoding;
@@ -57,8 +60,29 @@ public class ArrayMetadataBuilder {
         return builder;
     }
 
+    /**
+     * Sets the shape of the array. A lower bound set earlier, e.g. through {@link #withBounds}, is
+     * kept.
+     */
     public ArrayMetadataBuilder withShape(long... shape) {
         this.shape = shape;
+        return this;
+    }
+
+    /**
+     * Sets the coordinate range of the array: the first and one past the last coordinate along each
+     * dimension. The lower bound may be negative.
+     */
+    public ArrayMetadataBuilder withBounds(long[] inclusiveMin, long[] exclusiveMax) throws ZarrException {
+        if (inclusiveMin.length != exclusiveMax.length) {
+            throw new ZarrException("'inclusiveMin' and 'exclusiveMax' need to have the same length.");
+        }
+        long[] shape = new long[inclusiveMin.length];
+        for (int i = 0; i < shape.length; i++) {
+            shape[i] = exclusiveMax[i] - inclusiveMin[i];
+        }
+        this.shape = shape;
+        this.lowerBound = inclusiveMin;
         return this;
     }
 
@@ -182,11 +206,21 @@ public class ArrayMetadataBuilder {
             chunkGrid = new RegularChunkGrid(new RegularChunkGrid.Configuration(defaultChunks));
         }
         
-        return new ArrayMetadata(shape, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
-                dimensionNames,
-                attributes,
-                storageTransformers,
-                extraFields
+        ArrayMetadata.Bounds bounds = null;
+        if (lowerBound != null && Arrays.stream(lowerBound).anyMatch(b -> b != 0)) {
+            if (lowerBound.length != shape.length) {
+                throw new ZarrException("The lower bound and the shape need to have the same rank.");
+            }
+            long[] exclusiveMax = new long[shape.length];
+            for (int i = 0; i < shape.length; i++) {
+                exclusiveMax[i] = lowerBound[i] + shape[i];
+            }
+            bounds = new ArrayMetadata.Bounds(lowerBound, exclusiveMax);
+        }
+
+        return new ArrayMetadata(ArrayMetadata.ZARR_FORMAT, ArrayMetadata.NODE_TYPE,
+                bounds == null ? shape : null, bounds, dataType, chunkGrid, chunkKeyEncoding, fillValue,
+                codecs, dimensionNames, attributes, storageTransformers, extraFields
         );
     }
 }

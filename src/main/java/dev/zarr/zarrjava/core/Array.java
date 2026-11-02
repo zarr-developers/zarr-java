@@ -92,7 +92,9 @@ public abstract class Array extends AbstractNode {
         long[] shape = Utils.toLongArray(array.getShape());
 
         final int[] chunkShape = metadata.chunkShape();
-        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
+        final long[] lowerBound = metadata.lowerBound();
+        Stream<long[]> chunkStream = Arrays.stream(
+                IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape, lowerBound));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
@@ -101,7 +103,7 @@ public abstract class Array extends AbstractNode {
                     try {
                         final IndexingUtils.ChunkProjection chunkProjection =
                                 IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                                        shape
+                                        shape, lowerBound
                                 );
 
                         ucar.ma2.Array chunkArray;
@@ -192,15 +194,11 @@ public abstract class Array extends AbstractNode {
         final int[] chunkShape = metadata.chunkShape();
         final int ndim = metadata.ndim();
         final dev.zarr.zarrjava.core.chunkkeyencoding.ChunkKeyEncoding chunkKeyEncoding = metadata.chunkKeyEncoding();
-
-        // Calculate max valid chunk coordinates for the new shape
-        long[] newMaxChunkCoords = new long[ndim];
-        for (int i = 0; i < ndim; i++) {
-            newMaxChunkCoords[i] = (newShape[i] + chunkShape[i] - 1) / chunkShape[i];
-        }
+        final long[] lowerBound = metadata.lowerBound();
 
         // Iterate over all possible chunk coordinates in the old shape
-        long[][] allOldChunkCoords = IndexingUtils.computeChunkCoords(metadata.shape, chunkShape);
+        long[][] allOldChunkCoords = IndexingUtils.computeChunkCoords(metadata.shape, chunkShape,
+                new long[ndim], metadata.shape, lowerBound);
 
         Stream<long[]> chunkStream = Arrays.stream(allOldChunkCoords);
         if (parallel) {
@@ -212,13 +210,14 @@ public abstract class Array extends AbstractNode {
             boolean isOnBoundary = false;
 
             for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
-                if (chunkCoords[dimIdx] >= newMaxChunkCoords[dimIdx]) {
+                long newEnd = lowerBound[dimIdx] + newShape[dimIdx];
+                long chunkStart = chunkCoords[dimIdx] * chunkShape[dimIdx];
+                if (chunkStart >= newEnd) {
                     isOutsideBounds = true;
                     break;
                 }
                 // Check if this chunk is on the boundary (partially outside new shape)
-                long chunkEnd = (chunkCoords[dimIdx] + 1) * chunkShape[dimIdx];
-                if (chunkEnd > newShape[dimIdx]) {
+                if (chunkStart + chunkShape[dimIdx] > newEnd) {
                     isOnBoundary = true;
                 }
             }
@@ -251,15 +250,17 @@ public abstract class Array extends AbstractNode {
     protected void trimBoundaryChunk(long[] chunkCoords, long[] newShape, int[] chunkShape) throws ZarrException {
         ArrayMetadata metadata = metadata();
         final int ndim = metadata.ndim();
+        final long[] lowerBound = metadata.lowerBound();
 
         // Calculate the valid region within this chunk
         int[] validShape = new int[ndim];
         boolean needsTrimming = false;
         for (int dimIdx = 0; dimIdx < ndim; dimIdx++) {
+            long newEnd = lowerBound[dimIdx] + newShape[dimIdx];
             long chunkStart = chunkCoords[dimIdx] * chunkShape[dimIdx];
             long chunkEnd = chunkStart + chunkShape[dimIdx];
-            if (chunkEnd > newShape[dimIdx]) {
-                validShape[dimIdx] = (int) (newShape[dimIdx] - chunkStart);
+            if (chunkEnd > newEnd) {
+                validShape[dimIdx] = (int) (newEnd - chunkStart);
                 needsTrimming = true;
             } else {
                 validShape[dimIdx] = chunkShape[dimIdx];
@@ -356,10 +357,15 @@ public abstract class Array extends AbstractNode {
     }
 
     boolean chunkIsInArray(long[] chunkCoords) {
-        final int[] chunkShape = metadata().chunkShape();
-        for (int dimIdx = 0; dimIdx < metadata().ndim(); dimIdx++) {
-            if (chunkCoords[dimIdx] < 0
-                    || chunkCoords[dimIdx] * chunkShape[dimIdx] >= metadata().shape[dimIdx]) {
+        final ArrayMetadata metadata = metadata();
+        final int[] chunkShape = metadata.chunkShape();
+        final long[] lowerBound = metadata.lowerBound();
+        for (int dimIdx = 0; dimIdx < metadata.ndim(); dimIdx++) {
+            final long start = lowerBound[dimIdx];
+            final long end = start + metadata.shape[dimIdx];
+            if (end <= start
+                    || chunkCoords[dimIdx] < Math.floorDiv(start, chunkShape[dimIdx])
+                    || chunkCoords[dimIdx] > Math.floorDiv(end - 1, chunkShape[dimIdx])) {
                 return false;
             }
         }
@@ -390,8 +396,9 @@ public abstract class Array extends AbstractNode {
         }
 
         final int[] chunkShape = metadata.chunkShape();
-        if (IndexingUtils.isSingleFullChunk(offset, shape, chunkShape)) {
-            return readChunk(IndexingUtils.computeSingleChunkCoords(offset, chunkShape));
+        final long[] lowerBound = metadata.lowerBound();
+        if (IndexingUtils.isSingleFullChunk(offset, shape, chunkShape, lowerBound)) {
+            return readChunk(IndexingUtils.computeSingleChunkCoords(offset, chunkShape, lowerBound));
         }
 
         final ucar.ma2.Array outputArray = ucar.ma2.Array.factory(metadata.dataType().getMA2DataType(),
@@ -400,7 +407,8 @@ public abstract class Array extends AbstractNode {
         if (parsedFillValue != null) {
             MultiArrayUtils.fill(outputArray, parsedFillValue);
         }
-        Stream<long[]> chunkStream = Arrays.stream(IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape));
+        Stream<long[]> chunkStream = Arrays.stream(
+                IndexingUtils.computeChunkCoords(metadata.shape, chunkShape, offset, shape, lowerBound));
         if (parallel) {
             chunkStream = chunkStream.parallel();
         }
@@ -409,7 +417,7 @@ public abstract class Array extends AbstractNode {
                     try {
                         final IndexingUtils.ChunkProjection chunkProjection =
                                 IndexingUtils.computeProjection(chunkCoords, metadata.shape, chunkShape, offset,
-                                        shape
+                                        shape, lowerBound
                                 );
 
                         final String[] chunkKeys = metadata.chunkKeyEncoding().encodeChunkKey(chunkCoords);

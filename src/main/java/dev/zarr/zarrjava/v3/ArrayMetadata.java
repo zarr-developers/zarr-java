@@ -61,6 +61,9 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
     @JsonIgnore
     public CoreArrayMetadata coreArrayMetadata;
 
+    @JsonIgnore
+    private final long[] lowerBound;
+
     public ArrayMetadata(
             long[] shape, DataType dataType, ChunkGrid chunkGrid, ChunkKeyEncoding chunkKeyEncoding,
             Object fillValue,
@@ -108,11 +111,35 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         );
     }
 
+    public ArrayMetadata(
+            int zarrFormat,
+            String nodeType,
+            long[] shape,
+            DataType dataType,
+            ChunkGrid chunkGrid,
+            ChunkKeyEncoding chunkKeyEncoding,
+            Object fillValue,
+            @Nonnull Codec[] codecs,
+            @Nullable String[] dimensionNames,
+            @Nullable Attributes attributes,
+            @Nullable Map<String, Object>[] storageTransformers,
+            @Nullable Map<String, Object> extraFields
+    ) throws ZarrException {
+        this(zarrFormat, nodeType, shape, null, dataType, chunkGrid, chunkKeyEncoding, fillValue, codecs,
+                dimensionNames, attributes, storageTransformers, extraFields
+        );
+    }
+
+    /**
+     * Creates array metadata from either a {@code shape} or explicit {@code bounds}; exactly one of
+     * them must be given.
+     */
     @JsonCreator(mode = JsonCreator.Mode.PROPERTIES)
     public ArrayMetadata(
             @JsonProperty(value = "zarr_format", required = true) int zarrFormat,
             @JsonProperty(value = "node_type", required = true) String nodeType,
-            @JsonProperty(value = "shape", required = true) long[] shape,
+            @Nullable @JsonProperty(value = "shape") long[] shape,
+            @Nullable @JsonProperty(value = "bounds") Bounds bounds,
             @JsonProperty(value = "data_type", required = true) DataType dataType,
             @JsonProperty(value = "chunk_grid", required = true) ChunkGrid chunkGrid,
             @JsonProperty(value = "chunk_key_encoding", required = true) ChunkKeyEncoding chunkKeyEncoding,
@@ -123,7 +150,8 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
             @Nullable @JsonProperty(value = "storage_transformers") Map<String, Object>[] storageTransformers,
             @Nullable @JsonAnySetter Map<String, Object> extraFields
     ) throws ZarrException {
-        super(shape, fillValue, dataType);
+        super(derivedShape(shape, bounds), fillValue, dataType);
+        this.lowerBound = bounds != null ? bounds.inclusiveMin.clone() : new long[this.shape.length];
         this.extraFields = ExtraFields.validatedArrayFields(extraFields);
         if (zarrFormat != this.zarrFormat) {
             throw new ZarrException(
@@ -139,8 +167,8 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         }
         if (chunkGrid instanceof RegularChunkGrid) {
             int[] chunkShape = ((RegularChunkGrid) chunkGrid).configuration.chunkShape;
-            if (shape.length != chunkShape.length) {
-                throw new ZarrException("Shape (ndim=" + shape.length + ") and chunk shape (ndim=" +
+            if (this.shape.length != chunkShape.length) {
+                throw new ZarrException("Shape (ndim=" + this.shape.length + ") and chunk shape (ndim=" +
                         chunkShape.length + ") need to have the same number of dimensions.");
             }
 
@@ -186,6 +214,68 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
         return extraFields;
     }
 
+    private static long[] derivedShape(@Nullable long[] shape, @Nullable Bounds bounds)
+            throws ZarrException {
+        if ((shape == null) == (bounds == null)) {
+            throw new ZarrException("Array metadata needs to contain exactly one of 'shape' and 'bounds'.");
+        }
+        if (shape != null) {
+            return shape;
+        }
+        if (bounds.inclusiveMin == null || bounds.exclusiveMax == null) {
+            throw new ZarrException("'bounds' needs to contain 'inclusive_min' and 'exclusive_max'.");
+        }
+        if (bounds.inclusiveMin.length != bounds.exclusiveMax.length) {
+            throw new ZarrException("'inclusive_min' and 'exclusive_max' need to have the same length.");
+        }
+        long[] derived = new long[bounds.inclusiveMin.length];
+        for (int i = 0; i < derived.length; i++) {
+            if (bounds.inclusiveMin[i] > bounds.exclusiveMax[i]) {
+                throw new ZarrException("'inclusive_min' needs to be less than or equal to 'exclusive_max'.");
+            }
+            try {
+                derived[i] = Math.subtractExact(bounds.exclusiveMax[i], bounds.inclusiveMin[i]);
+            } catch (ArithmeticException e) {
+                throw new ZarrException("The length of dimension " + i + " exceeds the int64 range.");
+            }
+        }
+        return derived;
+    }
+
+    @Override
+    public long[] lowerBound() {
+        return lowerBound.clone();
+    }
+
+    /**
+     * The coordinate range of the array: the first and one past the last coordinate along each
+     * dimension.
+     */
+    @JsonIgnore
+    public Bounds bounds() {
+        long[] exclusiveMax = new long[ndim()];
+        for (int i = 0; i < exclusiveMax.length; i++) {
+            exclusiveMax[i] = lowerBound[i] + shape[i];
+        }
+        return new Bounds(lowerBound.clone(), exclusiveMax);
+    }
+
+    private boolean hasZeroLowerBound() {
+        return Arrays.stream(lowerBound).allMatch(b -> b == 0);
+    }
+
+    @Nullable
+    @JsonProperty("shape")
+    private long[] jsonShape() {
+        return hasZeroLowerBound() ? shape : null;
+    }
+
+    @Nullable
+    @JsonProperty("bounds")
+    private Bounds jsonBounds() {
+        return hasZeroLowerBound() ? null : bounds();
+    }
+
     public static Optional<Codec> getShardingIndexedCodec(Codec[] codecs) {
         return Arrays.stream(codecs).filter(codec -> codec instanceof ShardingIndexedCodec).findFirst();
     }
@@ -228,6 +318,25 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
 
     public int chunkByteLength() {
         return coreArrayMetadata.chunkByteLength();
+    }
+
+    /**
+     * A half-open coordinate range per dimension.
+     */
+    public static final class Bounds {
+        @JsonProperty("inclusive_min")
+        public final long[] inclusiveMin;
+        @JsonProperty("exclusive_max")
+        public final long[] exclusiveMax;
+
+        @JsonCreator
+        public Bounds(
+                @JsonProperty(value = "inclusive_min", required = true) long[] inclusiveMin,
+                @JsonProperty(value = "exclusive_max", required = true) long[] exclusiveMax
+        ) {
+            this.inclusiveMin = inclusiveMin;
+            this.exclusiveMax = exclusiveMax;
+        }
     }
 
 

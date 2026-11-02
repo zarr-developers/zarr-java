@@ -31,7 +31,7 @@ final class ExtraFields {
      * {@code zarr.json} array document is an extra field.
      */
     private static final Set<String> ARRAY_METADATA_KEYS = unmodifiableSetOf(
-            "zarr_format", "node_type", "shape", "data_type", "chunk_grid", "chunk_key_encoding",
+            "zarr_format", "node_type", "shape", "bounds", "data_type", "chunk_grid", "chunk_key_encoding",
             "fill_value", "codecs", "attributes", "dimension_names", "storage_transformers"
     );
 

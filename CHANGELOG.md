@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Experimental support for explicit array `bounds` and `Array.prepend` from the draft [ZEP 12](https://github.com/zarr-developers/zeps/pull/72) [#119](https://github.com/zarr-developers/zarr-java/pull/119).
+
 ## [0.3.0] - 2026-09-09
 
 ### Added

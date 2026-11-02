@@ -257,6 +257,55 @@ public class Array extends dev.zarr.zarrjava.core.Array implements Node {
         return writeMetadata(newArrayMetadata);
     }
 
+    /**
+     * Adds data before the first element along the first dimension. See {@link #prepend(ucar.ma2.Array, int)}.
+     *
+     * @param data the data to add
+     * @throws ZarrException if the new metadata is invalid or the write fails
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array prepend(ucar.ma2.Array data) throws ZarrException, IOException {
+        return prepend(data, 0);
+    }
+
+    /**
+     * Adds data before the first element along a dimension. The lower bound of the array moves down
+     * by the length of {@code data} along {@code axis}; existing chunks keep their keys and are not
+     * rewritten, except for the one holding the old first element if it is only partially filled.
+     * Indexing stays zero-based, so {@code data} starts at index 0 afterwards.
+     * This method returns a new instance of the Zarr array class and the old instance becomes invalid.
+     *
+     * @param data the data to add, with the array's shape along every other dimension
+     * @param axis the dimension to grow
+     * @throws ZarrException if the new metadata is invalid or the write fails
+     * @throws IOException   throws IOException if the new metadata cannot be serialized
+     */
+    public Array prepend(ucar.ma2.Array data, int axis) throws ZarrException, IOException {
+        final int ndim = metadata.ndim();
+        if (axis < 0 || axis >= ndim) {
+            throw new IllegalArgumentException("'axis' needs to be in [0, " + ndim + ").");
+        }
+        if (data.getRank() != ndim) {
+            throw new IllegalArgumentException("'data' needs to have rank '" + ndim + "'.");
+        }
+        int[] dataShape = data.getShape();
+        for (int i = 0; i < ndim; i++) {
+            if (i != axis && dataShape[i] != metadata.shape[i]) {
+                throw new IllegalArgumentException(
+                        "'data' needs to match the array's shape along dimension " + i + ".");
+            }
+        }
+
+        long[] inclusiveMin = metadata.lowerBound();
+        long[] exclusiveMax = metadata.bounds().exclusiveMax;
+        inclusiveMin[axis] -= dataShape[axis];
+        Array newArray = writeMetadata(ArrayMetadataBuilder.fromArrayMetadata(metadata)
+                .withBounds(inclusiveMin, exclusiveMax)
+                .build());
+        newArray.write(new long[ndim], data);
+        return newArray;
+    }
+
 
     /**
      * Sets the attributes of the Zarr array. It overwrites and removes any existing attributes. This
