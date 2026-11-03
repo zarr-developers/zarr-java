@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-03
+
+### Added
+
+- `scale_offset` codec [#87](https://github.com/zarr-developers/zarr-java/pull/87).
+- `Store.getRanges` for reading many byte ranges of one value [#108](https://github.com/zarr-developers/zarr-java/pull/108).
+- Suffix reads (negative start) in `MemoryStore` and `ReadOnlyZipStore` [#113](https://github.com/zarr-developers/zarr-java/pull/113).
+
+### Changed
+
+- OME-Zarr support moved from `dev.zarr.zarrjava.experimental.ome` to `dev.zarr.conventions.ome` [#78](https://github.com/zarr-developers/zarr-java/pull/78).
+- `reshape` codec uses a virtual view instead of a deep copy [#90](https://github.com/zarr-developers/zarr-java/pull/90).
+- Group members are listed level by level instead of enumerating all keys [#92](https://github.com/zarr-developers/zarr-java/pull/92).
+- Updated `jackson-databind` to 2.21.7 [#112](https://github.com/zarr-developers/zarr-java/pull/112).
+
+### Fixed
+
+- The Zarr v2 `order` key is honoured instead of ignored [#95](https://github.com/zarr-developers/zarr-java/pull/95).
+- Zarr v3 metadata members declaring `must_understand: false` are ignored [#94](https://github.com/zarr-developers/zarr-java/pull/94).
+- Any byte order is accepted for single-byte Zarr v2 dtypes [#115](https://github.com/zarr-developers/zarr-java/pull/115).
+
+## [0.3.1] - 2026-09-21
+
+### Fixed
+
+- Accept a gzip and zlib `level` of `-1` in Zarr v2 metadata [#106](https://github.com/zarr-developers/zarr-java/pull/106).
+- Logging of unknown fields uses level `info` instead of `fine` [#105](https://github.com/zarr-developers/zarr-java/pull/105).
+
 ## [0.3.0] - 2026-09-09
 
 ### Added
@@ -134,7 +162,9 @@ Version bump only.
 
 Initial release with Zarr v3 support.
 
-[Unreleased]: https://github.com/zarr-developers/zarr-java/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/zarr-developers/zarr-java/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/zarr-developers/zarr-java/compare/0.3.1...0.4.0
+[0.3.1]: https://github.com/zarr-developers/zarr-java/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/zarr-developers/zarr-java/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/zarr-developers/zarr-java/compare/0.1.3...0.2.0
 [0.1.3]: https://github.com/zarr-developers/zarr-java/compare/0.1.2...0.1.3
