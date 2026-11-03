@@ -45,14 +45,12 @@ designing the feature from scratch.
 
 - IntelliJ IDEA default Java formatting; run `Reformat Code` and
   `Optimize Imports` before submitting changes.
-- New user-visible changes go in [CHANGELOG.md](CHANGELOG.md) under `Unreleased`.
 - User-facing documentation lives in [USERGUIDE.md](USERGUIDE.md) and
   [USERGUIDE-OME-ZARR.md](USERGUIDE-OME-ZARR.md); update them alongside API changes.
 - When writing code comments, keep them short and concise, do not reference other code or previous behavior.
 
 ## Pull requests
 
-- After opening a PR, make sure to add the PR number to added changelog entries, e.g. [#103](https://github.com/zarr-developers/zarr-java/pull/103).
 - Use the PR template at .github/pull_request_template.md.
 - Keep your summaries short and to the point.
 - When adding comments or replies to PRs, always mention that Claude wrote them.
