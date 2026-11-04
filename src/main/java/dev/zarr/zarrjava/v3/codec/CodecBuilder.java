@@ -10,6 +10,7 @@ import dev.zarr.zarrjava.v3.DataType;
 import dev.zarr.zarrjava.v3.codec.core.*;
 import dev.zarr.zarrjava.v3.codec.core.BytesCodec.Configuration;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -137,6 +138,47 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
 
     public CodecBuilder withZstd() {
         return withZstd(5, true);
+    }
+
+    /** Adds a grayscale jpeg codec with the given quality. */
+    public CodecBuilder withJpeg(int quality) {
+        return withJpeg(quality, JpegCodec.GRAYSCALE);
+    }
+
+    /**
+     * Adds a jpeg codec for the given encoded color space, without chroma subsampling and with the
+     * default decoded color space.
+     */
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace) {
+        int[][] subsampling = JpegCodec.YCBCR.equals(encodedColorSpace)
+                ? new int[][]{{1, 1}, {1, 1}, {1, 1}}
+                : null;
+        return withJpeg(quality, encodedColorSpace, subsampling);
+    }
+
+    /** {@code subsampling} is required for {@code ycbcr} and may be omitted otherwise. */
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace, @Nullable int[][] subsampling) {
+        return withJpeg(quality, encodedColorSpace, null, subsampling);
+    }
+
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace,
+                                 @Nullable String decodedColorSpace, @Nullable int[][] subsampling) {
+        try {
+            codecs.add(new JpegCodec(quality, encodedColorSpace, decodedColorSpace, subsampling));
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
+    }
+
+    /** Adds a grayscale jpeg codec with the default quality (95). */
+    public CodecBuilder withJpeg() {
+        try {
+            codecs.add(new JpegCodec());
+        } catch (ZarrException e) {
+            throw new RuntimeException(e);
+        }
+        return this;
     }
 
     public CodecBuilder withZstd(int level) {
