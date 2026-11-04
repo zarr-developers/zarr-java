@@ -364,6 +364,7 @@ public class JpegCodecTest extends ZarrTest {
     @Test
     public void testJpegCodecDefaultWritesFullConfiguration() throws ZarrException, IOException {
         // All required parameters are written explicitly, even for the default grayscale codec.
+        // subsampling is only required for ycbcr and is omitted otherwise.
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegDefaultMetadata");
         Array.create(storeHandle, Array.metadataBuilder()
                 .withShape(16, 16)
@@ -377,7 +378,7 @@ public class JpegCodecTest extends ZarrTest {
                 Paths.get("testoutput", "testJpegDefaultMetadata", ZARR_JSON))).replaceAll("\\s+", "");
         Assertions.assertTrue(zarrJson.contains("\"quality\":95"), zarrJson);
         Assertions.assertTrue(zarrJson.contains("\"encoded_color_space\":\"grayscale\""), zarrJson);
-        Assertions.assertTrue(zarrJson.contains("\"subsampling\":[[1,1]]"), zarrJson);
+        Assertions.assertFalse(zarrJson.contains("subsampling"), zarrJson);
         // decoded_color_space is omitted when it is the default for the encoded color space.
         Assertions.assertFalse(zarrJson.contains("decoded_color_space"), zarrJson);
     }
@@ -385,12 +386,11 @@ public class JpegCodecTest extends ZarrTest {
     @ParameterizedTest
     @CsvSource(delimiter = '|', value = {
             "\"quality\":90,|''",
-            "\"encoded_color_space\":\"grayscale\",|''",
-            ",\"subsampling\":[[1,1]]|''",
-            "\"configuration\":{\"quality\":90,\"encoded_color_space\":\"grayscale\",\"subsampling\":[[1,1]]}|\"configuration\":null"})
+            ",\"encoded_color_space\":\"grayscale\"|''",
+            "\"configuration\":{\"quality\":90,\"encoded_color_space\":\"grayscale\"}|\"configuration\":null"})
     public void testJpegCodecRejectsMissingRequiredParameter(String present, String replacement)
             throws ZarrException, IOException {
-        // quality, encoded_color_space, subsampling and the configuration itself are required.
+        // quality, encoded_color_space and the configuration itself are required.
         String name = "testJpegRejectsMissing" + Math.abs(present.hashCode());
         StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve(name);
         Array.create(storeHandle, Array.metadataBuilder()
@@ -407,6 +407,51 @@ public class JpegCodecTest extends ZarrTest {
         Files.write(zarrJsonPath, zarrJson.replace(present, replacement).getBytes());
 
         assertThrows(Exception.class, () -> Array.open(storeHandle));
+    }
+
+    @Test
+    public void testJpegCodecRgbOmitsSubsampling() throws ZarrException, IOException {
+        // With rgb (and grayscale), subsampling defaults to no subsampling and is not written.
+        StoreHandle storeHandle = new FilesystemStore(TESTOUTPUT).resolve("testJpegRgbMetadata");
+        Array.create(storeHandle, Array.metadataBuilder()
+                .withShape(16, 16, 3)
+                .withDataType(DataType.UINT8)
+                .withChunkShape(16, 16, 3)
+                .withFillValue(0)
+                .withCodecs(c -> c.withJpeg(90, "rgb"))
+                .build());
+
+        String zarrJson = new String(Files.readAllBytes(
+                Paths.get("testoutput", "testJpegRgbMetadata", ZARR_JSON))).replaceAll("\\s+", "");
+        Assertions.assertTrue(zarrJson.contains("\"encoded_color_space\":\"rgb\""), zarrJson);
+        Assertions.assertFalse(zarrJson.contains("subsampling"), zarrJson);
+        Assertions.assertNotNull(Array.open(storeHandle));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"grayscale", "rgb"})
+    public void testJpegCodecDefaultsSubsamplingWhenOmitted(String encoded) throws ZarrException {
+        int[][] expected = "grayscale".equals(encoded)
+                ? new int[][]{{1, 1}} : new int[][]{{1, 1}, {1, 1}, {1, 1}};
+        JpegCodec.Configuration omitted = new JpegCodec.Configuration(90, encoded, null);
+        Assertions.assertArrayEquals(expected, omitted.subsampling);
+
+        // An explicit subsampling equal to the default is still accepted.
+        int[][] explicit = expected;
+        Assertions.assertDoesNotThrow(() -> new JpegCodec.Configuration(90, encoded, explicit));
+    }
+
+    @Test
+    public void testJpegCodecRequiresSubsamplingForYCbCr() {
+        ZarrException ex = assertThrows(ZarrException.class,
+                () -> new JpegCodec.Configuration(90, "ycbcr", null));
+        Assertions.assertTrue(ex.getMessage().contains("subsampling"), ex.getMessage());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0", "101", "-1"})
+    public void testJpegCodecRejectsQualityOutOfRange(int quality) {
+        assertThrows(ZarrException.class, () -> new JpegCodec.Configuration(quality));
     }
 
     @Test

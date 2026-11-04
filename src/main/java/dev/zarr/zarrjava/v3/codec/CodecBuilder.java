@@ -150,18 +150,19 @@ public class CodecBuilder extends dev.zarr.zarrjava.core.codec.CodecBuilder {
      * default decoded color space.
      */
     public CodecBuilder withJpeg(int quality, String encodedColorSpace) {
-        int[][] subsampling = JpegCodec.GRAYSCALE.equals(encodedColorSpace)
-                ? new int[][]{{1, 1}}
-                : new int[][]{{1, 1}, {1, 1}, {1, 1}};
+        int[][] subsampling = JpegCodec.YCBCR.equals(encodedColorSpace)
+                ? new int[][]{{1, 1}, {1, 1}, {1, 1}}
+                : null;
         return withJpeg(quality, encodedColorSpace, subsampling);
     }
 
-    public CodecBuilder withJpeg(int quality, String encodedColorSpace, int[][] subsampling) {
+    /** {@code subsampling} is required for {@code ycbcr} and may be omitted otherwise. */
+    public CodecBuilder withJpeg(int quality, String encodedColorSpace, @Nullable int[][] subsampling) {
         return withJpeg(quality, encodedColorSpace, null, subsampling);
     }
 
     public CodecBuilder withJpeg(int quality, String encodedColorSpace,
-                                 @Nullable String decodedColorSpace, int[][] subsampling) {
+                                 @Nullable String decodedColorSpace, @Nullable int[][] subsampling) {
         try {
             codecs.add(new JpegCodec(quality, encodedColorSpace, decodedColorSpace, subsampling));
         } catch (ZarrException e) {
