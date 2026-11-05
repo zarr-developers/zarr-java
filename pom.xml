@@ -6,7 +6,7 @@
 
     <groupId>dev.zarr</groupId>
     <artifactId>zarr-java</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 
     <name>zarr-java</name>
 
