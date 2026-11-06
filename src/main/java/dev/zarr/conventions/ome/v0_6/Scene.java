@@ -5,6 +5,7 @@ import dev.zarr.conventions.ome.OmeV3Group;
 import dev.zarr.conventions.ome.v0_6.metadata.SceneMetadata;
 import dev.zarr.conventions.ome.v0_6.metadata.transform.ByDimensionCoordinateTransformation;
 import dev.zarr.conventions.ome.v0_6.metadata.transform.BijectionCoordinateTransformation;
+import dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef;
 import dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation;
 import dev.zarr.conventions.ome.v0_6.metadata.transform.GenericCoordinateTransformation;
 import dev.zarr.conventions.ome.v0_6.metadata.transform.MapAxisCoordinateTransformation;
@@ -14,12 +15,15 @@ import dev.zarr.zarrjava.v3.Group;
 import dev.zarr.zarrjava.v3.GroupMetadata;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** OME-Zarr v0.6 scene root group (scene metadata). */
 public final class Scene extends OmeV3Group {
@@ -58,10 +62,26 @@ public final class Scene extends OmeV3Group {
             throw new ZarrException("No 'scene' found in ome metadata at " + storeHandle);
         }
 
+        // Like ome-zarr-py, find the images through the paths the scene transformations reference,
+        // which also works for stores that cannot list (e.g. HTTP). Listing then adds images that
+        // no transformation references.
+        Set<String> candidates = new LinkedHashSet<>();
+        if (omeMetadata.scene.coordinateTransformations != null) {
+            for (CoordinateTransformation transformation : omeMetadata.scene.coordinateTransformations) {
+                addReferencedPath(candidates, transformation.getInput());
+                addReferencedPath(candidates, transformation.getOutput());
+            }
+        }
+        try {
+            candidates.addAll(asList(storeHandle.listChildren()));
+        } catch (UnsupportedOperationException ignored) {
+            // the store cannot list, rely on the referenced paths
+        }
+
         Map<String, MultiscaleImage> discovered = new LinkedHashMap<>();
-        for (String child : asList(storeHandle.listChildren())) {
+        for (String child : candidates) {
             try {
-                MultiscaleImage image = MultiscaleImage.openMultiscaleImage(storeHandle.resolve(child));
+                MultiscaleImage image = MultiscaleImage.openMultiscaleImage(storeHandle.resolve(child.split("/")));
                 if (image.getRawOmeMetadata().multiscales != null && !image.getRawOmeMetadata().multiscales.isEmpty()) {
                     discovered.put(child, image);
                 }
@@ -70,6 +90,15 @@ public final class Scene extends OmeV3Group {
             }
         }
         return new Scene(storeHandle, group.metadata, omeMetadata, discovered);
+    }
+
+    private static void addReferencedPath(Set<String> paths, @Nullable CoordinateSystemRef reference) {
+        if (reference != null && reference.path != null) {
+            String path = normalizeCoordinateTransformPath(reference.path);
+            if (!path.isEmpty()) {
+                paths.add(path);
+            }
+        }
     }
 
     public static Scene createScene(

@@ -40,6 +40,21 @@ public abstract class OmeZarrBaseTest extends ZarrTest {
         return new FilesystemStore(path).resolve();
     }
 
+    /**
+     * Parses {@code omeJson} (the value of {@code attributes.ome}) into {@code cls} with the OME
+     * reader, serializes it back with the writer used for zarr.json and asserts that the JSON trees
+     * are equal, i.e. nothing was dropped or renamed. Returns the parsed object.
+     */
+    protected static <T> T assertOmeRoundTrip(String omeJson, Class<T> cls) throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper reader = OmeObjectMappers.makeV3Mapper();
+        com.fasterxml.jackson.databind.JsonNode expected = reader.readTree(omeJson);
+        T parsed = reader.treeToValue(expected, cls);
+        com.fasterxml.jackson.databind.JsonNode actual =
+                dev.zarr.zarrjava.v3.Node.makeObjectMapper().valueToTree(parsed);
+        assertEquals(expected, actual);
+        return parsed;
+    }
+
     // ── unified interface contract tests ─────────────────────────────────────
 
     @Test
