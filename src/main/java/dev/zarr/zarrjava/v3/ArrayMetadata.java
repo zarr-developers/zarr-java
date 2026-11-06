@@ -167,6 +167,7 @@ public final class ArrayMetadata extends dev.zarr.zarrjava.core.ArrayMetadata {
                         this.parsedFillValue
                 );
 
+        chunkKeyEncoding.validate(shape.length);
         this.chunkKeyEncoding = chunkKeyEncoding;
         this.codecs = codecs;
         this.dimensionNames = dimensionNames;

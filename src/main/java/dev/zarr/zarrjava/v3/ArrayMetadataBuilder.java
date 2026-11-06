@@ -9,6 +9,7 @@ import dev.zarr.zarrjava.v3.chunkgrid.ChunkGrid;
 import dev.zarr.zarrjava.v3.chunkgrid.RegularChunkGrid;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.DefaultChunkKeyEncoding;
+import dev.zarr.zarrjava.v3.chunkkeyencoding.TemplateChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.chunkkeyencoding.V2ChunkKeyEncoding;
 import dev.zarr.zarrjava.v3.codec.Codec;
 import dev.zarr.zarrjava.v3.codec.CodecBuilder;
@@ -110,6 +111,21 @@ public class ArrayMetadataBuilder {
     public ArrayMetadataBuilder withV2ChunkKeyEncoding(String separator) {
         this.chunkKeyEncoding =
                 new V2ChunkKeyEncoding(new V2ChunkKeyEncoding.Configuration(Separator.valueOf(separator)));
+        return this;
+    }
+
+    /**
+     * Uses the template chunk key encoding, e.g. {@code withTemplateChunkKeyEncoding("images/{-1}/{*}.jpeg", "_")}.
+     *
+     * @param separator joins the values of {@code {*}}; may be {@code null} if the format has no {@code {*}}
+     */
+    public ArrayMetadataBuilder withTemplateChunkKeyEncoding(String format, String separator) throws ZarrException {
+        this.chunkKeyEncoding = new TemplateChunkKeyEncoding(format, separator);
+        return this;
+    }
+
+    public ArrayMetadataBuilder withChunkKeyEncoding(ChunkKeyEncoding chunkKeyEncoding) {
+        this.chunkKeyEncoding = chunkKeyEncoding;
         return this;
     }
 
