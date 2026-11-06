@@ -85,3 +85,8 @@ This project uses IntelliJ IDEA default Java formatting
 Before submitting changes, please run:
 
 - IntelliJ: `Reformat Code` and `Optimize Imports`
+
+## Governance
+
+The project is a Zarr Affiliated Software Project. Its roles, decision process, and
+release policy are described in [GOVERNANCE.md](GOVERNANCE.md).
