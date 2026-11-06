@@ -16,6 +16,7 @@ import java.util.List;
         @JsonSubTypes.Type(value = IdentityCoordinateTransformation.class, name = "identity"),
         @JsonSubTypes.Type(value = SequenceCoordinateTransformation.class, name = "sequence"),
         @JsonSubTypes.Type(value = MapAxisCoordinateTransformation.class, name = "mapAxis"),
+        @JsonSubTypes.Type(value = ProjectAxisCoordinateTransformation.class, name = "projectAxis"),
         @JsonSubTypes.Type(value = AffineCoordinateTransformation.class, name = "affine"),
         @JsonSubTypes.Type(value = RotationCoordinateTransformation.class, name = "rotation"),
         @JsonSubTypes.Type(value = DisplacementsCoordinateTransformation.class, name = "displacements"),
