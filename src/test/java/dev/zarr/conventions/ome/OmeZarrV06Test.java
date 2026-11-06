@@ -10,6 +10,7 @@ import dev.zarr.conventions.ome.metadata.WellImage;
 import dev.zarr.conventions.ome.metadata.WellMetadata;
 import dev.zarr.conventions.ome.metadata.WellRef;
 import dev.zarr.conventions.ome.v0_6.metadata.CoordinateSystem;
+import dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateSystemRef;
 import dev.zarr.zarrjava.store.StoreHandle;
 import org.junit.jupiter.api.Test;
 
@@ -87,8 +88,8 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
         dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation ct =
                 entry.datasets.get(0).coordinateTransformations.get(0);
         assertEquals("scale", ct.getType());
-        assertEquals("s0", ct.getInput());
-        assertEquals("physical", ct.getOutput());
+        assertEquals(CoordinateSystemRef.ofPath("s0"), ct.getInput());
+        assertEquals(CoordinateSystemRef.ofName("physical"), ct.getOutput());
         assertInstanceOf(dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation.class, ct);
         dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation scaleCt =
                 (dev.zarr.conventions.ome.v0_6.metadata.transform.ScaleCoordinateTransformation) ct;
@@ -174,7 +175,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
                         "s0",
                         java.util.Collections.singletonList(
                                 dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
-                                        Arrays.asList(1.0, 1.0), "s0", "physical"))));
+                                        Arrays.asList(1.0, 1.0), CoordinateSystemRef.ofPath("s0"), CoordinateSystemRef.ofName("physical")))));
         dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry ms =
                 new dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry(
                         null,
@@ -245,7 +246,7 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
                         "s0",
                         java.util.Collections.singletonList(
                                 dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation.scale(
-                                        Arrays.asList(1.0, 1.0), "s0", "physical"))));
+                                        Arrays.asList(1.0, 1.0), CoordinateSystemRef.ofPath("s0"), CoordinateSystemRef.ofName("physical")))));
         dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry ms =
                 new dev.zarr.conventions.ome.v0_6.metadata.MultiscalesEntry(
                         null,
@@ -484,8 +485,10 @@ public class OmeZarrV06Test extends OmeZarrBaseTest {
 
         dev.zarr.conventions.ome.v0_6.MultiscaleImage reopened =
                 dev.zarr.conventions.ome.v0_6.MultiscaleImage.openMultiscaleImage(handle);
+        // several transformations are written as one sequence, as v0.6 allows one per dataset
         List<dev.zarr.conventions.ome.v0_6.metadata.transform.CoordinateTransformation> cts =
-                reopened.getMultiscalesEntry(0).datasets.get(0).coordinateTransformations;
+                ((dev.zarr.conventions.ome.v0_6.metadata.transform.SequenceCoordinateTransformation)
+                        reopened.getMultiscalesEntry(0).datasets.get(0).coordinateTransformations.get(0)).transformations;
         assertEquals("nearest",
                 ((dev.zarr.conventions.ome.v0_6.metadata.transform.DisplacementsCoordinateTransformation) cts.get(0)).interpolation);
         assertEquals(Arrays.asList(0, 1),
