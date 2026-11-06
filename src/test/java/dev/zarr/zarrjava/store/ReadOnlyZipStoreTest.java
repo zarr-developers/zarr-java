@@ -3,9 +3,13 @@ package dev.zarr.zarrjava.store;
 import dev.zarr.zarrjava.Utils;
 import dev.zarr.zarrjava.ZarrException;
 import dev.zarr.zarrjava.core.Group;
+import dev.zarr.zarrjava.v3.Array;
+import dev.zarr.zarrjava.v3.DataType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -122,5 +126,43 @@ public class ReadOnlyZipStoreTest extends StoreTest {
         Assertions.assertEquals(expectedSubgroupKeys, actualKeys);
 
         assertIsTestGroupV3(Group.open(readOnlyZipStore.resolve()), true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"start", "end"})
+    public void testPartialReadOfShardedArray(String indexLocation) throws ZarrException, IOException {
+        // partial shard reads fetch the shard index via a suffix read when it is located at the end
+        Path sourceDir = TESTOUTPUT.resolve("testShardedZipStore_" + indexLocation);
+        Path targetDir = TESTOUTPUT.resolve("testShardedZipStore_" + indexLocation + ".zip");
+        Array writeArray = Array.create(new FilesystemStore(sourceDir).resolve(), Array.metadataBuilder()
+                .withShape(24, 24)
+                .withDataType(DataType.INT32)
+                .withChunkShape(16, 16)
+                .withCodecs(c -> c.withSharding(new int[]{8, 8}, c1 -> c1.withBytes("LITTLE"), indexLocation))
+                .withFillValue(0)
+                .build());
+        int[] data = new int[24 * 24];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = i;
+        }
+        ucar.ma2.Array expected = ucar.ma2.Array.factory(ucar.ma2.DataType.INT, new int[]{24, 24}, data);
+        writeArray.write(expected);
+
+        Utils.zipFile(sourceDir, targetDir);
+
+        Array[] readArrays = {
+                Array.open(new ReadOnlyZipStore(targetDir).resolve()),
+                Array.open(new BufferedZipStore(targetDir).resolve())
+        };
+        for (Array readArray : readArrays) {
+            Assertions.assertArrayEquals(data, (int[]) readArray.read().get1DJavaArray(ucar.ma2.DataType.INT));
+
+            ucar.ma2.Array partial = readArray.read(new long[]{3, 5}, new long[]{14, 17});
+            for (int i = 0; i < 14; i++) {
+                for (int j = 0; j < 17; j++) {
+                    Assertions.assertEquals(data[(i + 3) * 24 + (j + 5)], partial.getInt(i * 17 + j));
+                }
+            }
+        }
     }
 }

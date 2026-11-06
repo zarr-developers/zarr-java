@@ -109,6 +109,10 @@ public class ReadOnlyZipStore extends ZipStore {
         if (!fileIndex.containsKey(key)) {
             return null;
         }
+        if (start < 0) {
+            // suffix read: the last -start bytes
+            start = Math.max(0, getSize(keys) + start);
+        }
 
         InputStream inputStream = underlyingStore.getInputStream();
         if (inputStream == null) {
@@ -225,6 +229,10 @@ public class ReadOnlyZipStore extends ZipStore {
         String key = resolveKeys(keys);
         if (!fileIndex.containsKey(key)) {
             return null;
+        }
+        if (start < 0) {
+            // suffix read: the last -start bytes
+            start = Math.max(0, getSize(keys) + start);
         }
 
         InputStream baseStream = underlyingStore.getInputStream();
