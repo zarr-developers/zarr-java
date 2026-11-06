@@ -212,8 +212,8 @@ public class OmeZarrV06CoordinateSystemRefTest extends ZarrTest {
 
     @Test
     void legacyStringFixtureOpensAndIsWrittenBackAsObjects() throws Exception {
-        // the rfc5 examples still use the pre-release string form ("input": "s0", "output": "physical")
-        Path fixture = TESTDATA.resolve("ome/v0.6/examples/2d/basic/scale_multiscale.zarr");
+        // written in the pre-release string form ("input": "s0", "output": "physical") of 0.6.dev3
+        Path fixture = TESTDATA.resolve("ome/v0.6_legacy/scale_multiscale.zarr");
         JsonNode raw = readOmeAttributes(fixture).get("multiscales").get(0).get("datasets").get(0)
                 .get("coordinateTransformations").get(0);
         assertTrue(raw.get("input").isTextual());
