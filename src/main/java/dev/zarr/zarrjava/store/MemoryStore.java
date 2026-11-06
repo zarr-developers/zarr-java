@@ -49,6 +49,7 @@ public class MemoryStore implements Store, Store.ListableStore {
     public ByteBuffer get(String[] keys, long start, long end) {
         byte[] bytes = map.get(resolveKeys(keys));
         if (bytes == null) return null;
+        if (start < 0) start = Math.max(0, bytes.length + start); // suffix read: the last -start bytes
         if (end < 0) end = bytes.length;
         if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
         return ByteBuffer.wrap(bytes, (int) start, (int) (end - start));
@@ -101,6 +102,7 @@ public class MemoryStore implements Store, Store.ListableStore {
     public InputStream getInputStream(String[] keys, long start, long end) {
         byte[] bytes = map.get(resolveKeys(keys));
         if (bytes == null) return null;
+        if (start < 0) start = Math.max(0, bytes.length + start); // suffix read: the last -start bytes
         if (end < 0) end = bytes.length;
         if (end > Integer.MAX_VALUE) throw new IllegalArgumentException("End index too large");
         return new java.io.ByteArrayInputStream(bytes, (int) start, (int) (end - start));
