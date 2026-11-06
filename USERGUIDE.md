@@ -610,6 +610,25 @@ ucar.ma2.Array chunk = array.readChunk(chunkCoords);
 // Write single chunk
 array.writeChunk(chunkCoords, chunk);
 ```
+### Chunk Key Encodings (v3)
+The chunk key encoding decides where a chunk is stored. Besides `default` (`c/0/1/2`) and `v2` (`0.1.2`),
+zarr-java supports the [`template`](https://github.com/zarr-developers/zarr-extensions/tree/main/chunk-key-encodings/template)
+encoding, which builds keys from a format string:
+```java
+Array array = Array.create(storeHandle, Array.metadataBuilder()
+    .withShape(1024, 1024, 100)
+    .withDataType(DataType.UINT8)
+    .withChunkShape(256, 256, 1)
+    // chunk (1, 2, 7) is stored at "images/7/0001_0002.jpeg"
+    .withTemplateChunkKeyEncoding("images/{-1}/{*:04}.jpeg", "_")
+    .build());
+```
+- `{0}`, `{1}`, … insert a chunk coordinate; negative indices count from the end (`{-1}` is the last).
+- `{*}` inserts all coordinates not used elsewhere, joined by the separator (required when `{*}` is used).
+- `:0N` pads a value with zeros to `N` digits, e.g. `{0:04}`.
+- `{{` and `}}` are literal braces.
+
+The format must fit the number of dimensions of the array, otherwise creating or opening the array fails.
 ### Exception Handling
 
 zarr-java uses two main exception types for error reporting:
